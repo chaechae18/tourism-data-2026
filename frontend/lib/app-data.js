@@ -10,7 +10,7 @@ export const DEFAULT_USER = {
 };
 
 export const AUTH_COPY = {
-  introTitle: "천년의 경주를,\n이야기를 따라.",
+  introTitle: "천년의 경주,\n이야기를 따라.",
   introDescription: "동경과 함께 미션을 해결하고, 나만의 경주 여행을 완성해 보세요.",
   consent: "방문 데이터 수집 및 서비스 이용에 동의합니다.",
   oauth: ["Google로 계속하기", "Kakao로 계속하기"],

@@ -3,6 +3,12 @@ import { vi } from "vitest";
 import IntroScreen from "../../../../components/intro/IntroScreen";
 
 describe("IntroScreen", () => {
+  it("renders the revised landing headline", () => {
+    render(<IntroScreen onAuth={vi.fn()} />);
+
+    expect(screen.getByText(/천년의 경주,/)).toBeInTheDocument();
+  });
+
   it("opens the login flow", () => {
     const onAuth = vi.fn();
     render(<IntroScreen onAuth={onAuth} />);
