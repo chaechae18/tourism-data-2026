@@ -10,9 +10,9 @@ function getItem(itemId) {
 
 function SlotButton({ item, label, onClick }) {
   return (
-    <button type="button" onClick={onClick} className="flex min-h-20 flex-col items-center justify-center rounded-lg border border-dashed border-[#d9cfc2] bg-white px-2 text-center hover:border-[#b8661c] hover:bg-[#fff8ec]">
-      <span className="text-xl" style={{ color: item?.color || "#8a7d71" }}>{item?.symbol || "+"}</span>
-      <span className="mt-1 text-[11px] font-bold text-[#6f6256]">{item?.name || label}</span>
+    <button type="button" onClick={onClick} className="flex min-h-20 flex-col items-center justify-center rounded-lg border border-dashed border-[#d8ddda] bg-white px-2 text-center hover:border-[#bd8c31] hover:bg-[#f4f6f4]">
+      <span className="text-xl" style={{ color: item?.color || "#747579" }}>{item?.symbol || "+"}</span>
+      <span className="mt-1 text-[11px] font-semibold text-[#747579]">{item?.name || label}</span>
     </button>
   );
 }
@@ -27,9 +27,9 @@ export default function MyDGTab({ completedQuestIds, onMapQuest, onSaveOutfit, o
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
           {DG_SLOTS.slice(0, 2).map((slot) => <SlotButton key={slot.id} label={slot.label} item={getItem(outfit[slot.id])} onClick={() => setOutfit((current) => ({ ...current, [slot.id]: undefined }))} />)}
         </div>
-        <div className="relative min-h-[430px] overflow-hidden rounded-xl border border-[#4d2e1d] bg-[radial-gradient(circle_at_50%_30%,#563425_0%,#1c1310_68%)]">
+        <div className="relative min-h-[430px] overflow-hidden rounded-xl border border-[#314c5b] bg-[radial-gradient(circle_at_50%_28%,#405d6c_0%,#18272f_70%)]">
           <Donggyeong3D className="absolute inset-0" />
-          <p className="pointer-events-none absolute left-4 top-4 text-xs font-bold text-[#ffe0b3]">S40 · 내 동경이</p>
+          <p className="pointer-events-none absolute left-4 top-4 text-xs font-semibold text-[#f7e9c8]">S40 · 내 동경이</p>
         </div>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-1">
           {DG_SLOTS.slice(2).map((slot) => <SlotButton key={slot.id} label={slot.label} item={getItem(outfit[slot.id])} onClick={() => setOutfit((current) => ({ ...current, [slot.id]: undefined }))} />)}
@@ -37,14 +37,14 @@ export default function MyDGTab({ completedQuestIds, onMapQuest, onSaveOutfit, o
       </div>
 
       <div>
-        <p className="mb-3 text-sm font-bold text-[#241b16]">인벤토리</p>
+        <p className="mb-3 text-sm font-semibold text-[#343235]">인벤토리</p>
         <div className="grid grid-cols-5 gap-2">
           {DG_INVENTORY.map((item) => {
             const selected = outfit[item.slot] === item.id;
             return (
-              <button key={item.id} type="button" onClick={() => equipItem(item)} className={`aspect-square rounded-lg border p-1 text-center transition-colors ${selected ? "border-[#b8661c] bg-[#fff1df]" : "border-[#e6ddd2] bg-white hover:bg-[#fff8ec]"}`}>
+              <button key={item.id} type="button" onClick={() => equipItem(item)} className={`aspect-square rounded-lg border p-1 text-center transition-colors ${selected ? "border-[#bd8c31] bg-[#f8f0de]" : "border-[#e2e4e0] bg-white hover:bg-[#f1f4f2]"}`}>
                 <span className="block pt-1 text-xl" style={{ color: item.color }}>{item.symbol}</span>
-                <span className="mt-1 block truncate text-[10px] font-bold text-[#5f5044]">{item.name}</span>
+                <span className="mt-1 block truncate text-[10px] font-semibold text-[#55565a]">{item.name}</span>
               </button>
             );
           })}
@@ -57,10 +57,10 @@ export default function MyDGTab({ completedQuestIds, onMapQuest, onSaveOutfit, o
           {QUESTS.map((quest) => {
             const done = completedQuestIds.includes(quest.id);
             return (
-              <button key={quest.id} type="button" onClick={() => onMapQuest(quest)} className="flex w-full items-center gap-3 border border-[#e6ddd2] bg-white p-3 text-left transition-colors hover:bg-[#fff8ec]">
-                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${done ? "bg-[#e0f0eb] text-[#287c70]" : "bg-[#fff1df] text-[#a45118]"}`}>{done ? <Check size={17} /> : <MapPin size={17} />}</span>
-                <span className="min-w-0 flex-1"><span className="block font-bold text-[#241b16]">{quest.name}</span><span className="mt-0.5 block truncate text-xs text-[#7c6d61]">{quest.distance} · {quest.description}</span></span>
-                <ChevronRight size={17} className="shrink-0 text-[#8a7d71]" />
+              <button key={quest.id} type="button" onClick={() => onMapQuest(quest)} className="flex w-full items-center gap-3 rounded-lg border border-[#e2e4e0] bg-white p-3 text-left transition-colors hover:bg-[#f1f4f2]">
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${done ? "bg-[#e4f1ed] text-[#24746f]" : "bg-[#f8f0de] text-[#a67927]"}`}>{done ? <Check size={17} /> : <MapPin size={17} />}</span>
+                <span className="min-w-0 flex-1"><span className="block font-semibold text-[#343235]">{quest.name}</span><span className="mt-0.5 block truncate text-xs text-[#747579]">{quest.distance} · {quest.description}</span></span>
+                <ChevronRight size={17} className="shrink-0 text-[#747579]" />
               </button>
             );
           })}

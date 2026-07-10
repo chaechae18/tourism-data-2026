@@ -2,7 +2,28 @@
 module.exports = {
   content: ["./app/**/*.{js,jsx}", "./components/**/*.{js,jsx}"],
   theme: {
-    extend: {},
+    borderRadius: {
+      none: "0px",
+      sm: "8px",
+      DEFAULT: "10px",
+      md: "10px",
+      lg: "10px",
+      xl: "10px",
+      "2xl": "10px",
+      "3xl": "10px",
+      full: "9999px",
+    },
+    extend: {
+      colors: {
+        canvas: "#f7f7f5",
+        ink: "#343235",
+        muted: "#747579",
+        line: "#e2e4e0",
+        gold: "#bd8c31",
+        teal: "#2d8c86",
+        blue: "#356b98",
+      },
+    },
   },
   plugins: [],
 };

@@ -76,17 +76,17 @@ export default function PlayGyeongju() {
   if (!entered) {
     return (
       <>
-        <IntroScreen onAuth={setAuthMode} onPreview={() => enterApp()} />
+        <IntroScreen onAuth={setAuthMode} />
         <AuthModal mode={authMode} onClose={() => setAuthMode(null)} onComplete={enterApp} />
       </>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#f5efe6] pb-24 lg:pb-8">
-      <header className="border-b border-[#e6ddd2] bg-[#fffaf4] px-4 py-3 sm:px-8">
+    <div className="min-h-screen bg-[#f7f7f5] pb-24 lg:pb-8">
+      <header className="border-b border-[#e2e4e0] bg-white/90 px-4 py-3 backdrop-blur sm:px-8">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
-          <button type="button" onClick={() => setActiveTab("home")} className="flex items-center gap-2 text-left"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#b8661c] text-white"><PawPrint size={18} /></span><span><span className="block font-bold text-[#241b16]">Play Gyeongju</span><span className="block text-xs text-[#7c6d61]">{user.nickname}</span></span></button>
+          <button type="button" onClick={() => setActiveTab("home")} className="flex items-center gap-2 text-left"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#bd8c31] text-white"><PawPrint size={18} /></span><span><span className="block font-semibold text-[#343235]">Play Gyeongju</span><span className="block text-xs text-[#747579]">{user.nickname}</span></span></button>
           <IconButton icon={LogOut} label="로그아웃" onClick={() => setEntered(false)} />
         </div>
       </header>
@@ -99,7 +99,7 @@ export default function PlayGyeongju() {
         {activeTab === "my-page" && <MyPageTab completedQuestIds={completedQuestIds} onLogout={() => setEntered(false)} onNotice={showNotice} setUser={setUser} user={user} />}
       </main>
 
-      {notice && <div className="fixed inset-x-4 bottom-24 z-40 mx-auto max-w-sm rounded-lg bg-[#241b16] px-4 py-3 text-center text-sm font-bold text-white shadow-lg lg:bottom-8">{notice}</div>}
+      {notice && <div className="fixed inset-x-4 bottom-24 z-40 mx-auto max-w-sm rounded-lg bg-[#343235] px-4 py-3 text-center text-sm font-semibold text-white shadow-lg lg:bottom-8">{notice}</div>}
       <BottomNavigation activeTab={activeTab} onChange={setActiveTab} />
     </div>
   );

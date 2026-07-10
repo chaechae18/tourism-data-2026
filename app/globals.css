@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 :root {
-  color: #241b16;
-  background: #0b0a09;
+  color: #343235;
+  background: #f7f7f5;
 }
 
 * {
@@ -18,7 +18,10 @@ body {
 
 body {
   margin: 0;
-  font-family: Arial, "Noto Sans KR", sans-serif;
+  background: #f7f7f5;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 button {
