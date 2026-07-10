@@ -1,8 +1,9 @@
 import * as THREE from "three";
+import { DONGGYEONG_NUMBER } from "../app-data";
 
 const PALETTE = {
-  fur: 0xc58c35,
-  furLight: 0xd8aa58,
+  fur: 0xdca348,
+  furLight: 0xe7b961,
   cream: 0xfff8ef,
   earInner: 0xf8e9dc,
   ink: 0x302e2d,
@@ -158,9 +159,9 @@ function createTagMaterial() {
   context.translate(128, 128);
   context.rotate(-Math.PI / 2);
   context.translate(-128, -128);
-  context.strokeText("S40", 128, 140);
+  context.strokeText(DONGGYEONG_NUMBER, 128, 140);
   context.fillStyle = "#fffaf1";
-  context.fillText("S40", 128, 140);
+  context.fillText(DONGGYEONG_NUMBER, 128, 140);
   context.restore();
 
   const texture = new THREE.CanvasTexture(canvas);

@@ -19,12 +19,12 @@ export default function Donggyeong3D({ className = "", interactive = true }) {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 0.84;
+    renderer.toneMappingExposure = 1.12;
     renderer.domElement.style.touchAction = "none";
     mount.appendChild(renderer.domElement);
 
-    scene.add(new THREE.HemisphereLight(0xfffdf8, 0x53626a, 1.1));
-    const key = new THREE.DirectionalLight(0xf4e3c7, 1.9);
+    scene.add(new THREE.HemisphereLight(0xfffdf8, 0x718087, 1.3));
+    const key = new THREE.DirectionalLight(0xffeed2, 2.15);
     key.position.set(-3.8, 6, 5.4);
     key.castShadow = true;
     key.shadow.mapSize.set(2048, 2048);
@@ -34,10 +34,10 @@ export default function Donggyeong3D({ className = "", interactive = true }) {
     key.shadow.camera.bottom = -7;
     key.shadow.radius = 7;
     scene.add(key);
-    const fill = new THREE.DirectionalLight(0xf0f4f5, 0.45);
+    const fill = new THREE.DirectionalLight(0xf4f8fa, 0.72);
     fill.position.set(4.5, 2.5, 5.5);
     scene.add(fill);
-    const rim = new THREE.DirectionalLight(0xd8b878, 0.35);
+    const rim = new THREE.DirectionalLight(0xe6c985, 0.44);
     rim.position.set(4, 4, -5);
     scene.add(rim);
 

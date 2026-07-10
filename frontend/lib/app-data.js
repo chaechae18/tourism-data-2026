@@ -3,6 +3,7 @@ export const APP_SUBTITLE = "천년 도시를 걷는 나만의 동행";
 export const API_ENV_KEY = "NEXT_PUBLIC_API_BASE_URL";
 export const SPOT_REVIEW_LIMIT = 350;
 export const RANKING_RESET_LABEL = "오늘 00:00 기준";
+export const DONGGYEONG_NUMBER = "540";
 export const DEFAULT_USER = {
   nickname: "lotus_traveler",
   email: "traveler@example.com",

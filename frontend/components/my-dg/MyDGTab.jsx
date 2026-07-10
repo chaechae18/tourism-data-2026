@@ -1,5 +1,5 @@
 import { Check, ChevronRight, MapPin, Save } from "lucide-react";
-import { DG_INVENTORY, DG_SLOTS, QUESTS } from "../../lib/app-data";
+import { DG_INVENTORY, DG_SLOTS, DONGGYEONG_NUMBER, QUESTS } from "../../lib/app-data";
 import Donggyeong3D from "../donggyeong/Donggyeong3D";
 import AppButton from "../ui/AppButton";
 import SectionHeading from "../ui/SectionHeading";
@@ -29,7 +29,7 @@ export default function MyDGTab({ completedQuestIds, onMapQuest, onSaveOutfit, o
         </div>
         <div className="relative min-h-[340px] overflow-hidden rounded-xl border border-[#314c5b] bg-[radial-gradient(circle_at_50%_28%,#405d6c_0%,#18272f_70%)]">
           <Donggyeong3D className="absolute inset-0" />
-          <p className="pointer-events-none absolute left-4 top-4 text-xs font-semibold text-[#f7e9c8]">S40 · 내 동경이</p>
+          <p className="pointer-events-none absolute left-4 top-4 text-xs font-semibold text-[#f7e9c8]">{DONGGYEONG_NUMBER} · 내 동경이</p>
         </div>
         <div className="grid grid-rows-2 gap-3">
           {DG_SLOTS.slice(2).map((slot) => <SlotButton key={slot.id} label={slot.label} item={getItem(outfit[slot.id])} onClick={() => setOutfit((current) => ({ ...current, [slot.id]: undefined }))} />)}

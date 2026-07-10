@@ -17,6 +17,12 @@ const PROPS = {
 };
 
 describe("MyDGTab", () => {
+  it("shows the correct Donggyeong number", () => {
+    render(<MyDGTab {...PROPS} />);
+
+    expect(screen.getByText("540 · 내 동경이")).toBeInTheDocument();
+  });
+
   it("equips the selected inventory item", () => {
     const setOutfit = vi.fn();
     render(<MyDGTab {...PROPS} setOutfit={setOutfit} />);
