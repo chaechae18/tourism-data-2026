@@ -17,4 +17,10 @@ describe("AppModal", () => {
 
     expect(onClose).toHaveBeenCalledOnce();
   });
+
+  it("renders as a full-screen sheet", () => {
+    render(<AppModal open onClose={vi.fn()} title="로그인">내용</AppModal>);
+
+    expect(screen.getByRole("dialog", { name: "로그인" })).toHaveClass("app-modal-sheet", "h-[100svh]");
+  });
 });
