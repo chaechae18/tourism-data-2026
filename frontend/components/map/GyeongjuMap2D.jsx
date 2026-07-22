@@ -22,8 +22,15 @@ import AppButton, { IconButton } from "../ui/AppButton";
 const NEARBY_DISTANCE_METERS = 1000;
 const WALKING_METERS_PER_SECOND = 1.2;
 const TMAP_APP_KEY = process.env.NEXT_PUBLIC_TMAP_APP_KEY || "";
-const HILL_POSITIONS = [[62, 74], [305, 82], [330, 238], [91, 330], [265, 369]];
-const TREE_POSITIONS = [[78, 119], [111, 99], [289, 132], [319, 297], [126, 370], [243, 94]];
+const HILL_POSITIONS = [[45, 155], [329, 139], [349, 294], [42, 400], [288, 433]];
+const TREE_POSITIONS = [[62, 184], [95, 162], [306, 185], [337, 359], [96, 430], [274, 147], [57, 346], [319, 423]];
+const LANDMARK_LABEL_OFFSETS = {
+  bunhwangsa: { x: 0, y: -31 },
+  cheomseongdae: { x: -30, y: 32 },
+  donggung: { x: 34, y: 30 },
+  bulguksa: { x: -27, y: 32 },
+  seokguram: { x: 27, y: -31 },
+};
 
 function formatDuration(durationSeconds) {
   const minutes = Math.max(1, Math.round(durationSeconds / 60));
@@ -78,8 +85,9 @@ function LandmarkGlyph({ icon }) {
   );
 }
 
-function PlaceMarker({ active, completed, nearby, onClick, place, point, showLabel }) {
+function PlaceMarker({ active, completed, nearby, onClick, place, point }) {
   const markerColor = completed ? "#2d8c86" : nearby ? "#bd8c31" : "#7f8582";
+  const labelOffset = LANDMARK_LABEL_OFFSETS[place.id] || { x: 0, y: 30 };
   return (
     <g
       aria-label={`${place.name} 선택`}
@@ -90,16 +98,23 @@ function PlaceMarker({ active, completed, nearby, onClick, place, point, showLab
       tabIndex="0"
       transform={`translate(${point.x} ${point.y})`}
     >
-      {active && <circle fill="none" r="23" stroke={markerColor} strokeDasharray="3 3" strokeWidth="2" />}
-      <circle fill="#fffdf7" r="17" stroke={markerColor} strokeWidth={active ? "3" : "2"} />
+      <ellipse cy="14" fill="#365e40" opacity="0.18" rx="15" ry="5" />
+      {active && <circle className="map-marker-pulse" fill="none" r="24" stroke={markerColor} strokeWidth="2" />}
+      <circle fill="#fffaf0" filter="url(#landmark-shadow)" r="18" stroke={markerColor} strokeWidth={active ? "3" : "2"} />
       <LandmarkGlyph icon={place.icon} />
       {completed && <circle cx="12" cy="-12" fill="#2d8c86" r="6" stroke="#fff" strokeWidth="2" />}
-      {showLabel && (
-        <g transform="translate(0 29)">
-          <rect x="-38" y="-10" width="76" height="20" rx="8" fill="#fffdf7" stroke="#d6ddd5" />
-          <text dominantBaseline="middle" textAnchor="middle" className="fill-[#4f504f] text-[9px] font-bold">{place.name}</text>
-        </g>
-      )}
+      <g transform={`translate(${labelOffset.x} ${labelOffset.y})`}>
+        <rect
+          x="-34"
+          y="-10"
+          width="68"
+          height="20"
+          rx="10"
+          fill={active ? "#343235" : "#fffaf0"}
+          stroke={active ? "#343235" : "#d7d2c5"}
+        />
+        <text dominantBaseline="middle" textAnchor="middle" className={`text-[9px] font-bold ${active ? "fill-white" : "fill-[#4f504f]"}`}>{place.name}</text>
+      </g>
     </g>
   );
 }
@@ -112,17 +127,45 @@ function IllustratedMap({ bounds, completedQuestIds, currentLocation, onSelect, 
   return (
     <svg viewBox={`0 0 ${MAP_VIEWBOX.width} ${MAP_VIEWBOX.height}`} className="h-auto w-full" aria-label="실제 위치 비율을 반영한 경주 일러스트 지도" role="img">
       <defs>
+        <linearGradient id="gyeongju-ground" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="#e7edc1" />
+          <stop offset="0.55" stopColor="#dce7ad" />
+          <stop offset="1" stopColor="#ccd99d" />
+        </linearGradient>
+        <linearGradient id="gyeongju-forest" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stopColor="#91ad6c" />
+          <stop offset="1" stopColor="#78975f" />
+        </linearGradient>
         <filter id="paper-grain" x="-20%" y="-20%" width="140%" height="140%">
           <feTurbulence baseFrequency="0.7" numOctaves="2" seed="8" type="fractalNoise" />
           <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 .045 0" />
         </filter>
+        <filter id="landmark-shadow" x="-50%" y="-50%" width="200%" height="220%">
+          <feDropShadow dx="0" dy="2" floodColor="#3f4b3c" floodOpacity="0.22" stdDeviation="2" />
+        </filter>
       </defs>
-      <rect width="390" height="430" fill="#dceab2" />
+      <rect width={MAP_VIEWBOX.width} height={MAP_VIEWBOX.height} fill="url(#gyeongju-ground)" />
       <g>
-        <rect width="390" height="430" fill="#69775d" filter="url(#paper-grain)" opacity="0.38" />
+        <path d="M0 115 Q42 84 86 105 T168 92 L182 0 H0 Z" fill="url(#gyeongju-forest)" opacity="0.72" />
+        <path d="M286 0 L390 0 V212 Q356 185 334 203 T290 170 Z" fill="url(#gyeongju-forest)" opacity="0.78" />
+        <path d="M0 360 Q52 327 105 363 T178 410 L160 500 H0 Z" fill="url(#gyeongju-forest)" opacity="0.62" />
+        <path d="M270 394 Q330 356 390 382 V500 H246 Q276 454 270 394 Z" fill="url(#gyeongju-forest)" opacity="0.72" />
+        <g fill="none" stroke="#7e9867" strokeWidth="1" opacity="0.42">
+          <path d="M8 131 Q54 101 99 124 T181 109" />
+          <path d="M-4 145 Q51 117 100 140 T182 124" />
+          <path d="M284 37 Q337 16 392 42" />
+          <path d="M280 54 Q337 32 395 61" />
+          <path d="M-2 390 Q58 354 122 391 T190 433" />
+          <path d="M260 425 Q324 384 395 411" />
+        </g>
+        <rect width={MAP_VIEWBOX.width} height={MAP_VIEWBOX.height} fill="#69775d" filter="url(#paper-grain)" opacity="0.32" />
         <path d={riverPath} fill="none" stroke="#a9dbe2" strokeLinecap="round" strokeWidth="20" />
+        <path d={riverPath} fill="none" stroke="#d9f1f1" strokeDasharray="2 8" strokeLinecap="round" strokeWidth="2" opacity="0.82" />
         {ILLUSTRATED_ROADS.map((road) => (
-          <path key={road.map((point) => `${point.latitude}-${point.longitude}`).join("_")} d={coordinatesToPath(road, bounds)} fill="none" stroke="#fffdf7" strokeLinecap="round" strokeLinejoin="round" strokeWidth="7" />
+          <g key={road.map((point) => `${point.latitude}-${point.longitude}`).join("_")}>
+            <path d={coordinatesToPath(road, bounds)} fill="none" stroke="#a4a78f" strokeLinecap="round" strokeLinejoin="round" strokeWidth="10" opacity="0.36" />
+            <path d={coordinatesToPath(road, bounds)} fill="none" stroke="#fffaf0" strokeLinecap="round" strokeLinejoin="round" strokeWidth="7" />
+          </g>
         ))}
         {HILL_POSITIONS.map(([x, y]) => (
           <g key={`${x}-${y}`} transform={`translate(${x} ${y})`} opacity="0.72">
@@ -143,7 +186,7 @@ function IllustratedMap({ bounds, completedQuestIds, currentLocation, onSelect, 
       {routePath && (
         <g>
           <path d={routePath} fill="none" stroke="#fff" strokeLinecap="round" strokeLinejoin="round" strokeWidth="8" opacity="0.9" />
-          <path d={routePath} fill="none" stroke="#356b98" strokeDasharray={route.source === "demo" ? "7 6" : undefined} strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
+          <path className="map-route-line" d={routePath} fill="none" stroke="#356b98" strokeDasharray={route.source === "demo" ? "7 6" : undefined} strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
         </g>
       )}
 
@@ -158,24 +201,29 @@ function IllustratedMap({ bounds, completedQuestIds, currentLocation, onSelect, 
             onClick={() => onSelect(place)}
             place={place}
             point={projectCoordinate(place, bounds)}
-            showLabel={place.id === selectedPlace.id}
           />
         );
       })}
 
       {isWithinBounds(currentLocation, bounds) && (
         <g transform={`translate(${currentPoint.x} ${currentPoint.y})`}>
-          <circle fill="#356b98" opacity="0.16" r="15" />
+          <circle className="map-location-pulse" fill="#356b98" opacity="0.16" r="16" />
           <circle fill="#356b98" r="6" stroke="#fff" strokeWidth="3" />
           <path d="M0 -17 L4 -10 L0 -12 L-4 -10 Z" fill="#356b98" />
         </g>
       )}
 
-      <g transform="translate(26 397)">
+      <g transform={`translate(26 ${MAP_VIEWBOX.height - 28})`}>
         <path d={`M0 0 H${getScaleBarWidth(bounds)}`} stroke="#555b57" strokeWidth="2" />
         <path d="M0 -4 V4" stroke="#555b57" strokeWidth="2" />
         <path d={`M${getScaleBarWidth(bounds)} -4 V4`} stroke="#555b57" strokeWidth="2" />
         <text x={getScaleBarWidth(bounds) / 2} y="14" textAnchor="middle" className="fill-[#555b57] text-[8px] font-bold">1km</text>
+      </g>
+      <g transform={`translate(356 ${MAP_VIEWBOX.height - 30})`} aria-hidden="true">
+        <circle r="18" fill="#fffaf0" opacity="0.9" />
+        <path d="M0 -11 L4 1 L0 -1 L-4 1 Z" fill="#bd4f3a" />
+        <path d="M0 11 L4 -1 L0 1 L-4 -1 Z" fill="#5d665c" />
+        <text y="-7" textAnchor="middle" className="fill-[#4f504f] text-[7px] font-bold">N</text>
       </g>
     </svg>
   );
@@ -265,25 +313,29 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent,
   };
 
   return (
-    <section className="-mx-4 -mt-6 space-y-4">
-      <div className="relative overflow-hidden bg-[#dceab2]">
+    <section className="-mx-4 -mt-6 pb-2">
+      <div className="relative overflow-hidden rounded-b-[2rem] bg-[#dceab2] shadow-[0_12px_28px_rgba(69,76,59,0.14)]">
         <div className="absolute inset-x-4 top-3 z-10 flex items-center justify-between gap-3">
-          <div className="grid flex-1 grid-cols-2 rounded-lg bg-white/85 p-1 shadow-sm backdrop-blur" aria-label="지도 범위">
+          <div className="rounded-full bg-[#343235]/90 px-3.5 py-2 text-white shadow-sm backdrop-blur">
+            <p className="text-[10px] font-semibold tracking-[0.12em] text-white/70">SILLA WALK</p>
+            <p className="text-sm font-bold">경주 2D 지도</p>
+          </div>
+          <IconButton className="border-white/70 bg-white/90 shadow-sm" icon={LocateFixed} label="현재 위치 찾기" onClick={findCurrentLocation} />
+        </div>
+        <div className="absolute inset-x-4 top-[4.25rem] z-10 grid grid-cols-2 rounded-full bg-white/80 p-1 shadow-sm backdrop-blur" aria-label="지도 범위">
             {Object.values(MAP_SCOPES).map((item) => (
               <button
                 key={item.id}
                 type="button"
                 aria-pressed={scopeId === item.id}
                 onClick={() => setScopeId(item.id)}
-                className={`h-9 rounded-lg text-xs font-semibold transition-colors ${scopeId === item.id ? "bg-white text-[#343235] shadow-sm" : "text-[#747579]"}`}
+                className={`h-9 rounded-full text-xs font-semibold transition-colors ${scopeId === item.id ? "bg-[#343235] text-white shadow-sm" : "text-[#626762]"}`}
               >
                 {item.label}
               </button>
             ))}
-          </div>
-          <IconButton className="border-white/70 bg-white/90" icon={LocateFixed} label="현재 위치 찾기" onClick={findCurrentLocation} />
         </div>
-        <div className="absolute left-4 top-[4.25rem] z-10 flex flex-wrap items-center gap-3 rounded-lg bg-white/80 px-2.5 py-1.5 text-[11px] font-semibold text-[#626762] shadow-sm backdrop-blur">
+        <div className="absolute bottom-[3.25rem] left-4 z-10 flex flex-wrap items-center gap-3 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-semibold text-[#626762] shadow-sm backdrop-blur">
           <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#bd8c31]" />{MAP_LEGEND.nearby}</span>
           <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#7f8582]" />{MAP_LEGEND.distant}</span>
           <span className="inline-flex items-center gap-1"><Navigation size={13} className="text-[#356b98]" />{MAP_LEGEND.current}</span>
@@ -299,32 +351,36 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent,
         />
       </div>
 
-      <div className="space-y-4 px-4">
-        {(locationMessage || routeMessage) && (
-          <p className="rounded-lg bg-[#eef3ef] px-3 py-2 text-xs leading-5 text-[#626762]" role="status">{routeMessage || locationMessage}</p>
-        )}
-
-        {route && (
-          <div className="grid grid-cols-2 gap-2 rounded-lg bg-[#e9f0f5] p-3 text-center">
-            <div><p className="text-[10px] font-semibold text-[#6d7479]">도보 거리</p><p className="mt-1 text-sm font-bold text-[#315d7f]">{formatDistance(route.distanceMeters || selectedDistance)}</p></div>
-            <div><p className="text-[10px] font-semibold text-[#6d7479]">예상 시간</p><p className="mt-1 text-sm font-bold text-[#315d7f]">{formatDuration(route.durationSeconds || selectedDistance / WALKING_METERS_PER_SECOND)}</p></div>
+      <div className="relative z-20 -mt-7 space-y-3 px-4">
+        <article className="rounded-2xl border border-[#e2e4e0] bg-white p-4 shadow-[0_12px_30px_rgba(52,50,53,0.12)]">
+          <div className="flex items-start gap-3">
+            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${completed ? "bg-[#e4f1ed] text-[#24746f]" : selectedNearby ? "bg-[#f8f0de] text-[#a67927]" : "bg-[#eef0ee] text-[#747579]"}`}>{completed ? <Check size={19} /> : <MapPin size={19} />}</div>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-bold text-[#343235]">{selectedPlace.name}</h2>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${selectedNearby ? "bg-[#f8f0de] text-[#8a641f]" : "bg-[#eef0ee] text-[#686d69]"}`}>{selectedNearby ? "가까워요" : formatDistance(selectedDistance)}</span>
+              </div>
+              <p className="mt-1 text-sm leading-6 text-[#626367]">{selectedPlace.description}</p>
+            </div>
           </div>
-        )}
 
-        <article className="rounded-lg border border-[#e2e4e0] bg-white p-4">
-        <div className="flex items-start gap-3">
-          <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${completed ? "bg-[#e4f1ed] text-[#24746f]" : selectedNearby ? "bg-[#f8f0de] text-[#a67927]" : "bg-[#eef0ee] text-[#747579]"}`}>{completed ? <Check size={19} /> : <MapPin size={19} />}</div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2"><h2 className="font-bold text-[#343235]">{selectedPlace.name}</h2><span className="text-xs font-semibold text-[#747579]">{formatDistance(selectedDistance)}</span></div>
-            <p className="mt-1 text-sm leading-6 text-[#626367]">{selectedPlace.description}</p>
+          {route && (
+            <div className="mt-4 grid grid-cols-2 divide-x divide-[#cbd9e3] rounded-xl bg-[#edf4f7] px-3 py-2.5 text-center">
+              <div><p className="text-[10px] font-semibold text-[#6d7479]">도보 거리</p><p className="mt-0.5 text-sm font-bold text-[#315d7f]">{formatDistance(route.distanceMeters || selectedDistance)}</p></div>
+              <div><p className="text-[10px] font-semibold text-[#6d7479]">예상 시간</p><p className="mt-0.5 text-sm font-bold text-[#315d7f]">{formatDuration(route.durationSeconds || selectedDistance / WALKING_METERS_PER_SECOND)}</p></div>
+            </div>
+          )}
+
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <AppButton className="col-span-2" disabled={routeLoading} icon={route ? Route : Footprints} onClick={previewRoute}>{routeLoading ? "경로 불러오는 중" : route ? "TMAP 경로 다시 보기" : "TMAP 길찾기"}</AppButton>
+            <AppButton icon={completed ? Check : MapPin} variant={completed ? "outline" : "secondary"} onClick={() => onComplete(selectedPlace.id)}>{completed ? "방문 완료" : "퀘스트 완료"}</AppButton>
+            <AppButton disabled={!selectedPlace.docent} icon={Headphones} variant="outline" onClick={() => onDocent(selectedPlace)}>{selectedPlace.docent ? "도슨트 듣기" : "준비 중"}</AppButton>
           </div>
-        </div>
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <AppButton className="col-span-2" disabled={routeLoading} icon={route ? Route : Footprints} onClick={previewRoute}>{routeLoading ? "경로 불러오는 중" : route ? "TMAP 경로 다시 보기" : "TMAP 길찾기"}</AppButton>
-          <AppButton icon={completed ? Check : MapPin} variant={completed ? "outline" : "secondary"} onClick={() => onComplete(selectedPlace.id)}>{completed ? "방문 완료" : "퀘스트 완료"}</AppButton>
-          <AppButton disabled={!selectedPlace.docent} icon={Headphones} variant="outline" onClick={() => onDocent(selectedPlace)}>{selectedPlace.docent ? "도슨트 듣기" : "준비 중"}</AppButton>
-        </div>
         </article>
+
+        {(locationMessage || routeMessage) && (
+          <p className="rounded-xl bg-[#eef3ef] px-3 py-2 text-xs leading-5 text-[#626762]" role="status">{routeMessage || locationMessage}</p>
+        )}
       </div>
     </section>
   );

@@ -33,6 +33,36 @@ canvas {
   display: block;
 }
 
+.map-marker-pulse,
+.map-location-pulse {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: map-pulse 2.2s ease-out infinite;
+}
+
+.map-route-line {
+  animation: map-route-dash 12s linear infinite;
+}
+
+@keyframes map-pulse {
+  0% {
+    opacity: 0.72;
+    transform: scale(0.72);
+  }
+
+  75%,
+  100% {
+    opacity: 0;
+    transform: scale(1.35);
+  }
+}
+
+@keyframes map-route-dash {
+  to {
+    stroke-dashoffset: -72;
+  }
+}
+
 .app-modal-sheet {
   animation: app-modal-slide-up 420ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
@@ -216,6 +246,12 @@ canvas {
   .landing-logo__fill,
   .landing-logo__track span,
   .app-modal-sheet {
+    animation: none;
+  }
+
+  .map-marker-pulse,
+  .map-location-pulse,
+  .map-route-line {
     animation: none;
   }
 

@@ -2,7 +2,7 @@ const EARTH_KM_PER_LATITUDE_DEGREE = 111.32;
 
 export const MAP_VIEWBOX = {
   width: 390,
-  height: 430,
+  height: 500,
   padding: 24,
 };
 
