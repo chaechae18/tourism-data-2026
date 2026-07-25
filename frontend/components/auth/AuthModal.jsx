@@ -6,7 +6,7 @@ import AppButton from "../ui/AppButton";
 
 const INITIAL_FORM = { email: "", password: "", nickname: "" };
 
-export default function AuthModal({ mode, onClose, onComplete }) {
+export default function AuthModal({ mode, onClose, onComplete, onAuth}) {
   const [form, setForm] = useState(INITIAL_FORM);
   const [consented, setConsented] = useState(false);
   const isSignup = mode === "signup";
@@ -52,10 +52,16 @@ export default function AuthModal({ mode, onClose, onComplete }) {
           </label>
         )}
         <AppButton className="w-full" disabled={isSignup && !consented} icon={Check} onClick={complete}>{submitLabel}</AppButton>
+        {!isSignup && (
+          <AppButton className="w-full mt-3" variant="outline" onClick={() => onAuth("signup")}>
+            회원가입
+          </AppButton>
+        )}
         <div className="flex items-center gap-3 py-1 text-xs text-[#747579]"><span className="h-px flex-1 bg-[#e2e4e0]" />또는<span className="h-px flex-1 bg-[#e2e4e0]" /></div>
         {AUTH_COPY.oauth.map((label) => (
           <AppButton key={label} className="w-full" variant="outline" onClick={complete}>{label}</AppButton>
         ))}
+        
       </div>
     </AppModal>
   );
