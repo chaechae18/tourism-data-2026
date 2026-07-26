@@ -8,7 +8,7 @@
 이 저장소에는 지금까지 `frontend/`(Next.js 15 + React 19)만 있었고 백엔드가 없었다.
 루트 README에 `backend/ API 서버 추가 예정`으로만 적혀 있는 상태였다.
 
-DB 스키마는 팀에서 확정한 MySQL DDL이 별도로 존재한다. 이 DDL은 25개 테이블을 담고
+DB 스키마는 팀에서 확정한 MySQL DDL이 별도로 존재한다. 이 DDL은 27개 테이블을 담고
 있으며 여러 팀원이 나눠 맡는다. 이 문서는 그중 홈 화면이 쓰는 7개 테이블만 다룬다.
 
 프로젝트 요건상 한국관광공사 OpenAPI(TourAPI) 활용이 필수다. 공사 API에서 받은
@@ -51,8 +51,9 @@ migration을 만들지 않는다 — 스키마 변경은 팀 DDL을 통해서만
 | `POPUP_I18N` | `PopupI18n` | 팝업 번역 |
 | `FESTIVAL` | `Festival` | 축제 원본 |
 | `FESTIVAL_I18N` | `FestivalI18n` | 축제 번역 |
-| `PLACE` | `Place` | 추천 관광지 |
-| `CATEGORY` | `Category` | `PLACE.CATEGORY_IDX` 참조 대상 |
+| `PLACE` | `Place` | 관광지 원본 (`TYPE`으로 관광/맛집 구분) |
+| `PLACE_I18N` | `PlaceI18n` | 관광지 번역 (`NAME`, `TEXT`, `CONTENT`, `ADDRESS`, `ADMISSION_FEE`) |
+
 
 `TINYINT` 플래그 중 값이 0/1인 것(`IS_DISPLAY`, `IS_TRASH`, `IS_RECOMMENDED`)은
 `BooleanField`로 매핑한다. 쿼리가 `is_display=True`로 읽히고, MySQL의 tinyint와
@@ -99,12 +100,12 @@ migration을 만들지 않는다 — 스키마 변경은 팀 DDL을 통해서만
 | 정렬 | `VIEW_COUNT` desc, `IDX` asc |
 | 필드 | `name`, `text`, `address`, `latitude`, `longitude`, `admission_fee` |
 
-`PLACE_I18N`이 DDL에 없으므로 `?lang=`은 무시한다. `LATITUDE`/`LONGITUDE`는 DB에서
+`PLACE_I18N`을 조인하여 `?lang=` 파라미터에 따라 다국어 번역(`name`, `text`, `content`, `address`, `admission_fee`)을 제공한다. `LATITUDE`/`LONGITUDE`는 DB에서
 `VARCHAR(50)`이지만 프론트 지도가 숫자를 기대하므로 응답에서 float으로 변환하고,
 파싱 실패 시 `null`을 낸다.
 
-`CATEGORY_CONTENT_I18N` 테이블이 컬럼 주석상 관광지를 가리키는 것처럼 보이지만
-이름이 `CATEGORY_`로 시작해 대상이 확실하지 않다. 확인 전까지 조인하지 않는다.
+`CATEGORY_CONTENT_I18N` 테이블은 `PLACE_I18N`과 역할이 중복되어 미결 상태(확인 대기 중)이다.
+
 
 ## 6. 기간 판정
 
@@ -144,17 +145,14 @@ IDX만 모아 ko로 한 번 더 조회해 파이썬에서 병합한다. 행마�
 
 주의할 매핑: 공사 API의 `mapx`가 경도, `mapy`가 위도다. 순서가 뒤집혀 있다.
 
-### 스키마 보완 요청 (팀 공유 필요)
+### 확정된 스키마 변경 사항 (schema-v2.sql)
 
-현재 DDL로는 수집기가 정상 동작하지 못한다. 두 가지가 빠져 있다.
+팀 협의를 거쳐 `docs/db/schema-v2.sql` (기존 DB 변경용 `schema-v2-alter.sql`)로 스키마가 확정되었다. 상세 변경 델타는 `docs/db/schema-changes.md`를 참조한다.
 
-1. **`PLACE`/`FESTIVAL`에 공사 `contentid`를 담을 컬럼이 없다.** 업서트 기준 키가
-   없으면 재동기화마다 같은 관광지가 중복 적재된다.
-2. **`PLACE`에 이미지 컬럼이 없다.** 공사 API의 `firstimage`를 저장할 곳이 없다.
-   (`FESTIVAL`에는 `IMG`가 있다.)
+1. **`PLACE` / `FESTIVAL`에 `(SOURCE, CONTENT_ID)` 복합 UNIQUE 제약 및 컬럼 추가**: 출처별 고유 ID를 관리하여 재동기화 시 중복 방지 및 다중 수집원 공존 지원.
+2. **`PLACE`에 `IMG`, `TYPE`, `IS_DISPLAY` 컬럼 추가**: TourAPI `firstimage` 매핑, 음식/관광 구분, 노출 검수 플래그.
+3. **`PLACE_I18N` 신규 생성 및 `CATEGORY` 삭제**.
 
-`docs/db/proposed-alter.sql`에 제안 DDL을 둔다. 팀 승인 후 적용한다. 홈 조회 API 4개는
-이 컬럼들에 의존하지 않으므로, ALTER 적용 전에도 정상 동작한다.
 
 ## 9. 테스트
 
