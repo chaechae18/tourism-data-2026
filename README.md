@@ -4,7 +4,9 @@
 
 ```text
 frontend/  Next.js + React + Tailwind CSS
-backend/   API 서버 추가 예정
+backend/   Django + DRF API 서버 (MySQL)
+docs/      설계 문서
 ```
 
-프론트엔드 실행과 환경변수 설정은 [frontend/README.md](./frontend/README.md)를 참고하세요.
+프론트엔드 실행과 환경변수 설정은 [frontend/README.md](./frontend/README.md)를,
+백엔드는 [backend/README.md](./backend/README.md)를 참고하세요.

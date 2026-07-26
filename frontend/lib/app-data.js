@@ -17,20 +17,13 @@ export const AUTH_COPY = {
   oauth: ["Google로 계속하기", "Kakao로 계속하기"],
 };
 
+// Banners, popups, festivals and recommended places now come from the home API
+// (see lib/api/useApiResource). Only copy that has no backing table stays here.
 export const HOME_CONTENT = {
   hero: {
     eyebrow: "이번 주 경주",
     title: "동경이와 천년 도시를 걸어보세요",
     description: "가까운 문화유산과 지금 열리고 있는 이야기를 한눈에 확인하세요.",
-  },
-  festivals: [
-    { id: "f1", title: "경주 문화유산 야행", period: "8. 23 - 8. 24", type: "야간 프로그램", color: "#c96d2d" },
-    { id: "f2", title: "봉황대 뮤직스퀘어", period: "매주 금요일", type: "공연", color: "#287c70" },
-    { id: "f3", title: "황리단길 주말 마켓", period: "매주 토 - 일", type: "로컬 마켓", color: "#405a9d" },
-  ],
-  popup: {
-    title: "여름 스탬프 챌린지",
-    description: "3개의 장소를 방문하고 동경이 여행 배지를 받아보세요.",
   },
   tourismUrl: "https://www.gyeongju.go.kr/tour/index.do",
 };
