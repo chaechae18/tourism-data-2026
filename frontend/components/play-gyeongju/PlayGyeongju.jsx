@@ -77,7 +77,7 @@ export default function PlayGyeongju() {
     return (
       <>
         <IntroScreen onAuth={setAuthMode} />
-        <AuthModal mode={authMode} onClose={() => setAuthMode(null)} onComplete={enterApp} onAuth={setAuthMode} />
+        <AuthModal mode={authMode}  onClose={() => setAuthMode(authMode === "signup" ? "login" : null)} onComplete={enterApp} onAuth={setAuthMode} />
       </>
     );
   }
