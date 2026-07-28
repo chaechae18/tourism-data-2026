@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from .config import get_settings
 from .database import initialize_database
 from .routers.places import router as places_router
+from .routers.spots import router as spots_router
 
 
 @asynccontextmanager
@@ -68,3 +69,4 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 app.include_router(places_router)
+app.include_router(spots_router)
