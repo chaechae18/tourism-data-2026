@@ -5,11 +5,13 @@ from fastapi import FastAPI, HTTPException, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .database import initialize_database
 from .routers.places import router as places_router
 from .routers.spots import router as spots_router
+from .routers.uploads import router as uploads_router
 
 
 @asynccontextmanager
@@ -24,6 +26,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 settings = get_settings()
+settings.upload_dir.mkdir(parents=True, exist_ok=True)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(settings.cors_origins),
@@ -70,3 +73,5 @@ def health() -> dict[str, str]:
 
 app.include_router(places_router)
 app.include_router(spots_router)
+app.include_router(uploads_router)
+app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
