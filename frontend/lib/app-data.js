@@ -41,6 +41,15 @@ export const QUESTS = [
   { id: "donggung", name: "동궁과 월지", description: "물 위에 비친 궁궐의 밤을 기록해 보세요.", distance: "1.1km", latitude: 35.8349, longitude: 129.2267, icon: "palace", docent: false },
   { id: "bulguksa", name: "불국사", description: "두 탑 사이에서 오래된 약속을 찾아보세요.", distance: "12.4km", latitude: 35.7900, longitude: 129.3321, icon: "temple", docent: true },
   { id: "seokguram", name: "석굴암", description: "동해를 향한 본존불의 시선을 따라가 보세요.", distance: "14.1km", latitude: 35.7948, longitude: 129.3492, icon: "grotto", docent: true },
+  // --- DB 연동 테스트: PLACE 테이블에서 가져온 실제 경주 장소 (카테고리별 1개) ---
+  { id: "db-1", name: "강동 워터파크", description: "[DB test] 관광지", distance: "", latitude: 35.8179335881, longitude: 129.3056850979, icon: "temple", docent: false },
+  { id: "db-2", name: "경주중앙도서관", description: "[DB test] 문화시설", distance: "", latitude: 35.8386210597, longitude: 129.2072931267, icon: "palace", docent: false },
+  { id: "db-3", name: "경주국가유산야행", description: "[DB test] 축제", distance: "", latitude: 35.8313803696, longitude: 129.2157425929, icon: "tower", docent: false },
+  { id: "db-4", name: "경주보문실탄사격장", description: "[DB test] 레포츠", distance: "", latitude: 35.8440219452, longitude: 129.2863888209, icon: "temple", docent: false },
+  { id: "db-5", name: "경주 교동한옥집", description: "[DB test] 숙박", distance: "", latitude: 35.8289194614, longitude: 129.2117818994, icon: "palace", docent: false },
+  { id: "db-6", name: "경주 중앙시장", description: "[DB test] 쇼핑", distance: "", latitude: 35.8439732229, longitude: 129.2067541331, icon: "grotto", docent: false },
+  { id: "db-7", name: "가마솥 양푼이 밥상", description: "[DB test] 음식점", distance: "", latitude: 35.8529760771, longitude: 129.2645765871, icon: "temple", docent: false },
+  { id: "db-8", name: "경주 문화유산 코스", description: "[DB test] 여행코스", distance: "", latitude: 35.7893956579, longitude: 129.3330446288, icon: "grotto", docent: false },
 ];
 
 export const MAP_LEGEND = {
