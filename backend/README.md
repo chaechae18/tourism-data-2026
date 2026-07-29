@@ -1,4 +1,98 @@
-# Play Gyeongju — Backend
+# Play Gyeongju Backend
+
+현재 `backend/` 아래에 **두 개의 API 서버가 공존**합니다.
+
+| 스택 | 디렉터리 | 담당 | 포트 |
+| --- | --- | --- | --- |
+| FastAPI + SQLite | `app/`, `db/`, `tests/` | 스팟 등록·검수, 카카오/네이버 장소 검색, 업로드 | 8000 |
+| Django + DRF | `config/`, `core/`, `main/`, `tourapi/` | 홈 화면 조회 API, 한국관광공사 TourAPI 수집 | 8123 |
+
+스팟 기능과 홈 화면 API를 각자 만들어 올린 결과이며, **FastAPI 쪽으로 합치는
+중**입니다. 두 서버는 `PLACE` / `FESTIVAL` 테이블을 `(SOURCE, CONTENT_ID)` 키로
+나눠 씁니다 — `TOUR_API` 행은 `tourapi/` 수집기가, `KAKAO` / `NAVER` 행은 `app/spots.py`가
+넣습니다. 그래서 데이터가 서로 덮이지 않습니다.
+
+---
+
+# 1. 스팟 API (FastAPI)
+
+FastAPI와 SQLite를 사용하는 로컬 API 서버입니다.
+
+## 실행
+
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+cp .env.example .env
+```
+
+`.env`에 외부 API 키와 로컬 설정을 입력합니다.
+
+```env
+KAKAO_REST_API_KEY=
+NAVER_CLIENT_ID=
+NAVER_CLIENT_SECRET=
+ADMIN_API_KEY=
+DATABASE_PATH=./data/play_gyeongju.db
+UPLOAD_DIR=./uploads
+MAX_UPLOAD_BYTES=10485760
+SEARCH_CACHE_TTL_SECONDS=300
+SEARCH_RATE_LIMIT=30
+SEARCH_RATE_WINDOW_SECONDS=60
+CORS_ORIGINS=http://localhost:3000
+```
+
+Kakao 검색이 실패하거나 결과가 없으면 Naver 지역 검색을 사용합니다.
+이미지는 로컬 `uploads/` 디렉터리에 저장하며 JPEG, PNG, WebP 형식과
+10MB 이하 파일만 허용합니다.
+
+```bash
+uvicorn app.main:app --reload --port 8000
+```
+
+첫 실행 시 `data/play_gyeongju.db`가 생성되고 SQLite 스키마와 로컬
+개발용 사용자(`X-User-No: 1`)가 준비됩니다.
+
+- API 문서: `http://localhost:8000/docs`
+- 상태 확인: `http://localhost:8000/health`
+- 상세 명세: [`../docs/spot-api.md`](../docs/spot-api.md)
+
+## 테스트
+
+```bash
+pytest
+```
+
+## Docker
+
+백엔드 디렉터리를 빌드 컨텍스트로 사용합니다.
+
+```bash
+cd backend
+docker build -t play-gyeongju-backend .
+```
+
+API 키는 이미지에 포함하지 않고 실행 시 `.env`로 전달합니다. 현재 로컬
+SQLite 데이터와 업로드 파일은 Docker 볼륨에 보존합니다.
+
+```bash
+docker run --rm \
+  --name play-gyeongju-backend \
+  --env-file .env \
+  -p 8000:8000 \
+  -v play-gyeongju-data:/app/data \
+  -v play-gyeongju-uploads:/app/uploads \
+  play-gyeongju-backend
+```
+
+실행 후 `http://localhost:8000/health`에서 상태를 확인할 수 있습니다.
+운영 MySQL 연결은 데이터베이스 계층 전환 시 별도로 적용합니다.
+
+---
+
+# 2. 홈 화면 API (Django + DRF)
 
 Django + DRF API 서버. 현재 구현 범위는 **메인(홈) 화면 조회 API 4개**와
 **한국관광공사 TourAPI 수집기**입니다.
@@ -10,7 +104,7 @@ cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env      # 값 채우기
-python manage.py runserver
+python manage.py runserver 8123
 ```
 
 `.env`의 `DB_NAME`이 비어 있으면 SQLite로 떨어집니다. MySQL 없이도 서버는 뜨지만,
@@ -97,10 +191,10 @@ SQLite에서 돌아가므로 MySQL이 없어도 통과합니다. `managed=False`
 ### 응답 예시
 
 ```bash
-curl 'http://localhost:8000/api/main/banners'
-curl 'http://localhost:8000/api/main/popup?lang=en'
-curl 'http://localhost:8000/api/main/festivals?lang=ja'
-curl 'http://localhost:8000/api/main/places/recommended'
+curl 'http://localhost:8123/api/main/banners'
+curl 'http://localhost:8123/api/main/popup?lang=en'
+curl 'http://localhost:8123/api/main/festivals?lang=ja'
+curl 'http://localhost:8123/api/main/places/recommended'
 ```
 
 ```json
@@ -145,7 +239,8 @@ python manage.py sync_festivals --from 20260101  # 행사정보 → FESTIVAL
 판정하기 때문입니다. 키가 없으면 재동기화가 매번 새 행을 만듭니다.
 
 `SOURCE`가 키에 포함되어 있어, 수기로 등록한 장소가 우연히 같은 `CONTENT_ID`를
-갖더라도 동기화가 덮어쓰지 않습니다.
+갖더라도 동기화가 덮어쓰지 않습니다. 같은 이유로 스팟 API가 넣는 `KAKAO` / `NAVER`
+행과도 충돌하지 않습니다 (`db/schema.sqlite.sql`도 같은 UNIQUE 키를 씁니다).
 
 ### 설계 메모
 

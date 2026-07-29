@@ -9,6 +9,14 @@ cp .env.example .env.local
 npm run dev
 ```
 
+스팟 검색·등록·좋아요·북마크·댓글 기능을 사용하려면 백엔드를
+`http://localhost:8000`에서 함께 실행해야 합니다. 다른 주소를 사용할
+경우 `.env.local`의 값을 변경합니다.
+
+```bash
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+```
+
 ## TMAP 길찾기
 
 `.env.local`에 SK open API에서 발급한 앱 키를 입력합니다.
