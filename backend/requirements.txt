@@ -1,23 +1,7 @@
-# backend/ 에는 스팟 API(FastAPI)와 홈 화면 API(Django) 두 스택이 공존합니다.
-# FastAPI 로 통합하는 중이며, 통합이 끝나면 아래 Django 블록을 지웁니다.
-
-# --- 스팟 API (FastAPI) ---
 fastapi>=0.115,<1.0
 httpx>=0.27,<1.0
 pillow>=11.0,<13.0
+pymysql>=1.1,<2.0
+python-dotenv>=1.0,<2.0
 python-multipart>=0.0.20,<1.0
 uvicorn>=0.30,<1.0
-
-# --- 홈 화면 API (Django) ---
-Django>=5.0,<5.2
-djangorestframework>=3.15
-django-cors-headers>=4.4
-requests>=2.32
-
-# MySQL driver. Needs the MySQL client headers at build time:
-#   brew install mysql-client pkg-config
-# Tests run on SQLite and do not need this.
-mysqlclient>=2.2
-
-# --- 공통 ---
-python-dotenv>=1.0,<2.0

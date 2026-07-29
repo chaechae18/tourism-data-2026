@@ -18,8 +18,6 @@ export const AUTH_COPY = {
   oauth: ["Google로 계속하기", "Kakao로 계속하기"],
 };
 
-// Banners, popups, festivals and recommended places now come from the home API
-// (see lib/api/useApiResource). Only copy that has no backing table stays here.
 export const HOME_CONTENT = {
   hero: {
     eyebrow: "이번 주 경주",

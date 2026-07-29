@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import get_settings
 from .database import initialize_database
 from .routers.admin import router as admin_router
+from .routers.home import router as home_router
 from .routers.interactions import router as interactions_router
 from .routers.places import router as places_router
 from .routers.spots import router as spots_router
@@ -85,6 +86,7 @@ async def http_error_handler(_, error: HTTPException) -> JSONResponse:
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
+app.include_router(home_router)
 app.include_router(places_router)
 app.include_router(spots_router)
 app.include_router(interactions_router)
