@@ -5,6 +5,7 @@ out
 *.blend1
 frontend/.env.local
 .env
+.env.local
 .env.*
 !.env.example
 backend/.venv
