@@ -36,10 +36,16 @@ app.add_middleware(
 )
 
 
-def error_response(status_code: int, code: str, message: str) -> JSONResponse:
+def error_response(
+    status_code: int,
+    code: str,
+    message: str,
+    headers: dict[str, str] | None = None,
+) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
         content={"error": {"code": code, "message": message}},
+        headers=headers,
     )
 
 
@@ -63,8 +69,14 @@ async def http_error_handler(_, error: HTTPException) -> JSONResponse:
             error.status_code,
             detail.get("code", "HTTP_ERROR"),
             detail.get("message", "요청을 처리할 수 없습니다."),
+            error.headers,
         )
-    return error_response(error.status_code, "HTTP_ERROR", str(detail))
+    return error_response(
+        error.status_code,
+        "HTTP_ERROR",
+        str(detail),
+        error.headers,
+    )
 
 
 @app.get("/health")

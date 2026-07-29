@@ -20,6 +20,17 @@ def connect(database_path: Path | None = None) -> sqlite3.Connection:
 def initialize_database(database_path: Path | None = None) -> None:
     with connect(database_path) as connection:
         connection.executescript(SCHEMA_PATH.read_text(encoding="utf-8"))
+        spot_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(SPOTS)").fetchall()
+        }
+        if "MAP_PROVIDER" not in spot_columns:
+            connection.execute(
+                """
+                ALTER TABLE SPOTS
+                ADD COLUMN MAP_PROVIDER TEXT NOT NULL DEFAULT 'KAKAO'
+                """
+            )
 
 
 def get_database() -> Iterator[sqlite3.Connection]:

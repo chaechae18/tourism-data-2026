@@ -2,12 +2,12 @@ from datetime import datetime
 
 from pydantic import Field, field_validator
 
-from .common import CamelModel, PlaceType
-from .places import KakaoPlace
+from .common import CamelModel, PlaceProvider, PlaceType
+from .places import PlaceSearchItem
 
 
 class SpotCreateRequest(CamelModel):
-    place: KakaoPlace
+    place: PlaceSearchItem
     place_type: PlaceType = Field(alias="placeType")
     caption: str = Field(min_length=1, max_length=350)
     photo_url: str | None = Field(default=None, alias="photoUrl", max_length=500)
@@ -20,6 +20,7 @@ class SpotCreateRequest(CamelModel):
 
 class SpotPlace(CamelModel):
     place_id: int = Field(alias="placeId")
+    provider: PlaceProvider
     map_place_id: str = Field(alias="mapPlaceId")
     type: PlaceType
     name: str

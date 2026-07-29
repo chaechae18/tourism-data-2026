@@ -59,6 +59,7 @@ def test_search_places_maps_kakao_response() -> None:
     result = asyncio.run(search())
 
     assert result.meta.total_count == 1
+    assert result.places[0].provider.value == "KAKAO"
     assert result.places[0].id == "12345"
     assert result.places[0].name == "첨성대"
     assert result.places[0].latitude == 35.8347

@@ -3,7 +3,12 @@ from typing import Any
 
 import httpx
 
-from .models.places import KakaoPlace, PlaceSearchMeta, PlaceSearchResponse
+from .models.common import PlaceProvider
+from .models.places import (
+    PlaceSearchItem,
+    PlaceSearchMeta,
+    PlaceSearchResponse,
+)
 
 
 KAKAO_KEYWORD_SEARCH_URL = (
@@ -101,9 +106,10 @@ class KakaoLocalClient:
         )
 
     @staticmethod
-    def _map_place(document: dict[str, Any]) -> KakaoPlace:
+    def _map_place(document: dict[str, Any]) -> PlaceSearchItem:
         distance = document.get("distance")
-        return KakaoPlace(
+        return PlaceSearchItem(
+            provider=PlaceProvider.KAKAO,
             id=document["id"],
             name=document["place_name"],
             address=document.get("address_name", ""),

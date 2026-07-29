@@ -35,7 +35,7 @@ def create_spot(
                 LATITUDE,
                 LONGITUDE
             )
-            VALUES ('KAKAO', ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(SOURCE, CONTENT_ID) DO UPDATE SET
                 TYPE = excluded.TYPE,
                 NAME = excluded.NAME,
@@ -44,6 +44,7 @@ def create_spot(
                 LONGITUDE = excluded.LONGITUDE
             """,
             (
+                place.provider.value,
                 place.id,
                 request.place_type.value,
                 place.name,
@@ -56,24 +57,26 @@ def create_spot(
             """
             SELECT IDX
             FROM PLACE
-            WHERE SOURCE = 'KAKAO' AND CONTENT_ID = ?
+            WHERE SOURCE = ? AND CONTENT_ID = ?
             """,
-            (place.id,),
+            (place.provider.value, place.id),
         ).fetchone()
         cursor = connection.execute(
             """
             INSERT INTO SPOTS (
                 USER_NO,
+                MAP_PROVIDER,
                 MAP_PLACE_ID,
                 LAT,
                 LNG,
                 PHOTO_URL,
                 CAPTION
             )
-            VALUES (?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user_no,
+                place.provider.value,
                 place.id,
                 place.latitude,
                 place.longitude,
@@ -100,6 +103,7 @@ def get_spot(
             s.USER_NO,
             u.NICKNAME,
             p.IDX AS PLACE_ID,
+            p.SOURCE AS MAP_PROVIDER,
             p.CONTENT_ID AS MAP_PLACE_ID,
             p.TYPE AS PLACE_TYPE,
             p.NAME AS PLACE_NAME,
@@ -114,7 +118,7 @@ def get_spot(
         FROM SPOTS s
         JOIN USERS u ON u.NO = s.USER_NO
         JOIN PLACE p
-          ON p.SOURCE = 'KAKAO'
+          ON p.SOURCE = s.MAP_PROVIDER
          AND p.CONTENT_ID = s.MAP_PLACE_ID
         WHERE s.IDX = ?
           AND s.DELETED_AT IS NULL
@@ -147,6 +151,7 @@ def list_user_spots(
             s.USER_NO,
             u.NICKNAME,
             p.IDX AS PLACE_ID,
+            p.SOURCE AS MAP_PROVIDER,
             p.CONTENT_ID AS MAP_PLACE_ID,
             p.TYPE AS PLACE_TYPE,
             p.NAME AS PLACE_NAME,
@@ -161,7 +166,7 @@ def list_user_spots(
         FROM SPOTS s
         JOIN USERS u ON u.NO = s.USER_NO
         JOIN PLACE p
-          ON p.SOURCE = 'KAKAO'
+          ON p.SOURCE = s.MAP_PROVIDER
          AND p.CONTENT_ID = s.MAP_PLACE_ID
         WHERE s.USER_NO = ?
           AND s.DELETED_AT IS NULL
@@ -181,6 +186,7 @@ def _to_response(row: sqlite3.Row) -> SpotResponse:
             "authorNickname": row["NICKNAME"],
             "place": {
                 "placeId": row["PLACE_ID"],
+                "provider": row["MAP_PROVIDER"],
                 "mapPlaceId": row["MAP_PLACE_ID"],
                 "type": row["PLACE_TYPE"],
                 "name": row["PLACE_NAME"],

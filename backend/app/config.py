@@ -13,9 +13,14 @@ load_dotenv(BACKEND_DIR / ".env")
 @dataclass(frozen=True)
 class Settings:
     kakao_rest_api_key: str
+    naver_client_id: str
+    naver_client_secret: str
     database_path: Path
     upload_dir: Path
     max_upload_bytes: int
+    search_cache_ttl_seconds: int
+    search_rate_limit: int
+    search_rate_window_seconds: int
     cors_origins: tuple[str, ...]
 
 
@@ -44,8 +49,17 @@ def get_settings() -> Settings:
     )
     return Settings(
         kakao_rest_api_key=os.getenv("KAKAO_REST_API_KEY", "").strip(),
+        naver_client_id=os.getenv("NAVER_CLIENT_ID", "").strip(),
+        naver_client_secret=os.getenv("NAVER_CLIENT_SECRET", "").strip(),
         database_path=database_path,
         upload_dir=upload_dir,
         max_upload_bytes=int(os.getenv("MAX_UPLOAD_BYTES", "10485760")),
+        search_cache_ttl_seconds=int(
+            os.getenv("SEARCH_CACHE_TTL_SECONDS", "300")
+        ),
+        search_rate_limit=int(os.getenv("SEARCH_RATE_LIMIT", "30")),
+        search_rate_window_seconds=int(
+            os.getenv("SEARCH_RATE_WINDOW_SECONDS", "60")
+        ),
         cors_origins=cors_origins,
     )

@@ -5,7 +5,8 @@ from fastapi.testclient import TestClient
 from app.database import connect, get_database, initialize_database
 from app.kakao import KakaoLocalClient
 from app.main import app
-from app.routers.places import get_kakao_client
+from app.naver import NaverLocalClient
+from app.routers.places import get_kakao_client, get_naver_client
 
 
 SPOT_BODY = {
@@ -62,6 +63,7 @@ def test_register_and_list_my_spots(tmp_path: Path) -> None:
 
 def test_search_returns_config_error_without_kakao_key() -> None:
     app.dependency_overrides[get_kakao_client] = lambda: KakaoLocalClient("")
+    app.dependency_overrides[get_naver_client] = lambda: NaverLocalClient("", "")
     try:
         response = TestClient(app).get(
             "/api/v1/places/search",
@@ -73,7 +75,7 @@ def test_search_returns_config_error_without_kakao_key() -> None:
     assert response.status_code == 503
     assert response.json() == {
         "error": {
-            "code": "KAKAO_NOT_CONFIGURED",
-            "message": "Kakao REST API 키가 설정되지 않았습니다.",
+            "code": "PLACE_SEARCH_NOT_CONFIGURED",
+            "message": "장소 검색 API 키가 설정되지 않았습니다.",
         }
     }

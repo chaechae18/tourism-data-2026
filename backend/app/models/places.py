@@ -1,9 +1,10 @@
 from pydantic import Field, field_validator
 
-from .common import CamelModel
+from .common import CamelModel, PlaceProvider
 
 
-class KakaoPlace(CamelModel):
+class PlaceSearchItem(CamelModel):
+    provider: PlaceProvider = PlaceProvider.KAKAO
     id: str = Field(min_length=1, max_length=255)
     name: str = Field(min_length=1, max_length=200)
     address: str = Field(default="", max_length=500)
@@ -31,4 +32,4 @@ class PlaceSearchMeta(CamelModel):
 
 class PlaceSearchResponse(CamelModel):
     meta: PlaceSearchMeta
-    places: list[KakaoPlace]
+    places: list[PlaceSearchItem]

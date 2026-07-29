@@ -27,9 +27,14 @@ def test_upload_image_returns_local_url(tmp_path: Path) -> None:
     def override_settings() -> Settings:
         return Settings(
             kakao_rest_api_key="",
+            naver_client_id="",
+            naver_client_secret="",
             database_path=database_path,
             upload_dir=upload_dir,
             max_upload_bytes=10 * 1024 * 1024,
+            search_cache_ttl_seconds=300,
+            search_rate_limit=30,
+            search_rate_window_seconds=60,
             cors_origins=("http://localhost:3000",),
         )
 

@@ -10,3 +10,8 @@ class CamelModel(BaseModel):
 class PlaceType(StrEnum):
     TOUR = "TOUR"
     FOOD = "FOOD"
+
+
+class PlaceProvider(StrEnum):
+    KAKAO = "KAKAO"
+    NAVER = "NAVER"
