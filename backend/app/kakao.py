@@ -14,6 +14,9 @@ from .models.places import (
 KAKAO_KEYWORD_SEARCH_URL = (
     "https://dapi.kakao.com/v2/local/search/keyword.json"
 )
+KAKAO_CATEGORY_SEARCH_URL = (
+    "https://dapi.kakao.com/v2/local/search/category.json"
+)
 
 
 class KakaoNotConfiguredError(RuntimeError):
@@ -65,17 +68,62 @@ class KakaoLocalClient:
             {key: value for key, value in optional_params.items() if value is not None}
         )
 
+        payload = await self._request(KAKAO_KEYWORD_SEARCH_URL, params)
+        return PlaceSearchResponse(
+            meta=self._map_meta(payload.get("meta", {})),
+            places=[
+                self._map_place(document)
+                for document in payload.get("documents", [])
+            ],
+        )
+
+    async def search_places_by_category(
+        self,
+        *,
+        category_group_code: str,
+        longitude: float,
+        latitude: float,
+        radius: int = 2_000,
+        size: int = 15,
+    ) -> PlaceSearchResponse:
+        if not self.api_key:
+            raise KakaoNotConfiguredError
+
+        payload = await self._request(
+            KAKAO_CATEGORY_SEARCH_URL,
+            {
+                "category_group_code": category_group_code,
+                "x": longitude,
+                "y": latitude,
+                "radius": radius,
+                "size": size,
+                "sort": "distance",
+            },
+        )
+        return PlaceSearchResponse(
+            meta=self._map_meta(payload.get("meta", {})),
+            places=[
+                self._map_place(document)
+                for document in payload.get("documents", [])
+            ],
+        )
+
+    async def _request(
+        self,
+        url: str,
+        params: dict[str, str | int | float],
+    ) -> dict[str, Any]:
         try:
             if self.client:
                 response = await self.client.get(
-                    KAKAO_KEYWORD_SEARCH_URL,
+                    url,
                     params=params,
                     headers=self._headers(),
                 )
             else:
                 async with httpx.AsyncClient(timeout=5.0) as client:
                     response = await client.get(
-                        KAKAO_KEYWORD_SEARCH_URL,
+                        url,
                         params=params,
                         headers=self._headers(),
                     )
@@ -84,15 +132,7 @@ class KakaoLocalClient:
             raise KakaoUpstreamError(error.response.status_code) from error
         except httpx.HTTPError as error:
             raise KakaoUpstreamError from error
-
-        payload = response.json()
-        return PlaceSearchResponse(
-            meta=self._map_meta(payload.get("meta", {})),
-            places=[
-                self._map_place(document)
-                for document in payload.get("documents", [])
-            ],
-        )
+        return response.json()
 
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"KakaoAK {self.api_key}"}

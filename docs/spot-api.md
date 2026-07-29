@@ -36,6 +36,7 @@
 | 메서드 | 경로 | 설명 |
 | --- | --- | --- |
 | `GET` | `/api/v1/places/search` | Kakao 우선, Naver fallback 장소 검색 |
+| `GET` | `/api/v1/places/nearby` | 현재 좌표 주변 장소 검색 |
 | `POST` | `/api/v1/uploads/images` | 로컬 이미지 업로드 |
 | `POST` | `/api/v1/spots` | 사용자 스팟 등록 |
 | `GET` | `/api/v1/spots` | 승인된 공개 스팟 목록 |
@@ -122,7 +123,26 @@ Naver 결과의 `id`는 Naver 응답의 링크·장소명·주소·좌표로 생
 | `502` | `PLACE_SEARCH_UNAVAILABLE` | 사용 가능한 검색 제공자 호출 실패 |
 | `503` | `PLACE_SEARCH_NOT_CONFIGURED` | Kakao와 Naver 키가 모두 없음 |
 
-## 2. 이미지 업로드
+## 2. 내 주변 장소 검색
+
+`GET /api/v1/places/nearby`
+
+브라우저에서 사용자의 위치 권한을 받은 뒤 현재 좌표를 전달합니다. Kakao
+카테고리 검색으로 관광지(`AT4`), 음식점(`FD6`), 카페(`CE7`)를 조회하고
+가까운 순서로 합쳐 반환합니다. 이 경로는 Kakao API만 사용합니다.
+
+| 이름 | 타입 | 필수 | 기본값 | 설명 |
+| --- | --- | --- | --- | --- |
+| `longitude` | number | O | - | 현재 경도 |
+| `latitude` | number | O | - | 현재 위도 |
+| `radius` | integer | X | `2000` | 검색 반경(m), 100~20,000 |
+| `size` | integer | X | `15` | 반환 개수, 1~15 |
+
+응답 형식은 장소 검색과 동일하며 각 장소의 `distance`에 현재 위치로부터의
+거리(m)가 포함됩니다. 위치 좌표는 DB에 저장하지 않으며, 사용자가 장소를
+선택해 스팟을 등록할 때만 해당 장소가 `PLACE`에 저장됩니다.
+
+## 3. 이미지 업로드
 
 `POST /api/v1/uploads/images`
 
@@ -162,7 +182,7 @@ S3 또는 R2 저장 구현으로 교체해야 합니다.
 | `415` | `UNSUPPORTED_IMAGE_TYPE` | 지원하지 않는 이미지 형식 |
 | `422` | `INVALID_IMAGE` | 실제 이미지가 아니거나 손상됨 |
 
-## 3. 스팟 등록
+## 4. 스팟 등록
 
 `POST /api/v1/spots`
 
@@ -232,7 +252,7 @@ Content-Type: application/json
 }
 ```
 
-## 4. 스팟 목록·삭제
+## 5. 스팟 목록·삭제
 
 ### 승인된 공개 목록
 
@@ -261,7 +281,7 @@ Content-Type: application/json
 | `403` | `SPOT_FORBIDDEN` | 다른 사용자의 스팟 삭제 시도 |
 | `404` | `SPOT_NOT_FOUND` | 스팟이 없거나 이미 삭제됨 |
 
-## 5. 좋아요·북마크
+## 6. 좋아요·북마크
 
 `type`은 `like` 또는 `bookmark`입니다.
 
@@ -283,7 +303,7 @@ PUT과 DELETE는 멱등입니다. 같은 요청을 반복해도 중복 반응이
 }
 ```
 
-## 6. 댓글
+## 7. 댓글
 
 ### 댓글 목록
 
@@ -321,7 +341,7 @@ Content-Type: application/json
 }
 ```
 
-## 7. 관리자 검수
+## 8. 관리자 검수
 
 ```http
 PATCH /api/v1/admin/{targetType}/{targetId}/moderation
@@ -350,13 +370,14 @@ Content-Type: application/json
 
 ## 프론트 연동 순서
 
-1. 장소 입력을 300~400ms debounce하여 검색합니다.
-2. 사용자가 `provider + id` 기준의 검색 결과 하나를 선택합니다.
-3. 사진이 있으면 이미지 업로드 API를 먼저 호출합니다.
-4. 선택한 장소, 한줄평, `photoUrl`로 스팟을 등록합니다.
-5. 등록 직후 내 목록을 갱신합니다.
-6. 승인된 공개 목록에서 좋아요·북마크·댓글 기능을 제공합니다.
-7. 본인 게시물에만 삭제 버튼을 표시합니다.
+1. 장소 입력을 300~400ms debounce하여 검색하거나 `내 주변 장소`를 누릅니다.
+2. 주변 검색은 브라우저에서 현재 위치를 한 번만 받아 API에 전달합니다.
+3. 사용자가 `provider + id` 기준의 검색 결과 하나를 선택합니다.
+4. 사진이 있으면 이미지 업로드 API를 먼저 호출합니다.
+5. 선택한 장소, 한줄평, `photoUrl`로 스팟을 등록합니다.
+6. 등록 직후 내 목록을 갱신합니다.
+7. 승인된 공개 목록에서 좋아요·북마크·댓글 기능을 제공합니다.
+8. 본인 게시물에만 삭제 버튼을 표시합니다.
 
 ## 외부 API 참고
 

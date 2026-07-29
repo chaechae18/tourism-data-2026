@@ -4,6 +4,7 @@ import {
   Heart,
   ImagePlus,
   LoaderCircle,
+  LocateFixed,
   MapPin,
   MessageCircle,
   Search,
@@ -17,6 +18,7 @@ import {
   listMySpots,
   listPublicSpots,
   listSpotComments,
+  searchNearbyPlaces,
   searchPlaces,
   setSpotReaction,
   uploadSpotImage,
@@ -39,6 +41,12 @@ function inferPlaceType(place) {
   const foodCodes = ["FD6", "CE7"];
   if (foodCodes.includes(place.categoryGroupCode)) return "FOOD";
   return /음식|카페|식당/.test(place.categoryName) ? "FOOD" : "TOUR";
+}
+
+function formatDistance(distance) {
+  if (distance === null || distance === undefined) return null;
+  if (distance < 1_000) return `${distance}m`;
+  return `${(distance / 1_000).toFixed(1)}km`;
 }
 
 function SpotPhoto({ spot }) {
@@ -161,7 +169,9 @@ export default function SpotsTab() {
   const [query, setQuery] = useState("");
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
+  const [nearbyResults, setNearbyResults] = useState([]);
   const [searching, setSearching] = useState(false);
+  const [locating, setLocating] = useState(false);
   const [review, setReview] = useState("");
   const [photoFile, setPhotoFile] = useState(null);
   const [publicSpots, setPublicSpots] = useState([]);
@@ -221,6 +231,54 @@ export default function SpotsTab() {
     setSelectedPlace(place);
     setQuery(place.name);
     setSearchResults([]);
+    setNearbyResults([]);
+  };
+
+  const loadNearbyPlaces = () => {
+    if (!navigator.geolocation) {
+      setNotice("이 브라우저에서는 현재 위치를 사용할 수 없어요.");
+      return;
+    }
+
+    setLocating(true);
+    setNotice("");
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const result = await searchNearbyPlaces({
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+          });
+          setSelectedPlace(null);
+          setQuery("");
+          setSearchResults([]);
+          setNearbyResults(result.places);
+          setNotice(
+            result.places.length > 0
+              ? "현재 위치에서 가까운 장소를 불러왔어요."
+              : "현재 위치 주변에서 등록할 장소를 찾지 못했어요.",
+          );
+        } catch (error) {
+          setNotice(error.message);
+        } finally {
+          setLocating(false);
+        }
+      },
+      (error) => {
+        const messages = {
+          1: "위치 권한이 필요해요. 권한을 허용하거나 장소를 직접 검색해 주세요.",
+          2: "현재 위치를 확인할 수 없어요. 장소를 직접 검색해 주세요.",
+          3: "현재 위치 확인 시간이 초과됐어요. 다시 시도해 주세요.",
+        };
+        setNotice(messages[error.code] || "현재 위치를 확인하지 못했어요.");
+        setLocating(false);
+      },
+      {
+        enableHighAccuracy: false,
+        maximumAge: 300_000,
+        timeout: 8_000,
+      },
+    );
   };
 
   const shareSpot = async () => {
@@ -245,6 +303,7 @@ export default function SpotsTab() {
       setMySpots((current) => [created, ...current]);
       setSelectedPlace(null);
       setQuery("");
+      setNearbyResults([]);
       setReview("");
       setPhotoFile(null);
       setNotice("스팟을 등록했어요. 승인 후 공개 목록에 표시됩니다.");
@@ -322,6 +381,10 @@ export default function SpotsTab() {
     }
   };
 
+  const placeResults = searchResults.length > 0
+    ? searchResults
+    : nearbyResults;
+
   return (
     <section className="space-y-7">
       <SectionHeading eyebrow="Spot sharing" title="나만의 경주 스팟" />
@@ -335,6 +398,7 @@ export default function SpotsTab() {
               onChange={(event) => {
                 setQuery(event.target.value);
                 setSelectedPlace(null);
+                setNearbyResults([]);
               }}
               className="h-11 w-full rounded-lg border border-[#d9cfc2] pl-10 pr-9 text-sm outline-none focus:border-[#b8661c]"
               placeholder="어디에서 발견했나요?"
@@ -345,9 +409,29 @@ export default function SpotsTab() {
           </div>
         </label>
 
-        {searchResults.length > 0 && (
+        <div className="mt-2 flex items-center gap-3">
+          <AppButton
+            icon={LocateFixed}
+            size="sm"
+            variant="outline"
+            disabled={locating}
+            onClick={loadNearbyPlaces}
+          >
+            {locating ? "주변 장소 찾는 중..." : "내 주변 장소"}
+          </AppButton>
+          <span className="text-xs text-[#7c6d61]">현재 위치 기준 2km</span>
+        </div>
+
+        {nearbyResults.length > 0 && (
+          <div className="mt-3 flex items-center justify-between text-xs font-bold text-[#7c6d61]">
+            <span>내 주변 장소</span>
+            <span>가까운 순</span>
+          </div>
+        )}
+
+        {placeResults.length > 0 && (
           <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-[#e6ddd2] bg-white shadow-lg">
-            {searchResults.map((place) => (
+            {placeResults.map((place) => (
               <button
                 key={`${place.provider}-${place.id}`}
                 type="button"
@@ -361,7 +445,14 @@ export default function SpotsTab() {
                     {place.roadAddress || place.address}
                   </span>
                 </span>
-                <span className="ml-auto text-[10px] font-bold text-[#8a7d71]">{place.provider}</span>
+                <span className="ml-auto shrink-0 text-right text-[10px] font-bold text-[#8a7d71]">
+                  {formatDistance(place.distance) && (
+                    <span className="block text-[#b8661c]">
+                      {formatDistance(place.distance)}
+                    </span>
+                  )}
+                  {place.provider}
+                </span>
               </button>
             ))}
           </div>

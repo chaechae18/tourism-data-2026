@@ -48,6 +48,39 @@ class WorkingNaver:
         )
 
 
+class WorkingNearbyKakao:
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+
+    async def search_places_by_category(
+        self,
+        *,
+        category_group_code: str,
+        **_,
+    ) -> PlaceSearchResponse:
+        self.calls.append(category_group_code)
+        distances = {"AT4": 300, "FD6": 100, "CE7": 200}
+        names = {"AT4": "첨성대", "FD6": "교리김밥", "CE7": "카페능"}
+        return PlaceSearchResponse(
+            meta=PlaceSearchMeta(
+                totalCount=1,
+                pageableCount=1,
+                isEnd=True,
+            ),
+            places=[
+                PlaceSearchItem(
+                    provider=PlaceProvider.KAKAO,
+                    id=category_group_code,
+                    name=names[category_group_code],
+                    latitude=35.8347,
+                    longitude=129.2191,
+                    categoryGroupCode=category_group_code,
+                    distance=distances[category_group_code],
+                )
+            ],
+        )
+
+
 def settings(tmp_path: Path, *, rate_limit: int = 30) -> Settings:
     return Settings(
         kakao_rest_api_key="",
@@ -125,3 +158,46 @@ def test_search_rate_limit_returns_retry_after(tmp_path: Path) -> None:
     assert second.status_code == 429
     assert second.headers["Retry-After"]
     assert second.json()["error"]["code"] == "SEARCH_RATE_LIMITED"
+
+
+def test_nearby_search_merges_categories_by_distance_and_caches(
+    tmp_path: Path,
+) -> None:
+    kakao = WorkingNearbyKakao()
+    search_cache.clear()
+    search_rate_limiter.clear()
+    app.dependency_overrides[get_settings] = lambda: settings(tmp_path)
+    app.dependency_overrides[get_kakao_client] = lambda: kakao
+    try:
+        client = TestClient(app)
+        first = client.get(
+            "/api/v1/places/nearby",
+            params={
+                "longitude": 129.2191,
+                "latitude": 35.8347,
+                "radius": 2_000,
+            },
+        )
+        second = client.get(
+            "/api/v1/places/nearby",
+            params={
+                "longitude": 129.21911,
+                "latitude": 35.83471,
+                "radius": 2_000,
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+        search_cache.clear()
+        search_rate_limiter.clear()
+
+    assert first.status_code == 200
+    assert first.headers["X-Place-Provider"] == "KAKAO"
+    assert first.headers["X-Search-Cache"] == "MISS"
+    assert [place["name"] for place in first.json()["places"]] == [
+        "교리김밥",
+        "카페능",
+        "첨성대",
+    ]
+    assert second.headers["X-Search-Cache"] == "HIT"
+    assert kakao.calls == ["AT4", "FD6", "CE7"]

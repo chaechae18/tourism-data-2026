@@ -37,6 +37,20 @@ export async function searchPlaces(query, { signal } = {}) {
   return request(`/api/v1/places/search?${parameters}`, { signal });
 }
 
+export async function searchNearbyPlaces({
+  latitude,
+  longitude,
+  radius = 2000,
+}) {
+  const parameters = new URLSearchParams({
+    latitude: String(latitude),
+    longitude: String(longitude),
+    radius: String(radius),
+    size: "15",
+  });
+  return request(`/api/v1/places/nearby?${parameters}`);
+}
+
 export async function uploadSpotImage(file) {
   const formData = new FormData();
   formData.append("file", file);

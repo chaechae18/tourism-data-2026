@@ -1,3 +1,4 @@
+import asyncio
 from typing import Annotated, Literal
 
 from fastapi import (
@@ -16,7 +17,11 @@ from ..kakao import (
     KakaoNotConfiguredError,
     KakaoUpstreamError,
 )
-from ..models.places import PlaceSearchResponse
+from ..models.places import (
+    PlaceSearchItem,
+    PlaceSearchMeta,
+    PlaceSearchResponse,
+)
 from ..naver import (
     NaverLocalClient,
     NaverNotConfiguredError,
@@ -28,6 +33,7 @@ from ..search_controls import SlidingWindowRateLimiter, TTLCache
 router = APIRouter(prefix="/api/v1/places", tags=["places"])
 search_cache = TTLCache()
 search_rate_limiter = SlidingWindowRateLimiter()
+NEARBY_CATEGORY_CODES = ("AT4", "FD6", "CE7")
 
 
 def get_kakao_client(
@@ -51,6 +57,103 @@ def get_search_cache() -> TTLCache:
 
 def get_search_rate_limiter() -> SlidingWindowRateLimiter:
     return search_rate_limiter
+
+
+@router.get(
+    "/nearby",
+    response_model=PlaceSearchResponse,
+    response_model_by_alias=True,
+)
+async def search_nearby_places(
+    request: Request,
+    response: Response,
+    longitude: Annotated[float, Query(ge=-180, le=180)],
+    latitude: Annotated[float, Query(ge=-90, le=90)],
+    radius: Annotated[int, Query(ge=100, le=20_000)] = 2_000,
+    size: Annotated[int, Query(ge=1, le=15)] = 15,
+    settings: Settings = Depends(get_settings),
+    kakao: KakaoLocalClient = Depends(get_kakao_client),
+    cache: TTLCache = Depends(get_search_cache),
+    limiter: SlidingWindowRateLimiter = Depends(get_search_rate_limiter),
+) -> PlaceSearchResponse:
+    client_ip = request.client.host if request.client else "unknown"
+    retry_after = limiter.check(
+        client_ip,
+        limit=settings.search_rate_limit,
+        window_seconds=settings.search_rate_window_seconds,
+    )
+    if retry_after is not None:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail={
+                "code": "SEARCH_RATE_LIMITED",
+                "message": "장소 검색 요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+            },
+            headers={"Retry-After": str(retry_after)},
+        )
+
+    cache_key = repr(
+        (
+            "nearby",
+            round(longitude, 4),
+            round(latitude, 4),
+            radius,
+            size,
+        )
+    )
+    cached = cache.get(cache_key)
+    if cached is not None:
+        response.headers["X-Place-Provider"] = "KAKAO"
+        response.headers["X-Search-Cache"] = "HIT"
+        return cached
+
+    try:
+        category_results = await asyncio.gather(
+            *(
+                kakao.search_places_by_category(
+                    category_group_code=category_code,
+                    longitude=longitude,
+                    latitude=latitude,
+                    radius=radius,
+                    size=15,
+                )
+                for category_code in NEARBY_CATEGORY_CODES
+            )
+        )
+    except KakaoNotConfiguredError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": "PLACE_SEARCH_NOT_CONFIGURED",
+                "message": "Kakao 장소 검색 API 키가 설정되지 않았습니다.",
+            },
+        ) from error
+    except KakaoUpstreamError as error:
+        raise _search_unavailable() from error
+
+    places_by_id: dict[str, PlaceSearchItem] = {}
+    for category_result in category_results:
+        for place in category_result.places:
+            places_by_id.setdefault(place.id, place)
+    places = sorted(
+        places_by_id.values(),
+        key=lambda place: (
+            place.distance is None,
+            place.distance if place.distance is not None else 0,
+        ),
+    )[:size]
+    result = PlaceSearchResponse(
+        meta=PlaceSearchMeta(
+            totalCount=len(places_by_id),
+            pageableCount=len(places),
+            isEnd=True,
+        ),
+        places=places,
+    )
+    cache.set(cache_key, result, settings.search_cache_ttl_seconds)
+    response.headers["X-Place-Provider"] = "KAKAO"
+    response.headers["X-Search-Cache"] = "MISS"
+    return result
 
 
 @router.get(
