@@ -48,3 +48,28 @@ uvicorn app.main:app --reload --port 8000
 ```bash
 pytest
 ```
+
+## Docker
+
+백엔드 디렉터리를 빌드 컨텍스트로 사용합니다.
+
+```bash
+cd backend
+docker build -t play-gyeongju-backend .
+```
+
+API 키는 이미지에 포함하지 않고 실행 시 `.env`로 전달합니다. 현재 로컬
+SQLite 데이터와 업로드 파일은 Docker 볼륨에 보존합니다.
+
+```bash
+docker run --rm \
+  --name play-gyeongju-backend \
+  --env-file .env \
+  -p 8000:8000 \
+  -v play-gyeongju-data:/app/data \
+  -v play-gyeongju-uploads:/app/uploads \
+  play-gyeongju-backend
+```
+
+실행 후 `http://localhost:8000/health`에서 상태를 확인할 수 있습니다.
+운영 MySQL 연결은 데이터베이스 계층 전환 시 별도로 적용합니다.
