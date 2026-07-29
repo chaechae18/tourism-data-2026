@@ -35,6 +35,7 @@ def test_upload_image_returns_local_url(tmp_path: Path) -> None:
             search_cache_ttl_seconds=300,
             search_rate_limit=30,
             search_rate_window_seconds=60,
+            admin_api_key="test-admin-key",
             cors_origins=("http://localhost:3000",),
         )
 

@@ -21,6 +21,7 @@ class Settings:
     search_cache_ttl_seconds: int
     search_rate_limit: int
     search_rate_window_seconds: int
+    admin_api_key: str
     cors_origins: tuple[str, ...]
 
 
@@ -61,5 +62,6 @@ def get_settings() -> Settings:
         search_rate_window_seconds=int(
             os.getenv("SEARCH_RATE_WINDOW_SECONDS", "60")
         ),
+        admin_api_key=os.getenv("ADMIN_API_KEY", "").strip(),
         cors_origins=cors_origins,
     )

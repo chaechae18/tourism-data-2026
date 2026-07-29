@@ -9,6 +9,8 @@ from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .database import initialize_database
+from .routers.admin import router as admin_router
+from .routers.interactions import router as interactions_router
 from .routers.places import router as places_router
 from .routers.spots import router as spots_router
 from .routers.uploads import router as uploads_router
@@ -85,5 +87,7 @@ def health() -> dict[str, str]:
 
 app.include_router(places_router)
 app.include_router(spots_router)
+app.include_router(interactions_router)
+app.include_router(admin_router)
 app.include_router(uploads_router)
 app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")

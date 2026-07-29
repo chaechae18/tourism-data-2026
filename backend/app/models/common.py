@@ -15,3 +15,12 @@ class PlaceType(StrEnum):
 class PlaceProvider(StrEnum):
     KAKAO = "KAKAO"
     NAVER = "NAVER"
+
+
+class ReactionType(StrEnum):
+    LIKE = "like"
+    BOOKMARK = "bookmark"
+
+    @property
+    def database_value(self) -> int:
+        return 1 if self is ReactionType.LIKE else 2
