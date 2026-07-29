@@ -5,6 +5,7 @@ export const SPOT_REVIEW_LIMIT = 350;
 export const RANKING_RESET_LABEL = "오늘 00:00 기준";
 export const DONGGYEONG_NUMBER = "540";
 export const DEFAULT_USER = {
+  no: 1,
   nickname: "lotus_traveler",
   email: "traveler@example.com",
   language: "ko",
