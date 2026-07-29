@@ -4,7 +4,8 @@ import SectionStatus, { SkeletonBlock } from "./SectionStatus";
 /**
  * GET /api/main/places/recommended — 메인 추천 관광지, 조회수 내림차순.
  *
- * PLACE has no translation table, so `lang` does not change what arrives here.
+ * `name`, `text`, `address`, `admission_fee` 는 PLACE_I18N 을 거쳐 `lang` 에 따라
+ * 번역되어 도착한다. 좌표는 번역 대상이 아니라 언어와 무관하게 같은 값이다.
  */
 export default function RecommendedPlaces({ places, loading, error, onRetry }) {
   return (

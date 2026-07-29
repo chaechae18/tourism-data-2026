@@ -43,7 +43,10 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
       </div>
 
       <div>
-        <SectionHeading eyebrow="Festival" title="지금 열리는 행사" />
+        {/* API 가 내려주는 건 "아직 안 끝난 행사"라 이미 시작한 것과 앞으로 열릴 것이
+            섞여 있습니다. "지금 열리는"이라고 하면 10월 축제가 지금 열리는 것처럼
+            읽혀서, 둘 다 포함하는 말로 씁니다. */}
+        <SectionHeading eyebrow="Festival" title="다가오는 행사" />
         <FestivalList {...festivals} />
       </div>
 
