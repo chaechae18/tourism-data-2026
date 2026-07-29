@@ -38,11 +38,11 @@ describe("GyeongjuMap2D", () => {
     expect(screen.getByRole("button", { name: "불국사 선택" })).toBeInTheDocument();
   });
 
-  it("falls back to a demo route before a TMAP key is connected", async () => {
+  it("shows a guidance message when no TMAP key is connected", async () => {
     render(<GyeongjuMap2D {...PROPS} />);
 
     fireEvent.click(screen.getByRole("button", { name: "TMAP 길찾기" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("데모 경로");
+    expect(await screen.findByRole("status")).toHaveTextContent("TMAP 키");
   });
 });

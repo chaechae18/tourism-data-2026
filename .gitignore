@@ -4,3 +4,5 @@ out
 .DS_Store
 *.blend1
 frontend/.env.local
+.env
+.env.local
