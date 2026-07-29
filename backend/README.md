@@ -12,8 +12,25 @@ pip install -r requirements-dev.txt
 cp .env.example .env
 ```
 
-`.env`의 `KAKAO_REST_API_KEY`에 Kakao Developers에서 발급한 REST API
-키를 입력한 뒤 서버를 실행합니다.
+`.env`에 외부 API 키와 로컬 설정을 입력합니다.
+
+```env
+KAKAO_REST_API_KEY=
+NAVER_CLIENT_ID=
+NAVER_CLIENT_SECRET=
+ADMIN_API_KEY=
+DATABASE_PATH=./data/play_gyeongju.db
+UPLOAD_DIR=./uploads
+MAX_UPLOAD_BYTES=10485760
+SEARCH_CACHE_TTL_SECONDS=300
+SEARCH_RATE_LIMIT=30
+SEARCH_RATE_WINDOW_SECONDS=60
+CORS_ORIGINS=http://localhost:3000
+```
+
+Kakao 검색이 실패하거나 결과가 없으면 Naver 지역 검색을 사용합니다.
+이미지는 로컬 `uploads/` 디렉터리에 저장하며 JPEG, PNG, WebP 형식과
+10MB 이하 파일만 허용합니다.
 
 ```bash
 uvicorn app.main:app --reload --port 8000
