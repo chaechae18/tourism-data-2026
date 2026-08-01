@@ -70,7 +70,7 @@ export default function PlayGyeongju() {
       </header>
 
       <main className="w-full px-4 py-6">
-        {activeTab === "home" && <HomeTab onMapOpen={() => setActiveTab("map")} />}
+        {activeTab === "home" && <HomeTab language={user.language} onMapOpen={() => setActiveTab("map")} />}
         {activeTab === "my-dg" && <MyDGTab completedQuestIds={completedQuestIds} onMapQuest={openQuestOnMap} onSaveOutfit={() => showNotice("현재 착장을 저장했어요.")} outfit={outfit} setOutfit={setOutfit} />}
         {activeTab === "map" && <GyeongjuMap2D completedQuestIds={completedQuestIds} onComplete={completeQuest} onDocent={(quest) => showNotice(`${quest.name} 도슨트를 준비하고 있어요.`)} onSelect={(quest) => setSelectedQuestId(quest.id)} selectedPlace={selectedQuest} />}
         {activeTab === "spots" && <SpotsTab user={user} />}
