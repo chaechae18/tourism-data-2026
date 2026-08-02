@@ -4,7 +4,7 @@
 
 ```text
 frontend/  Next.js + React + Tailwind CSS
-backend/   FastAPI + SQLite API 서버
+backend/   FastAPI + MySQL API 서버
 ```
 
 프론트엔드 실행과 환경변수 설정은 [frontend/README.md](./frontend/README.md)를 참고하세요.

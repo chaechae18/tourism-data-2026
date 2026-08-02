@@ -1,9 +1,9 @@
 from typing import Annotated
-import sqlite3
+import pymysql
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 
-from ..database import get_database
+from ..mysql import get_mysql
 from ..interactions import create_comment, list_comments, set_reaction
 from ..models.common import ReactionType
 from ..models.spots import (
@@ -26,7 +26,7 @@ def add_reaction(
     spot_id: int,
     reaction_type: ReactionType,
     user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
-    database: sqlite3.Connection = Depends(get_database),
+    database: pymysql.Connection = Depends(get_mysql),
 ) -> ReactionResponse:
     return _set_reaction(
         database,
@@ -46,7 +46,7 @@ def remove_reaction(
     spot_id: int,
     reaction_type: ReactionType,
     user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
-    database: sqlite3.Connection = Depends(get_database),
+    database: pymysql.Connection = Depends(get_mysql),
 ) -> ReactionResponse:
     return _set_reaction(
         database,
@@ -58,7 +58,7 @@ def remove_reaction(
 
 
 def _set_reaction(
-    database: sqlite3.Connection,
+    database: pymysql.Connection,
     *,
     spot_id: int,
     user_no: int,
@@ -101,7 +101,7 @@ def add_comment(
     spot_id: int,
     request: CommentCreateRequest,
     user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
-    database: sqlite3.Connection = Depends(get_database),
+    database: pymysql.Connection = Depends(get_mysql),
 ) -> CommentResponse:
     try:
         return create_comment(
@@ -140,7 +140,7 @@ def get_comments(
         Header(alias="X-User-No", ge=1),
     ] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
-    database: sqlite3.Connection = Depends(get_database),
+    database: pymysql.Connection = Depends(get_mysql),
 ) -> list[CommentResponse]:
     try:
         return list_comments(
