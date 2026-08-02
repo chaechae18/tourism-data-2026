@@ -2,7 +2,7 @@ from io import BytesIO
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
-import sqlite3
+import pymysql
 
 from fastapi import (
     APIRouter,
@@ -17,7 +17,7 @@ from fastapi import (
 from PIL import Image, UnidentifiedImageError
 
 from ..config import Settings, get_settings
-from ..database import get_database
+from ..mysql import get_mysql
 from ..models.uploads import ImageUploadResponse
 
 
@@ -31,13 +31,15 @@ ALLOWED_FORMATS = {
 
 
 def validate_active_user(
-    database: sqlite3.Connection,
+    database: pymysql.Connection,
     user_no: int,
 ) -> None:
-    user = database.execute(
-        "SELECT NO FROM USERS WHERE NO = ? AND STATUS = 1 AND DELETED_AT IS NULL",
-        (user_no,),
-    ).fetchone()
+    with database.cursor() as cursor:
+        cursor.execute(
+            "SELECT NO FROM USERS WHERE NO = %s AND STATUS = 1 AND DELETED_AT IS NULL",
+            (user_no,),
+        )
+        user = cursor.fetchone()
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -88,7 +90,7 @@ async def upload_image(
     request: Request,
     file: Annotated[UploadFile, File()],
     user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
-    database: sqlite3.Connection = Depends(get_database),
+    database: pymysql.Connection = Depends(get_mysql),
     settings: Settings = Depends(get_settings),
 ) -> ImageUploadResponse:
     validate_active_user(database, user_no)

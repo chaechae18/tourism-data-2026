@@ -1,11 +1,11 @@
 from hmac import compare_digest
 from typing import Annotated, Literal
-import sqlite3
+import pymysql
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 
 from ..config import Settings, get_settings
-from ..database import get_database
+from ..mysql import get_mysql
 from ..models.spots import (
     ModerationRequest,
     ModerationResponse,
@@ -48,7 +48,7 @@ def update_moderation(
     target_type: Literal["spot", "comment"],
     target_id: int,
     request: ModerationRequest,
-    database: sqlite3.Connection = Depends(get_database),
+    database: pymysql.Connection = Depends(get_mysql),
 ) -> ModerationResponse:
     try:
         return moderate(

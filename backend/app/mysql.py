@@ -41,3 +41,17 @@ def fetch_all(connection: pymysql.Connection, sql: str, parameters: tuple = ()) 
     with connection.cursor() as cursor:
         cursor.execute(sql, parameters)
         return cursor.fetchall()
+
+
+def initialize_database() -> None:
+    """Apply the single MySQL schema used by every API feature."""
+    schema_path = BACKEND_DIR / "db" / "schema.mysql.sql"
+    statements = [
+        statement.strip()
+        for statement in schema_path.read_text(encoding="utf-8").split(";")
+        if statement.strip()
+    ]
+    with connect() as connection:
+        with connection.cursor() as cursor:
+            for statement in statements:
+                cursor.execute(statement)
