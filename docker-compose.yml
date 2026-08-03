@@ -1,0 +1,32 @@
+services:
+  db:
+    image: mysql:8.4
+    ports:
+      - "3306:3306"
+    env_file:
+      - ./backend/.env
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./backend/db/schema.mysql.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  backend:
+    build: ./backend
+    env_file:
+      - ./backend/.env
+    environment:
+      # 컨테이너 안에서는 localhost 가 아니라 db 서비스로 접속
+      DB_HOST: db
+    ports:
+      - "8001:8000"
+    volumes:
+      - uploads-data:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  mysql-data:
+  uploads-data:

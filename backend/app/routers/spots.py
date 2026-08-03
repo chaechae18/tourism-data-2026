@@ -1,5 +1,5 @@
 from typing import Annotated
-import sqlite3
+import pymysql
 
 from fastapi import (
     APIRouter,
@@ -11,7 +11,7 @@ from fastapi import (
     status,
 )
 
-from ..database import get_database
+from ..mysql import get_mysql
 from ..models.spots import SpotCreateRequest, SpotResponse
 from ..spots import (
     SpotForbiddenError,
@@ -36,7 +36,7 @@ router = APIRouter(prefix="/api/v1/spots", tags=["spots"])
 def register_spot(
     request: SpotCreateRequest,
     user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
-    database: sqlite3.Connection = Depends(get_database),
+    database: pymysql.Connection = Depends(get_mysql),
 ) -> SpotResponse:
     try:
         return create_spot(database, user_no=user_no, request=request)
@@ -65,7 +65,7 @@ def get_public_spots(
         int | None,
         Query(alias="beforeId", ge=1),
     ] = None,
-    database: sqlite3.Connection = Depends(get_database),
+    database: pymysql.Connection = Depends(get_mysql),
 ) -> list[SpotResponse]:
     return list_public_spots(
         database,
@@ -83,7 +83,7 @@ def get_public_spots(
 def get_my_spots(
     user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
-    database: sqlite3.Connection = Depends(get_database),
+    database: pymysql.Connection = Depends(get_mysql),
 ) -> list[SpotResponse]:
     try:
         return list_user_spots(database, user_no=user_no, limit=limit)
@@ -101,7 +101,7 @@ def get_my_spots(
 def remove_spot(
     spot_id: int,
     user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
-    database: sqlite3.Connection = Depends(get_database),
+    database: pymysql.Connection = Depends(get_mysql),
 ) -> Response:
     try:
         delete_spot(database, spot_id=spot_id, user_no=user_no)

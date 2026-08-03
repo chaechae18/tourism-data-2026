@@ -1,5 +1,6 @@
 from collections.abc import Callable, Iterator
 import os
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 import pymysql
@@ -10,6 +11,7 @@ from app.mysql import connect, get_mysql
 
 
 TEST_DATABASE = os.getenv("TEST_DB_NAME", "play_gyeongju_test")
+SCHEMA_PATH = Path(__file__).resolve().parents[1] / "db" / "schema.mysql.sql"
 
 # 팀 MySQL DDL 중 홈 API 가 읽는 테이블만 옮겨 적었다. MAIN_BANNER / POPUP /
 # POPUP_I18N 은 아직 팀 DDL 에 없어서 여기가 유일한 정의다.
@@ -114,6 +116,9 @@ def mysql_database() -> Iterator[pymysql.Connection]:
     with connection.cursor() as cursor:
         for table, columns in TABLES.items():
             cursor.execute(f"CREATE TABLE {table} ({columns})")
+        for statement in SCHEMA_PATH.read_text(encoding="utf-8").split(";"):
+            if statement.strip():
+                cursor.execute(statement)
     yield connection
     connection.close()
 
@@ -126,8 +131,15 @@ def mysql_database() -> Iterator[pymysql.Connection]:
 @pytest.fixture
 def database(mysql_database: pymysql.Connection) -> pymysql.Connection:
     with mysql_database.cursor() as cursor:
-        for table in TABLES:
-            cursor.execute(f"TRUNCATE TABLE {table}")
+        cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
+        cursor.execute("SHOW TABLES")
+        for row in cursor.fetchall():
+            cursor.execute(f"TRUNCATE TABLE `{next(iter(row.values()))}`")
+        cursor.execute("SET FOREIGN_KEY_CHECKS = 1")
+        cursor.execute(
+            """INSERT INTO USERS (NO, ID, NICKNAME, COUNTRY, EMAIL, LANGUAGE_CODE)
+            VALUES (1, 'local-development-user', 'lotus_traveler', 'KR', 'traveler@example.com', 'ko')"""
+        )
     return mysql_database
 
 

@@ -8,7 +8,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
-from .database import initialize_database
+from .mysql import initialize_database
 from .routers.admin import router as admin_router
 from .routers.home import router as home_router
 from .routers.interactions import router as interactions_router
