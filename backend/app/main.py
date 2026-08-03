@@ -14,6 +14,7 @@ from .routers.interactions import router as interactions_router
 from .routers.places import router as places_router
 from .routers.spots import router as spots_router
 from .routers.uploads import router as uploads_router
+from .routers.auth import router as auth_router
 
 
 @asynccontextmanager
@@ -91,3 +92,4 @@ app.include_router(interactions_router)
 app.include_router(admin_router)
 app.include_router(uploads_router)
 app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
+app.include_router(auth_router)
