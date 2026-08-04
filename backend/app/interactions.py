@@ -2,7 +2,8 @@ import pymysql
 
 from .models.common import ReactionType
 from .models.spots import CommentCreateRequest, CommentResponse, ReactionResponse
-from .spots import SpotNotFoundError, UserNotFoundError
+from .notifications import create_notification
+from .spots import SpotNotFoundError, UserNotFoundError, transaction
 
 
 def _one(connection: pymysql.Connection, sql: str, parameters: tuple = ()) -> dict | None:
@@ -36,16 +37,39 @@ def require_approved_spot(connection: pymysql.Connection, spot_id: int) -> None:
 def set_reaction(connection: pymysql.Connection, *, spot_id: int, user_no: int, reaction_type: ReactionType, active: bool) -> ReactionResponse:
     require_active_user(connection, user_no)
     require_approved_spot(connection, spot_id)
-    if active:
-        _execute(connection, "INSERT IGNORE INTO SPOT_REACTIONS (SPOT_IDX, USER_NO, TYPE) VALUES (%s, %s, %s)", (spot_id, user_no, reaction_type.database_value))
-    else:
-        _execute(connection, "DELETE FROM SPOT_REACTIONS WHERE SPOT_IDX = %s AND USER_NO = %s AND TYPE = %s", (spot_id, user_no, reaction_type.database_value))
-    _execute(connection, """
-        UPDATE SPOTS SET LIKE_COUNT = (
-            SELECT COUNT(*) FROM SPOT_REACTIONS AS reactions
-            WHERE reactions.SPOT_IDX = %s AND reactions.TYPE = 1
-        ) WHERE IDX = %s
-        """, (spot_id, spot_id))
+    inserted = False
+    with transaction(connection):
+        if active:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "INSERT IGNORE INTO SPOT_REACTIONS (SPOT_IDX, USER_NO, TYPE) VALUES (%s, %s, %s)",
+                    (spot_id, user_no, reaction_type.database_value),
+                )
+                inserted = cursor.rowcount > 0
+        else:
+            _execute(connection, "DELETE FROM SPOT_REACTIONS WHERE SPOT_IDX = %s AND USER_NO = %s AND TYPE = %s", (spot_id, user_no, reaction_type.database_value))
+        _execute(connection, """
+            UPDATE SPOTS SET LIKE_COUNT = (
+                SELECT COUNT(*) FROM SPOT_REACTIONS AS reactions
+                WHERE reactions.SPOT_IDX = %s AND reactions.TYPE = 1
+            ) WHERE IDX = %s
+            """, (spot_id, spot_id))
+        if inserted and reaction_type == ReactionType.LIKE:
+            spot = _one(
+                connection,
+                "SELECT USER_NO, PLACE_NAME FROM SPOTS WHERE IDX = %s",
+                (spot_id,),
+            )
+            if spot and spot["USER_NO"] != user_no:
+                create_notification(
+                    connection,
+                    user_no=spot["USER_NO"],
+                    notification_type="SPOT_LIKE",
+                    title="새로운 좋아요",
+                    message=f"{spot['PLACE_NAME']} 스팟에 좋아요가 눌렸어요.",
+                    target_type="SPOT",
+                    target_id=spot_id,
+                )
     like_count = _one(connection, "SELECT LIKE_COUNT FROM SPOTS WHERE IDX = %s", (spot_id,))["LIKE_COUNT"]
     return ReactionResponse(spotId=spot_id, type=reaction_type, active=active, likeCount=like_count)
 

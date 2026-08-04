@@ -24,6 +24,10 @@ DB_PORT=3306
 DB_NAME=play_gyeongju
 DB_USER=play_gyeongju
 DB_PASSWORD=
+MYSQL_DATABASE=play_gyeongju
+MYSQL_USER=play_gyeongju
+MYSQL_PASSWORD=
+MYSQL_ROOT_PASSWORD=
 UPLOAD_DIR=./uploads
 MAX_UPLOAD_BYTES=10485760
 SEARCH_CACHE_TTL_SECONDS=300
@@ -54,6 +58,6 @@ pytest
 
 ## Docker Compose
 
-프로젝트 루트에서 `docker compose up --build`를 실행합니다. `backend/.env`에는
-외부 API 키를, 루트 `.env`에는 MySQL 계정 정보를 설정할 수 있습니다. MySQL 데이터와
-업로드 파일은 Docker 볼륨에 보존됩니다.
+프로젝트 루트에서 `docker compose up --build`를 실행합니다. 외부 API 키와
+MySQL 계정 정보는 모두 `backend/.env`에 설정합니다. MySQL 데이터와 업로드
+파일은 Docker 볼륨에 보존됩니다.

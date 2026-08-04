@@ -69,8 +69,15 @@ export async function createSpot(body) {
   });
 }
 
-export async function listPublicSpots() {
-  return request("/api/v1/spots?limit=20", {
+export async function listPublicSpots(sort = "likes") {
+  const parameters = new URLSearchParams({ limit: "20", sort });
+  return request(`/api/v1/spots?${parameters}`, {
+    headers: userHeaders(),
+  });
+}
+
+export async function listSpotRanking() {
+  return request("/api/v1/spots/ranking?limit=20", {
     headers: userHeaders(),
   });
 }

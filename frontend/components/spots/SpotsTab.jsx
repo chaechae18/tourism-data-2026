@@ -4,12 +4,15 @@ import {
   Heart,
   ImagePlus,
   LoaderCircle,
+  List,
   LocateFixed,
   MapPin,
   MessageCircle,
   Search,
   Send,
+  SquarePen,
   Trash2,
+  Trophy,
 } from "lucide-react";
 import {
   createSpot,
@@ -17,13 +20,14 @@ import {
   deleteSpot,
   listMySpots,
   listPublicSpots,
+  listSpotRanking,
   listSpotComments,
   searchNearbyPlaces,
   searchPlaces,
   setSpotReaction,
   uploadSpotImage,
 } from "../../lib/api/spots";
-import { BLOCKED_WORDS, SPOT_REVIEW_LIMIT } from "../../lib/app-data";
+import { BLOCKED_WORDS, RANKING_RESET_LABEL, SPOT_REVIEW_LIMIT } from "../../lib/app-data";
 import AppButton, { IconButton } from "../ui/AppButton";
 import SectionHeading from "../ui/SectionHeading";
 
@@ -166,6 +170,8 @@ function SpotCard({
 }
 
 export default function SpotsTab() {
+  const [activeView, setActiveView] = useState("ranking");
+  const [listSort, setListSort] = useState("likes");
   const [query, setQuery] = useState("");
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
@@ -175,6 +181,7 @@ export default function SpotsTab() {
   const [review, setReview] = useState("");
   const [photoFile, setPhotoFile] = useState(null);
   const [publicSpots, setPublicSpots] = useState([]);
+  const [rankingSpots, setRankingSpots] = useState([]);
   const [mySpots, setMySpots] = useState([]);
   const [commentsBySpot, setCommentsBySpot] = useState({});
   const [commentTarget, setCommentTarget] = useState(null);
@@ -185,16 +192,18 @@ export default function SpotsTab() {
 
   const loadSpots = useCallback(async () => {
     try {
-      const [publicItems, myItems] = await Promise.all([
-        listPublicSpots(),
+      const [rankingItems, publicItems, myItems] = await Promise.all([
+        listSpotRanking(),
+        listPublicSpots(listSort),
         listMySpots(),
       ]);
+      setRankingSpots(rankingItems);
       setPublicSpots(publicItems);
       setMySpots(myItems);
     } catch (error) {
       setNotice(error.message);
     }
-  }, []);
+  }, [listSort]);
 
   useEffect(() => {
     loadSpots();
@@ -339,6 +348,11 @@ export default function SpotsTab() {
             }
           : item
       )));
+      setRankingSpots((current) => current.map((item) => (
+        item.id === spot.id
+          ? { ...item, [stateKey]: result.active, likeCount: result.likeCount }
+          : item
+      )));
     } catch (error) {
       setNotice(error.message);
     }
@@ -388,7 +402,65 @@ export default function SpotsTab() {
   return (
     <section className="space-y-7">
       <SectionHeading eyebrow="Spot sharing" title="나만의 경주 스팟" />
-      <div className="border-y border-[#e6ddd2] py-5">
+      <nav className="sticky top-0 z-20 -mx-4 border-y border-[#e6ddd2] bg-[#f7f7f5]/95 px-4 py-2 backdrop-blur" aria-label="스팟 상단 메뉴">
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { id: "ranking", label: "랭킹", icon: Trophy },
+            { id: "list", label: "목록", icon: List },
+            { id: "create", label: "나의 스팟 등록", icon: SquarePen },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const active = activeView === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                aria-pressed={active}
+                onClick={() => setActiveView(tab.id)}
+                className={`flex min-h-11 items-center justify-center gap-1.5 rounded-lg px-2 text-xs font-bold transition-colors ${active ? "bg-[#343235] text-white" : "bg-white text-[#6f6256]"}`}
+              >
+                <Icon size={15} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+      {notice && <p className="text-sm font-bold text-[#a45118]">{notice}</p>}
+
+      <div className={activeView === "ranking" ? "" : "hidden"}>
+        <SectionHeading
+          eyebrow="Daily ranking"
+          title="오늘의 스팟 랭킹"
+          action={<span className="text-xs font-bold text-[#8a7d71]">{RANKING_RESET_LABEL}</span>}
+        />
+        <div className="space-y-3">
+          {rankingSpots.map((spot) => (
+            <div key={spot.id} className="relative">
+              <span className="absolute -left-2 -top-2 z-10 flex h-8 min-w-8 items-center justify-center rounded-full bg-[#bd8c31] px-2 text-sm font-black text-white shadow-md">
+                {spot.rank}
+              </span>
+              <SpotCard
+                spot={spot}
+                comment={commentTarget === spot.id ? comment : ""}
+                comments={commentsBySpot[spot.id] || []}
+                commentsOpen={commentTarget === spot.id}
+                onCommentChange={setComment}
+                onCommentSubmit={submitComment}
+                onDelete={removeSpot}
+                onOpenComments={openComments}
+                onReaction={toggleReaction}
+                submittingComment={submittingComment}
+              />
+            </div>
+          ))}
+          {rankingSpots.length === 0 && (
+            <p className="text-sm text-[#7c6d61]">오늘 랭킹에 표시할 스팟이 없어요.</p>
+          )}
+        </div>
+      </div>
+
+      <div className={`border-y border-[#e6ddd2] py-5 ${activeView === "create" ? "" : "hidden"}`}>
         <label className="block">
           <span className="mb-1.5 block text-sm font-bold text-[#241b16]">장소 검색</span>
           <div className="relative">
@@ -505,11 +577,27 @@ export default function SpotsTab() {
         >
           {submitting ? "등록 중..." : "스팟 공유"}
         </AppButton>
-        {notice && <p className="mt-3 text-sm font-bold text-[#a45118]">{notice}</p>}
       </div>
 
-      <div>
-        <SectionHeading eyebrow="Approved spots" title="공개 스팟" />
+      <div className={activeView === "list" ? "" : "hidden"}>
+        <SectionHeading
+          eyebrow="Approved spots"
+          title="공개 스팟"
+          action={(
+            <label className="flex items-center gap-2 text-xs font-bold text-[#6f6256]">
+              정렬
+              <select
+                aria-label="스팟 목록 정렬"
+                value={listSort}
+                onChange={(event) => setListSort(event.target.value)}
+                className="h-9 rounded-lg border border-[#d9cfc2] bg-white px-2 outline-none"
+              >
+                <option value="likes">좋아요순</option>
+                <option value="newest">신규순</option>
+              </select>
+            </label>
+          )}
+        />
         <div className="space-y-3">
           {publicSpots.map((spot) => (
             <SpotCard
@@ -532,7 +620,7 @@ export default function SpotsTab() {
         </div>
       </div>
 
-      <div>
+      <div className={activeView === "create" ? "" : "hidden"}>
         <SectionHeading eyebrow="My posts" title="내가 쓴 게시글" />
         <div className="space-y-2">
           {mySpots.map((spot) => (

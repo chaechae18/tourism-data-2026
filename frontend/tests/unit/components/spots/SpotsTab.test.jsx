@@ -8,6 +8,7 @@ const api = vi.hoisted(() => ({
   deleteSpot: vi.fn(),
   listMySpots: vi.fn(),
   listPublicSpots: vi.fn(),
+  listSpotRanking: vi.fn(),
   listSpotComments: vi.fn(),
   searchNearbyPlaces: vi.fn(),
   searchPlaces: vi.fn(),
@@ -37,7 +38,6 @@ const SPOT = {
   userNo: 1,
   authorNickname: "lotus_traveler",
   place: {
-    placeId: 1,
     provider: "KAKAO",
     mapPlaceId: "8089382",
     type: "TOUR",
@@ -60,6 +60,7 @@ const SPOT = {
 describe("SpotsTab", () => {
   beforeEach(() => {
     api.listPublicSpots.mockResolvedValue([]);
+    api.listSpotRanking.mockResolvedValue([]);
     api.listMySpots.mockResolvedValue([]);
     api.searchPlaces.mockResolvedValue({ places: [PLACE] });
     api.searchNearbyPlaces.mockResolvedValue({
@@ -88,6 +89,7 @@ describe("SpotsTab", () => {
 
   it("searches for a place and registers the selected result", async () => {
     render(<SpotsTab />);
+    fireEvent.click(screen.getByRole("button", { name: "나의 스팟 등록" }));
 
     fireEvent.change(screen.getByPlaceholderText("어디에서 발견했나요?"), {
       target: { value: "첨성대" },
@@ -119,6 +121,7 @@ describe("SpotsTab", () => {
       value: { getCurrentPosition },
     });
     render(<SpotsTab />);
+    fireEvent.click(screen.getByRole("button", { name: "나의 스팟 등록" }));
 
     fireEvent.click(screen.getByRole("button", { name: "내 주변 장소" }));
 
@@ -140,6 +143,7 @@ describe("SpotsTab", () => {
 
   it("rejects a review containing a blocked expression", async () => {
     render(<SpotsTab />);
+    fireEvent.click(screen.getByRole("button", { name: "나의 스팟 등록" }));
 
     fireEvent.change(screen.getByPlaceholderText("어디에서 발견했나요?"), {
       target: { value: "첨성대" },
@@ -159,6 +163,7 @@ describe("SpotsTab", () => {
     api.listMySpots.mockResolvedValue([{ ...SPOT, moderationStatus: 0 }]);
     vi.spyOn(window, "confirm").mockReturnValue(true);
     render(<SpotsTab />);
+    fireEvent.click(screen.getByRole("button", { name: "나의 스팟 등록" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "내 스팟 삭제" }));
 
@@ -168,6 +173,7 @@ describe("SpotsTab", () => {
   it("likes a public spot and submits a comment", async () => {
     api.listPublicSpots.mockResolvedValue([SPOT]);
     render(<SpotsTab />);
+    fireEvent.click(screen.getByRole("button", { name: "목록" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "좋아요" }));
     await waitFor(() => expect(api.setSpotReaction).toHaveBeenCalledWith(1, "like", true));
@@ -183,5 +189,27 @@ describe("SpotsTab", () => {
       1,
       "야경이 좋아요.",
     ));
+  });
+
+  it("opens on the daily ranking tab", async () => {
+    api.listSpotRanking.mockResolvedValue([{ ...SPOT, rank: 1 }]);
+    render(<SpotsTab />);
+
+    expect(screen.getByRole("button", { name: "랭킹" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(await screen.findByText("오늘 00:00 기준")).toBeInTheDocument();
+    expect(await screen.findByText("1")).toBeInTheDocument();
+  });
+
+  it("reloads the list with the selected order", async () => {
+    render(<SpotsTab />);
+    fireEvent.click(screen.getByRole("button", { name: "목록" }));
+    fireEvent.change(screen.getByLabelText("스팟 목록 정렬"), {
+      target: { value: "newest" },
+    });
+
+    await waitFor(() => expect(api.listPublicSpots).toHaveBeenLastCalledWith("newest"));
   });
 });
