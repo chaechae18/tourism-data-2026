@@ -29,6 +29,7 @@ import {
 } from "../../lib/api/spots";
 import { BLOCKED_WORDS, RANKING_RESET_LABEL, SPOT_REVIEW_LIMIT } from "../../lib/app-data";
 import AppButton, { IconButton } from "../ui/AppButton";
+import AppModal from "../ui/AppModal";
 import SectionHeading from "../ui/SectionHeading";
 
 const MODERATION_LABEL = {
@@ -67,19 +68,24 @@ function formatDistance(distance) {
   return `${(distance / 1_000).toFixed(1)}km`;
 }
 
-function SpotPhoto({ spot }) {
+function SpotPhoto({
+  alt = "",
+  className = "h-16 w-16 shrink-0 rounded-lg object-cover",
+  iconSize = 24,
+  spot,
+}) {
   if (spot.photoUrl) {
     return (
       <img
-        alt={`${spot.place.name} 사진`}
-        className="h-16 w-16 shrink-0 rounded-lg object-cover"
+        alt={alt}
+        className={className}
         src={spot.photoUrl}
       />
     );
   }
   return (
-    <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-[#fff1df] text-[#b8661c]">
-      <MapPin size={24} />
+    <div className={`flex items-center justify-center bg-[#fff1df] text-[#b8661c] ${className}`}>
+      <MapPin size={iconSize} />
     </div>
   );
 }
@@ -95,11 +101,13 @@ function SpotCard({
   onReaction,
   spot,
   submittingComment,
+  className = "rounded-lg border border-[#e6ddd2] bg-white p-4",
+  hidePhoto = false,
 }) {
   return (
-    <article className="rounded-lg border border-[#e6ddd2] bg-white p-4">
+    <article className={className}>
       <div className="flex items-start gap-3">
-        <SpotPhoto spot={spot} />
+        {!hidePhoto && <SpotPhoto alt={`${spot.place.name} 사진`} spot={spot} />}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-[#8a7d71]">
@@ -183,17 +191,81 @@ function SpotCard({
   );
 }
 
+function SpotGridTile({ onOpen, spot }) {
+  return (
+    <button
+      type="button"
+      aria-label={`${spot.place.name} 게시물 열기`}
+      className="group relative aspect-square min-w-0 overflow-hidden bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8661c]"
+      onClick={() => onOpen(spot.id)}
+    >
+      <SpotPhoto
+        alt={`${spot.place.name} 미리보기`}
+        className="h-full w-full rounded-none object-cover transition-transform duration-200 group-hover:scale-105"
+        iconSize={28}
+        spot={spot}
+      />
+      <span className="pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-end gap-1 bg-gradient-to-t from-black/55 to-transparent px-2 pb-1.5 pt-6 text-[10px] font-bold text-white">
+        <Heart size={12} fill={spot.isLiked ? "currentColor" : "none"} />
+        {spot.likeCount}
+      </span>
+    </button>
+  );
+}
+
+function SpotDetailModal({
+  comment,
+  comments,
+  commentsOpen,
+  onClose,
+  onCommentChange,
+  onCommentSubmit,
+  onDelete,
+  onOpenComments,
+  onReaction,
+  spot,
+  submittingComment,
+}) {
+  return (
+    <AppModal open={Boolean(spot)} onClose={onClose} title="스팟 게시물">
+      {spot && (
+        <>
+          <div className="-mx-6">
+            <SpotPhoto
+              alt={`${spot.place.name} 게시물 사진`}
+              className="aspect-square w-full rounded-none object-cover"
+              iconSize={52}
+              spot={spot}
+            />
+          </div>
+          <SpotCard
+            spot={spot}
+            comment={comment}
+            comments={comments}
+            commentsOpen={commentsOpen}
+            onCommentChange={onCommentChange}
+            onCommentSubmit={onCommentSubmit}
+            onDelete={onDelete}
+            onOpenComments={onOpenComments}
+            onReaction={onReaction}
+            submittingComment={submittingComment}
+            className="bg-white pb-0 pt-4"
+            hidePhoto
+          />
+        </>
+      )}
+    </AppModal>
+  );
+}
+
 function DummySpotGridCard({ index }) {
   return (
     <article
       aria-label={`스팟 카드 자리 ${index}`}
       data-testid="spot-placeholder"
-      className="min-w-0 rounded-xl bg-white p-2.5 shadow-[0_3px_12px_rgba(52,50,53,0.06)]"
+      className="aspect-square min-w-0 bg-white p-2 shadow-[0_3px_12px_rgba(52,50,53,0.06)]"
     >
-      <div className="aspect-square rounded-lg bg-[#f1eee9]" />
-      <div className="mt-2 h-2.5 w-3/4 rounded-full bg-[#ece8e2]" />
-      <div className="mt-1.5 h-2 w-full rounded-full bg-[#f2efeb]" />
-      <div className="mt-1 h-2 w-2/3 rounded-full bg-[#f2efeb]" />
+      <div className="h-full w-full bg-[#f1eee9]" />
     </article>
   );
 }
@@ -240,6 +312,7 @@ export default function SpotsTab() {
   const [notice, setNotice] = useState("");
   const [errors, setErrors] = useState(INITIAL_ERRORS);
   const [refreshVersion, setRefreshVersion] = useState(0);
+  const [detailSpotId, setDetailSpotId] = useState(null);
   const approvalRefreshTimer = useRef(null);
 
   useEffect(() => () => {
@@ -413,6 +486,8 @@ export default function SpotsTab() {
       await deleteSpot(spotId);
       setMySpots((current) => current.filter((spot) => spot.id !== spotId));
       setPublicSpots((current) => current.filter((spot) => spot.id !== spotId));
+      setRankingSpots((current) => current.filter((spot) => spot.id !== spotId));
+      setDetailSpotId((current) => (current === spotId ? null : current));
       setNotice("스팟을 삭제했어요.");
     } catch (error) {
       const target = activeView === "ranking" ? "ranking" : activeView === "list" ? "list" : "my";
@@ -486,6 +561,13 @@ export default function SpotsTab() {
   const placeResults = searchResults.length > 0
     ? searchResults
     : nearbyResults;
+  const detailSpot = publicSpots.find((spot) => spot.id === detailSpotId) || null;
+
+  const closeSpotDetail = () => {
+    setDetailSpotId(null);
+    setCommentTarget(null);
+    setComment("");
+  };
 
   return (
     <section>
@@ -698,21 +780,16 @@ export default function SpotsTab() {
           <p className="mb-3 text-sm font-bold text-[#a45118]">{errors.list}</p>
         )}
         {publicSpots.length > 0 ? (
-          <div className="space-y-3">
+          <div
+            data-testid="spot-gallery"
+            className="grid max-h-[560px] grid-cols-3 gap-1 overflow-y-auto"
+          >
             {publicSpots.map((spot) => (
-            <SpotCard
-              key={spot.id}
-              spot={spot}
-              comment={commentTarget === spot.id ? comment : ""}
-              comments={commentsBySpot[spot.id] || []}
-              commentsOpen={commentTarget === spot.id}
-              onCommentChange={setComment}
-              onCommentSubmit={submitComment}
-              onDelete={removeSpot}
-              onOpenComments={openComments}
-              onReaction={toggleReaction}
-              submittingComment={submittingComment}
-            />
+              <SpotGridTile
+                key={spot.id}
+                spot={spot}
+                onOpen={setDetailSpotId}
+              />
             ))}
           </div>
         ) : (
@@ -753,6 +830,20 @@ export default function SpotsTab() {
           )}
         </div>
       </div>
+
+      <SpotDetailModal
+        spot={detailSpot}
+        comment={detailSpot && commentTarget === detailSpot.id ? comment : ""}
+        comments={detailSpot ? commentsBySpot[detailSpot.id] || [] : []}
+        commentsOpen={Boolean(detailSpot && commentTarget === detailSpot.id)}
+        onClose={closeSpotDetail}
+        onCommentChange={setComment}
+        onCommentSubmit={submitComment}
+        onDelete={removeSpot}
+        onOpenComments={openComments}
+        onReaction={toggleReaction}
+        submittingComment={submittingComment}
+      />
     </section>
   );
 }

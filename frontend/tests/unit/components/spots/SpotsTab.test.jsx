@@ -177,21 +177,44 @@ describe("SpotsTab", () => {
     api.listPublicSpots.mockResolvedValue([SPOT]);
     render(<SpotsTab />);
     fireEvent.click(screen.getByRole("button", { name: "스팟" }));
+    fireEvent.click(await screen.findByRole("button", { name: "첨성대 게시물 열기" }));
 
-    fireEvent.click(await screen.findByRole("button", { name: "좋아요" }));
+    const dialog = screen.getByRole("dialog", { name: "스팟 게시물" });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "좋아요" }));
     await waitFor(() => expect(api.setSpotReaction).toHaveBeenCalledWith(1, "like", true));
 
-    fireEvent.click(screen.getByRole("button", { name: "댓글" }));
-    await screen.findByPlaceholderText("댓글을 남겨보세요");
-    fireEvent.change(screen.getByPlaceholderText("댓글을 남겨보세요"), {
+    fireEvent.click(within(dialog).getByRole("button", { name: "댓글" }));
+    const commentInput = await within(dialog).findByPlaceholderText("댓글을 남겨보세요");
+    fireEvent.change(commentInput, {
       target: { value: "야경이 좋아요." },
     });
-    fireEvent.click(screen.getByRole("button", { name: "등록" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "등록" }));
 
     await waitFor(() => expect(api.createSpotComment).toHaveBeenCalledWith(
       1,
       "야경이 좋아요.",
     ));
+  });
+
+  it("shows public spots as a three-column gallery and opens a large post", async () => {
+    api.listPublicSpots.mockResolvedValue([{
+      ...SPOT,
+      photoUrl: "http://localhost:8001/uploads/cheomseongdae.jpg",
+    }]);
+    render(<SpotsTab />);
+    fireEvent.click(screen.getByRole("button", { name: "스팟" }));
+
+    const gallery = await screen.findByTestId("spot-gallery");
+    expect(gallery).toHaveClass("grid-cols-3", "overflow-y-auto");
+    fireEvent.click(screen.getByRole("button", { name: "첨성대 게시물 열기" }));
+
+    const dialog = screen.getByRole("dialog", { name: "스팟 게시물" });
+    expect(within(dialog).getByAltText("첨성대 게시물 사진")).toHaveClass(
+      "aspect-square",
+      "w-full",
+    );
+    expect(within(dialog).getByText("밤에 다시 보고 싶은 장소예요.")).toBeInTheDocument();
   });
 
   it("opens on the daily ranking tab", async () => {
