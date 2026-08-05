@@ -207,7 +207,9 @@ describe("SpotsTab", () => {
 
     const gallery = await screen.findByTestId("spot-gallery");
     expect(gallery).toHaveClass("grid-cols-3", "overflow-y-auto");
-    fireEvent.click(screen.getByRole("button", { name: "첨성대 게시물 열기" }));
+    const spotTile = screen.getByRole("button", { name: "첨성대 게시물 열기" });
+    expect(spotTile).toHaveClass("rounded-xl");
+    fireEvent.click(spotTile);
 
     const dialog = screen.getByRole("dialog", { name: "스팟 게시물" });
     expect(within(dialog).getByAltText("첨성대 게시물 사진")).toHaveClass(

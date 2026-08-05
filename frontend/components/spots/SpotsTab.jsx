@@ -196,7 +196,7 @@ function SpotGridTile({ onOpen, spot }) {
     <button
       type="button"
       aria-label={`${spot.place.name} 게시물 열기`}
-      className="group relative aspect-square min-w-0 overflow-hidden bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8661c]"
+      className="group relative aspect-square min-w-0 overflow-hidden rounded-xl bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8661c]"
       onClick={() => onOpen(spot.id)}
     >
       <SpotPhoto
@@ -263,7 +263,7 @@ function DummySpotGridCard({ index }) {
     <article
       aria-label={`스팟 카드 자리 ${index}`}
       data-testid="spot-placeholder"
-      className="aspect-square min-w-0 bg-white p-2 shadow-[0_3px_12px_rgba(52,50,53,0.06)]"
+      className="aspect-square min-w-0 overflow-hidden rounded-xl bg-white p-2 shadow-[0_3px_12px_rgba(52,50,53,0.06)]"
     >
       <div className="h-full w-full bg-[#f1eee9]" />
     </article>
