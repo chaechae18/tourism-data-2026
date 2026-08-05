@@ -40,12 +40,17 @@
 | `POST` | `/api/v1/uploads/images` | 로컬 이미지 업로드 |
 | `POST` | `/api/v1/spots` | 사용자 스팟 등록 |
 | `GET` | `/api/v1/spots` | 승인된 공개 스팟 목록 |
+| `GET` | `/api/v1/spots/ranking` | 매일 00시 기준 스팟 랭킹 |
 | `GET` | `/api/v1/spots/me` | 내가 등록한 스팟 목록 |
 | `DELETE` | `/api/v1/spots/{spotId}` | 내 스팟 삭제 |
 | `PUT` | `/api/v1/spots/{spotId}/reactions/{type}` | 좋아요·북마크 설정 |
 | `DELETE` | `/api/v1/spots/{spotId}/reactions/{type}` | 좋아요·북마크 해제 |
 | `GET` | `/api/v1/spots/{spotId}/comments` | 댓글 목록 |
 | `POST` | `/api/v1/spots/{spotId}/comments` | 댓글 등록 |
+| `GET` | `/api/v1/notifications` | 내 알림 목록 |
+| `PATCH` | `/api/v1/notifications/{notificationId}/read` | 알림 읽음 처리 |
+| `POST` | `/api/v1/notifications/quest-completed` | 퀘스트 달성 알림 생성 |
+| `GET` | `/api/v1/donggyeong/items` | 동경이 아이템 목록 |
 | `PATCH` | `/api/v1/admin/{targetType}/{targetId}/moderation` | 스팟·댓글 검수 |
 
 ## 1. 장소 검색
@@ -140,7 +145,7 @@ Naver 결과의 `id`는 Naver 응답의 링크·장소명·주소·좌표로 생
 
 응답 형식은 장소 검색과 동일하며 각 장소의 `distance`에 현재 위치로부터의
 거리(m)가 포함됩니다. 위치 좌표는 DB에 저장하지 않으며, 사용자가 장소를
-선택해 스팟을 등록할 때만 해당 장소가 `PLACE`에 저장됩니다.
+선택한 장소는 스팟 등록 요청에만 사용되며 `PLACE`에는 저장하지 않습니다.
 
 ## 3. 이미지 업로드
 
@@ -187,8 +192,9 @@ S3 또는 R2 저장 구현으로 교체해야 합니다.
 `POST /api/v1/spots`
 
 검색 응답에서 선택한 장소 객체를 그대로 `place`로 전달합니다. 서버는
-`PLACE(SOURCE, CONTENT_ID)`를 `provider + id` 기준으로 upsert한 뒤
-`SPOTS` 게시물을 생성합니다.
+선택 당시의 외부 장소 ID, 상호명, 주소, 위도, 경도를 `SPOTS`에 직접
+저장합니다. `SPOTS`는 사용자 게시물 데이터이며 `PLACE`와 연관되지 않고,
+스팟 등록·조회 과정에서 `PLACE`를 읽거나 수정하지 않습니다.
 
 ### Request
 
@@ -221,7 +227,10 @@ Content-Type: application/json
 ```
 
 `placeType`은 `TOUR` 또는 `FOOD`, `caption`은 공백 제외 1~350자입니다.
-신규 게시물은 검수 대기 상태(`moderationStatus: 0`)입니다.
+신규 게시물은 검수 대기 상태(`moderationStatus: 0`)로 반환됩니다. 실제 검수
+연동 전까지는 서버가 실행 중인 경우에 한해 등록 10초 뒤 임시 승인(`1`)되며,
+`TEMPORARY_AUTO_APPROVAL` 제공자로 검수 이력을 남깁니다. 임시 승인 시 오늘의
+랭킹 스냅샷도 갱신하여 다음 랭킹 조회부터 승인된 스팟을 포함합니다.
 
 ### Spot response
 
@@ -231,7 +240,6 @@ Content-Type: application/json
   "userNo": 1,
   "authorNickname": "lotus_traveler",
   "place": {
-    "placeId": 3,
     "provider": "KAKAO",
     "mapPlaceId": "8089382",
     "type": "TOUR",
@@ -256,10 +264,12 @@ Content-Type: application/json
 
 ### 승인된 공개 목록
 
-`GET /api/v1/spots?limit=20&beforeId=100`
+`GET /api/v1/spots?limit=20&beforeId=100&sort=newest`
 
 - `X-User-No`는 선택 사항입니다.
-- 승인 상태이며 삭제되지 않은 스팟만 최신순으로 반환합니다.
+- 승인 상태이며 삭제되지 않은 스팟만 반환합니다.
+- `sort=likes`는 좋아요순, `sort=newest`는 신규순입니다.
+- `beforeId`는 `sort=newest`에서만 다음 페이지 커서로 사용합니다.
 - 로그인 사용자를 전달하면 `isLiked`, `isBookmarked`, `isOwner`가 계산됩니다.
 - 다음 페이지는 마지막 항목의 `id`를 `beforeId`로 전달합니다.
 
@@ -367,6 +377,30 @@ Content-Type: application/json
 ```
 
 검수 결과는 `MODERATION_LOG`에도 기록합니다.
+
+## 9. 일일 랭킹
+
+`GET /api/v1/spots/ranking?limit=20`
+
+승인된 스팟을 좋아요 수, 작성 시각 순으로 정렬합니다. 매일 첫 조회에서 당일
+랭킹 스냅샷을 만들며 응답의 `rankingUpdatedAt`은 해당 날짜 00시입니다. 같은
+날에는 좋아요 수가 바뀌어도 순위가 다시 계산되지 않습니다. 단, 실제 검수 연동
+전의 10초 임시 승인이 발생하면 승인된 스팟 노출을 위해 당일 스냅샷을 한 번
+다시 생성합니다.
+
+## 10. 알림
+
+스팟에 새로운 좋아요가 추가되면 게시글 작성자에게 `SPOT_LIKE` 알림을 만듭니다.
+본인이 누른 좋아요와 중복 PUT 요청은 알림을 만들지 않습니다. 퀘스트 완료 시에는
+`POST /api/v1/notifications/quest-completed`로 `QUEST_COMPLETED` 알림을 만듭니다.
+
+## 11. 동경이 아이템
+
+`GET /api/v1/donggyeong/items`
+
+동경이 전용 아이템의 슬롯, 이미지 URL, 모델 URL과 모델 확장자를 반환합니다.
+모델 확장자는 `.glb`, `.gltf`만 인식합니다. GLB 메모리 관리 방식은
+[`donggyeong-glb-cache.md`](./donggyeong-glb-cache.md)를 참고합니다.
 
 ## 프론트 연동 순서
 

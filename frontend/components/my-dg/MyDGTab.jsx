@@ -1,12 +1,14 @@
 import { Check, ChevronRight, MapPin, Save } from "lucide-react";
+import { useEffect, useState } from "react";
 import { DG_INVENTORY, DG_SLOTS, DONGGYEONG_NUMBER, QUESTS } from "../../lib/app-data";
+import { listDonggyeongItems } from "../../lib/api/donggyeong";
 import Donggyeong3D from "../donggyeong/Donggyeong3D";
 import AppButton from "../ui/AppButton";
 import SectionHeading from "../ui/SectionHeading";
 
-function getItem(itemId) {
-  return DG_INVENTORY.find((item) => item.id === itemId);
-}
+const ITEM_PRESENTATION = Object.fromEntries(
+  DG_INVENTORY.map((item) => [item.name, item]),
+);
 
 function SlotButton({ item, label, onClick }) {
   return (
@@ -18,7 +20,25 @@ function SlotButton({ item, label, onClick }) {
 }
 
 export default function MyDGTab({ completedQuestIds, onMapQuest, onSaveOutfit, outfit, setOutfit }) {
+  const [inventory, setInventory] = useState(DG_INVENTORY);
+  const getItem = (itemId) => inventory.find((item) => item.id === itemId);
   const equipItem = (item) => setOutfit((current) => ({ ...current, [item.slot]: item.id }));
+
+  useEffect(() => {
+    let active = true;
+    listDonggyeongItems()
+      .then((items) => {
+        if (!active || items.length === 0) return;
+        setInventory(items.map((item) => ({
+          ...item,
+          id: String(item.id),
+          color: ITEM_PRESENTATION[item.name]?.color || "#747579",
+          symbol: ITEM_PRESENTATION[item.name]?.symbol || "◆",
+        })));
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
 
   return (
     <section className="space-y-8">
@@ -39,10 +59,10 @@ export default function MyDGTab({ completedQuestIds, onMapQuest, onSaveOutfit, o
       <div>
         <p className="mb-3 text-sm font-semibold text-[#343235]">인벤토리</p>
         <div className="grid grid-cols-5 gap-2">
-          {DG_INVENTORY.map((item) => {
+          {inventory.map((item) => {
             const selected = outfit[item.slot] === item.id;
             return (
-              <button key={item.id} type="button" onClick={() => equipItem(item)} className={`aspect-square rounded-lg border p-1 text-center transition-colors ${selected ? "border-[#bd8c31] bg-[#f8f0de]" : "border-[#e2e4e0] bg-white hover:bg-[#f1f4f2]"}`}>
+              <button key={item.id} type="button" onClick={() => equipItem(item)} data-model-url={item.modelUrl || undefined} className={`aspect-square rounded-lg border p-1 text-center transition-colors ${selected ? "border-[#bd8c31] bg-[#f8f0de]" : "border-[#e2e4e0] bg-white hover:bg-[#f1f4f2]"}`}>
                 <span className="block pt-1 text-xl" style={{ color: item.color }}>{item.symbol}</span>
                 <span className="mt-1 block truncate text-[10px] font-semibold text-[#55565a]">{item.name}</span>
               </button>

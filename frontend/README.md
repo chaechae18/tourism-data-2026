@@ -1,7 +1,18 @@
 # Play Gyeongju Frontend
 Next.js, React, Tailwind CSS로 만든 경주 여행 앱 MVP
 
-## 실행
+## Docker Compose 실행
+
+프로젝트 루트에서 MySQL과 백엔드를 포함해 한 번에 실행합니다.
+
+```bash
+docker compose up --build
+```
+
+프론트엔드는 `http://localhost:3000`, 백엔드는 `http://localhost:8001`에서
+실행됩니다. 프론트엔드 소스는 컨테이너에 연결되어 자동 새로고침이 유지됩니다.
+
+## 프론트엔드만 직접 실행
 
 ```bash
 npm install
@@ -9,13 +20,15 @@ cp .env.example .env.local
 npm run dev
 ```
 
-스팟 검색·등록·좋아요·북마크·댓글 기능을 사용하려면 백엔드를
-`http://localhost:8000`에서 함께 실행해야 합니다. 다른 주소를 사용할
-경우 `.env.local`의 값을 변경합니다.
+Docker Compose의 백엔드만 사용하면서 프론트엔드를 직접 실행할 수도 있습니다.
+다른 API 주소를 사용할 경우 `.env.local`의 값을 변경합니다.
 
 ```bash
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8001
 ```
+
+백엔드를 `uvicorn`으로 직접 8000 포트에서 실행한다면 이 값을
+`http://localhost:8000`으로 변경합니다.
 
 ## TMAP 길찾기
 

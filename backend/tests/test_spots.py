@@ -1,8 +1,15 @@
-from pathlib import Path
+from datetime import datetime
 
-from app.database import connect, initialize_database
+import pymysql
+
 from app.models.spots import SpotCreateRequest
-from app.spots import create_spot, list_user_spots
+from app.spots import (
+    create_spot,
+    list_daily_ranking,
+    list_public_spots,
+    list_user_spots,
+)
+from app.temporary_spot_approval import approve_pending_spot
 
 
 def spot_request(caption: str) -> SpotCreateRequest:
@@ -28,39 +35,173 @@ def spot_request(caption: str) -> SpotCreateRequest:
     )
 
 
-def test_create_spot_reuses_kakao_place(tmp_path: Path) -> None:
-    database_path = tmp_path / "test.db"
-    initialize_database(database_path)
-
-    with connect(database_path) as connection:
-        first = create_spot(
-            connection,
-            user_no=1,
-            request=spot_request("해 질 무렵이 아름다워요."),
-        )
-        second = create_spot(
-            connection,
-            user_no=1,
-            request=spot_request("밤에도 다시 보고 싶어요."),
-        )
-        place_count = connection.execute(
+def test_create_spot_keeps_snapshot_without_writing_place(
+    database: pymysql.Connection,
+) -> None:
+    first = create_spot(
+        database,
+        user_no=1,
+        request=spot_request("해 질 무렵이 아름다워요."),
+    )
+    second = create_spot(
+        database,
+        user_no=1,
+        request=spot_request("밤에도 다시 보고 싶어요."),
+    )
+    with database.cursor() as cursor:
+        cursor.execute("SELECT COUNT(*) AS COUNT FROM PLACE")
+        place_count = cursor.fetchone()["COUNT"]
+        cursor.execute(
             """
-            SELECT COUNT(*)
-            FROM PLACE
-            WHERE SOURCE = 'KAKAO' AND CONTENT_ID = '12345'
-            """
-        ).fetchone()[0]
-        spot_count = connection.execute(
-            "SELECT COUNT(*) FROM SPOTS WHERE MAP_PLACE_ID = '12345'"
-        ).fetchone()[0]
+            SELECT MAP_PROVIDER, MAP_PLACE_ID, PLACE_TYPE, PLACE_NAME, PLACE_ADDRESS
+            FROM SPOTS WHERE IDX = %s
+            """,
+            (first.id,),
+        )
+        snapshot = cursor.fetchone()
 
-        spots = list_user_spots(connection, user_no=1, limit=20)
-
+    spots = list_user_spots(database, user_no=1, limit=20)
     assert first.id != second.id
-    assert first.place.place_id == second.place.place_id
-    assert place_count == 1
-    assert spot_count == 2
+    assert place_count == 0
+    assert snapshot == {
+        "MAP_PROVIDER": "KAKAO",
+        "MAP_PLACE_ID": "12345",
+        "PLACE_TYPE": "TOUR",
+        "PLACE_NAME": "첨성대",
+        "PLACE_ADDRESS": "경북 경주시 첨성로 140-25",
+    }
     assert [spot.caption for spot in spots] == [
         "밤에도 다시 보고 싶어요.",
         "해 질 무렵이 아름다워요.",
+    ]
+
+
+def test_temporary_approval_publishes_pending_spot(
+    database: pymysql.Connection,
+) -> None:
+    spot = create_spot(database, user_no=1, request=spot_request("임시 승인 대상"))
+    ranking_time = datetime(2026, 8, 5, 12, 0)
+    assert list_daily_ranking(
+        database,
+        viewer_no=1,
+        limit=20,
+        now=ranking_time,
+    ) == []
+
+    assert approve_pending_spot(
+        database,
+        spot_id=spot.id,
+        now=ranking_time,
+    ) is True
+    with database.cursor() as cursor:
+        cursor.execute(
+            "SELECT MODERATION_STATUS FROM SPOTS WHERE IDX = %s",
+            (spot.id,),
+        )
+        moderation_status = cursor.fetchone()["MODERATION_STATUS"]
+        cursor.execute(
+            "SELECT PROVIDER, RESULT FROM MODERATION_LOG WHERE TARGET_IDX = %s",
+            (spot.id,),
+        )
+        moderation_log = cursor.fetchone()
+
+    assert moderation_status == 1
+    assert moderation_log == {
+        "PROVIDER": "TEMPORARY_AUTO_APPROVAL",
+        "RESULT": 1,
+    }
+    refreshed_ranking = list_daily_ranking(
+        database,
+        viewer_no=1,
+        limit=20,
+        now=ranking_time,
+    )
+    assert [(ranked.id, ranked.rank) for ranked in refreshed_ranking] == [
+        (spot.id, 1)
+    ]
+
+
+def test_public_spots_support_like_and_newest_sort(
+    database: pymysql.Connection,
+) -> None:
+    first = create_spot(database, user_no=1, request=spot_request("첫 번째"))
+    second = create_spot(database, user_no=1, request=spot_request("두 번째"))
+    with database.cursor() as cursor:
+        cursor.execute(
+            "UPDATE SPOTS SET MODERATION_STATUS = 1, LIKE_COUNT = 5 WHERE IDX = %s",
+            (first.id,),
+        )
+        cursor.execute(
+            "UPDATE SPOTS SET MODERATION_STATUS = 1, LIKE_COUNT = 1 WHERE IDX = %s",
+            (second.id,),
+        )
+
+    by_likes = list_public_spots(
+        database,
+        viewer_no=1,
+        limit=20,
+        before_id=None,
+        sort="likes",
+    )
+    newest = list_public_spots(
+        database,
+        viewer_no=1,
+        limit=20,
+        before_id=None,
+        sort="newest",
+    )
+    assert [spot.id for spot in by_likes] == [first.id, second.id]
+    assert [spot.id for spot in newest] == [second.id, first.id]
+
+
+def test_daily_ranking_is_fixed_until_the_next_day(
+    database: pymysql.Connection,
+) -> None:
+    first = create_spot(database, user_no=1, request=spot_request("첫 번째"))
+    second = create_spot(database, user_no=1, request=spot_request("두 번째"))
+    with database.cursor() as cursor:
+        cursor.execute(
+            "UPDATE SPOTS SET MODERATION_STATUS = 1, LIKE_COUNT = 5 WHERE IDX = %s",
+            (first.id,),
+        )
+        cursor.execute(
+            "UPDATE SPOTS SET MODERATION_STATUS = 1, LIKE_COUNT = 1 WHERE IDX = %s",
+            (second.id,),
+        )
+
+    first_snapshot = list_daily_ranking(
+        database,
+        viewer_no=1,
+        limit=20,
+        now=datetime(2026, 8, 3, 0, 0),
+    )
+    with database.cursor() as cursor:
+        cursor.execute(
+            "UPDATE SPOTS SET LIKE_COUNT = 10 WHERE IDX = %s",
+            (second.id,),
+        )
+    same_day = list_daily_ranking(
+        database,
+        viewer_no=1,
+        limit=20,
+        now=datetime(2026, 8, 3, 12, 0),
+    )
+    next_day = list_daily_ranking(
+        database,
+        viewer_no=1,
+        limit=20,
+        now=datetime(2026, 8, 4, 0, 0),
+    )
+
+    assert [(spot.id, spot.rank) for spot in first_snapshot] == [
+        (first.id, 1),
+        (second.id, 2),
+    ]
+    assert [(spot.id, spot.rank) for spot in same_day] == [
+        (first.id, 1),
+        (second.id, 2),
+    ]
+    assert [(spot.id, spot.rank) for spot in next_day] == [
+        (second.id, 1),
+        (first.id, 2),
     ]

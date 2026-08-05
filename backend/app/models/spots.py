@@ -25,7 +25,6 @@ class SpotCreateRequest(CamelModel):
 
 
 class SpotPlace(CamelModel):
-    place_id: int = Field(alias="placeId")
     provider: PlaceProvider
     map_place_id: str = Field(alias="mapPlaceId")
     type: PlaceType
@@ -49,6 +48,11 @@ class SpotResponse(CamelModel):
     is_owner: bool = Field(default=False, alias="isOwner")
     moderation_status: int = Field(alias="moderationStatus")
     created_at: datetime = Field(alias="createdAt")
+
+
+class RankedSpotResponse(SpotResponse):
+    rank: int
+    ranking_updated_at: datetime = Field(alias="rankingUpdatedAt")
 
 
 class ReactionResponse(CamelModel):

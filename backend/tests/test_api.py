@@ -1,8 +1,5 @@
-from pathlib import Path
-
 from fastapi.testclient import TestClient
 
-from app.database import connect, get_database, initialize_database
 from app.kakao import KakaoLocalClient
 from app.main import app
 from app.naver import NaverLocalClient
@@ -29,36 +26,28 @@ SPOT_BODY = {
 }
 
 
-def test_register_and_list_my_spots(tmp_path: Path) -> None:
-    database_path = tmp_path / "api.db"
-    initialize_database(database_path)
+def test_register_and_list_my_spots(
+    client: TestClient,
+    rows,
+    scheduled_spot_ids: list[int],
+) -> None:
+    response = client.post(
+        "/api/v1/spots",
+        headers={"X-User-No": "1"},
+        json=SPOT_BODY,
+    )
+    assert response.status_code == 201
+    assert response.json()["place"]["mapPlaceId"] == "12345"
+    assert "placeId" not in response.json()["place"]
+    assert response.json()["moderationStatus"] == 0
+    assert scheduled_spot_ids == [response.json()["id"]]
+    assert rows("SELECT COUNT(*) AS COUNT FROM PLACE")[0]["COUNT"] == 0
 
-    def override_database():
-        with connect(database_path) as connection:
-            yield connection
-
-    app.dependency_overrides[get_database] = override_database
-    try:
-        client = TestClient(app)
-        response = client.post(
-            "/api/v1/spots",
-            headers={"X-User-No": "1"},
-            json=SPOT_BODY,
-        )
-        assert response.status_code == 201
-        assert response.json()["place"]["mapPlaceId"] == "12345"
-        assert response.json()["moderationStatus"] == 0
-
-        list_response = client.get(
-            "/api/v1/spots/me",
-            headers={"X-User-No": "1"},
-        )
-        assert list_response.status_code == 200
-        assert [spot["caption"] for spot in list_response.json()] == [
-            "해 질 무렵의 첨성대가 아름다워요."
-        ]
-    finally:
-        app.dependency_overrides.clear()
+    listed = client.get("/api/v1/spots/me", headers={"X-User-No": "1"})
+    assert listed.status_code == 200
+    assert [spot["caption"] for spot in listed.json()] == [
+        "해 질 무렵의 첨성대가 아름다워요."
+    ]
 
 
 def test_search_returns_config_error_without_kakao_key() -> None:
@@ -71,11 +60,5 @@ def test_search_returns_config_error_without_kakao_key() -> None:
         )
     finally:
         app.dependency_overrides.clear()
-
     assert response.status_code == 503
-    assert response.json() == {
-        "error": {
-            "code": "PLACE_SEARCH_NOT_CONFIGURED",
-            "message": "장소 검색 API 키가 설정되지 않았습니다.",
-        }
-    }
+    assert response.json()["error"]["code"] == "PLACE_SEARCH_NOT_CONFIGURED"

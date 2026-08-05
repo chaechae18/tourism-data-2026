@@ -2,9 +2,15 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 import { QUESTS } from "../../../../lib/app-data";
 
+const api = vi.hoisted(() => ({
+  listDonggyeongItems: vi.fn(),
+}));
+
 vi.mock("../../../../components/donggyeong/Donggyeong3D", () => ({
   default: () => <div data-testid="donggyeong-stub" />,
 }));
+
+vi.mock("../../../../lib/api/donggyeong", () => api);
 
 import MyDGTab from "../../../../components/my-dg/MyDGTab";
 
@@ -17,6 +23,10 @@ const PROPS = {
 };
 
 describe("MyDGTab", () => {
+  beforeEach(() => {
+    api.listDonggyeongItems.mockResolvedValue([]);
+  });
+
   it("shows the correct Donggyeong number", () => {
     render(<MyDGTab {...PROPS} />);
 

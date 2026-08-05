@@ -86,7 +86,6 @@ def settings(tmp_path: Path, *, rate_limit: int = 30) -> Settings:
         kakao_rest_api_key="",
         naver_client_id="client-id",
         naver_client_secret="client-secret",
-        database_path=tmp_path / "api.db",
         upload_dir=tmp_path / "uploads",
         max_upload_bytes=10 * 1024 * 1024,
         search_cache_ttl_seconds=300,
