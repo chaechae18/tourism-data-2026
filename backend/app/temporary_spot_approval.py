@@ -1,5 +1,6 @@
 import json
 import logging
+from datetime import datetime
 from threading import Timer
 
 import pymysql
@@ -14,8 +15,14 @@ logger = logging.getLogger(__name__)
 TEMPORARY_SPOT_APPROVAL_DELAY_SECONDS = 10
 
 
-def approve_pending_spot(connection: pymysql.Connection, *, spot_id: int) -> bool:
+def approve_pending_spot(
+    connection: pymysql.Connection,
+    *,
+    spot_id: int,
+    now: datetime | None = None,
+) -> bool:
     """검수 대기 중인 스팟만 임시 승인하고 이력을 남긴다."""
+    ranking_date = (now or datetime.now()).date()
     with transaction(connection):
         with connection.cursor() as cursor:
             cursor.execute(
@@ -46,6 +53,14 @@ def approve_pending_spot(connection: pymysql.Connection, *, spot_id: int) -> boo
                         }
                     ),
                 ),
+            )
+            cursor.execute(
+                "DELETE FROM SPOT_RANKING_DAILY WHERE RANK_DATE = %s",
+                (ranking_date,),
+            )
+            cursor.execute(
+                "DELETE FROM SPOT_RANKING_RUN WHERE RANK_DATE = %s",
+                (ranking_date,),
             )
     return True
 

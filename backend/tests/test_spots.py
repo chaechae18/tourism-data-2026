@@ -80,8 +80,19 @@ def test_temporary_approval_publishes_pending_spot(
     database: pymysql.Connection,
 ) -> None:
     spot = create_spot(database, user_no=1, request=spot_request("임시 승인 대상"))
+    ranking_time = datetime(2026, 8, 5, 12, 0)
+    assert list_daily_ranking(
+        database,
+        viewer_no=1,
+        limit=20,
+        now=ranking_time,
+    ) == []
 
-    assert approve_pending_spot(database, spot_id=spot.id) is True
+    assert approve_pending_spot(
+        database,
+        spot_id=spot.id,
+        now=ranking_time,
+    ) is True
     with database.cursor() as cursor:
         cursor.execute(
             "SELECT MODERATION_STATUS FROM SPOTS WHERE IDX = %s",
@@ -99,6 +110,15 @@ def test_temporary_approval_publishes_pending_spot(
         "PROVIDER": "TEMPORARY_AUTO_APPROVAL",
         "RESULT": 1,
     }
+    refreshed_ranking = list_daily_ranking(
+        database,
+        viewer_no=1,
+        limit=20,
+        now=ranking_time,
+    )
+    assert [(ranked.id, ranked.rank) for ranked in refreshed_ranking] == [
+        (spot.id, 1)
+    ]
 
 
 def test_public_spots_support_like_and_newest_sort(
