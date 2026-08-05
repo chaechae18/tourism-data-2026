@@ -1,7 +1,7 @@
 import { vi } from "vitest";
 import { listBanners, listFestivals } from "../../../../lib/api/home";
 
-const BASE = "http://localhost:8000";
+const BASE = "http://localhost:8001";
 
 describe("home api", () => {
   it("builds the URL with the requested language and returns the body", async () => {
