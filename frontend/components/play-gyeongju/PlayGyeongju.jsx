@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { LogOut, PawPrint } from "lucide-react";
 import { DEFAULT_USER, QUESTS } from "../../lib/app-data";
+import { notifyQuestCompleted } from "../../lib/api/notifications";
 import AuthModal from "../auth/AuthModal";
 import HomeTab from "../home/HomeTab";
 import IntroScreen from "../intro/IntroScreen";
@@ -10,6 +11,7 @@ import BottomNavigation from "../layout/BottomNavigation";
 import GyeongjuMap2D from "../map/GyeongjuMap2D";
 import MyDGTab from "../my-dg/MyDGTab";
 import MyPageTab from "../my-page/MyPageTab";
+import NotificationButton from "../notifications/NotificationButton";
 import SpotsTab from "../spots/SpotsTab";
 import { IconButton } from "../ui/AppButton";
 
@@ -26,6 +28,7 @@ export default function PlayGyeongju() {
   const [selectedQuestId, setSelectedQuestId] = useState(INITIAL_SELECTED_QUEST_ID);
   const [outfit, setOutfit] = useState({});
   const [notice, setNotice] = useState("");
+  const [notificationVersion, setNotificationVersion] = useState(0);
 
   const selectedQuest = QUESTS.find((quest) => quest.id === selectedQuestId) || QUESTS[0];
 
@@ -40,9 +43,18 @@ export default function PlayGyeongju() {
     setEntered(true);
   };
 
-  const completeQuest = (id) => {
-    setCompletedQuestIds((current) => current.includes(id) ? current : [...current, id]);
+  const completeQuest = async (id) => {
+    if (completedQuestIds.includes(id)) return;
+    const quest = QUESTS.find((item) => item.id === id);
+    setCompletedQuestIds((current) => [...current, id]);
     showNotice("방문 완료로 표시했어요.");
+    if (!quest) return;
+    try {
+      await notifyQuestCompleted(quest);
+      setNotificationVersion((current) => current + 1);
+    } catch (error) {
+      showNotice(error.message);
+    }
   };
 
   const openQuestOnMap = (quest) => {
@@ -65,7 +77,10 @@ export default function PlayGyeongju() {
       <header className="border-b border-[#e2e4e0] bg-white/90 px-4 py-3 backdrop-blur">
         <div className="flex items-center justify-between gap-4">
           <button type="button" onClick={() => setActiveTab("home")} className="flex items-center gap-2 text-left"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#bd8c31] text-white"><PawPrint size={18} /></span><span><span className="block font-semibold text-[#343235]">Play Gyeongju</span><span className="block text-xs text-[#747579]">{user.nickname}</span></span></button>
-          <IconButton icon={LogOut} label="로그아웃" onClick={() => setEntered(false)} />
+          <div className="flex items-center gap-2">
+            <NotificationButton refreshKey={notificationVersion} />
+            <IconButton icon={LogOut} label="로그아웃" onClick={() => setEntered(false)} />
+          </div>
         </div>
       </header>
 

@@ -1,4 +1,5 @@
-from typing import Annotated
+from collections.abc import Callable
+from typing import Annotated, Literal
 import pymysql
 
 from fastapi import (
@@ -12,19 +13,25 @@ from fastapi import (
 )
 
 from ..mysql import get_mysql
-from ..models.spots import SpotCreateRequest, SpotResponse
+from ..models.spots import RankedSpotResponse, SpotCreateRequest, SpotResponse
 from ..spots import (
     SpotForbiddenError,
     SpotNotFoundError,
     UserNotFoundError,
     create_spot,
     delete_spot,
+    list_daily_ranking,
     list_public_spots,
     list_user_spots,
 )
+from ..temporary_spot_approval import schedule_temporary_spot_approval
 
 
 router = APIRouter(prefix="/api/v1/spots", tags=["spots"])
+
+
+def get_temporary_spot_approval_scheduler() -> Callable[[int], None]:
+    return schedule_temporary_spot_approval
 
 
 @router.post(
@@ -37,9 +44,14 @@ def register_spot(
     request: SpotCreateRequest,
     user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
     database: pymysql.Connection = Depends(get_mysql),
+    schedule_approval: Callable[[int], None] = Depends(
+        get_temporary_spot_approval_scheduler
+    ),
 ) -> SpotResponse:
     try:
-        return create_spot(database, user_no=user_no, request=request)
+        spot = create_spot(database, user_no=user_no, request=request)
+        schedule_approval(spot.id)
+        return spot
     except UserNotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -65,6 +77,7 @@ def get_public_spots(
         int | None,
         Query(alias="beforeId", ge=1),
     ] = None,
+    sort: Annotated[Literal["likes", "newest"], Query()] = "likes",
     database: pymysql.Connection = Depends(get_mysql),
 ) -> list[SpotResponse]:
     return list_public_spots(
@@ -72,6 +85,24 @@ def get_public_spots(
         viewer_no=user_no,
         limit=limit,
         before_id=before_id,
+        sort=sort,
+    )
+
+
+@router.get(
+    "/ranking",
+    response_model=list[RankedSpotResponse],
+    response_model_by_alias=True,
+)
+def get_spot_ranking(
+    user_no: Annotated[int | None, Header(alias="X-User-No", ge=1)] = None,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    database: pymysql.Connection = Depends(get_mysql),
+) -> list[RankedSpotResponse]:
+    return list_daily_ranking(
+        database,
+        viewer_no=user_no,
+        limit=limit,
     )
 
 

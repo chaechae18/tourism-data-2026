@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
 const LOCAL_USER_NO = 1;
 
 export class ApiError extends Error {
@@ -12,7 +12,13 @@ export class ApiError extends Error {
 }
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, options);
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, options);
+  } catch (error) {
+    if (error.name === "AbortError") throw error;
+    throw new ApiError("서버에 연결하지 못했습니다.", "NETWORK_ERROR", null);
+  }
   if (response.status === 204) return null;
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -69,8 +75,15 @@ export async function createSpot(body) {
   });
 }
 
-export async function listPublicSpots() {
-  return request("/api/v1/spots?limit=20", {
+export async function listPublicSpots(sort = "likes") {
+  const parameters = new URLSearchParams({ limit: "20", sort });
+  return request(`/api/v1/spots?${parameters}`, {
+    headers: userHeaders(),
+  });
+}
+
+export async function listSpotRanking() {
+  return request("/api/v1/spots/ranking?limit=20", {
     headers: userHeaders(),
   });
 }

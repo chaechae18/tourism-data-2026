@@ -55,3 +55,39 @@ def initialize_database() -> None:
         with connection.cursor() as cursor:
             for statement in statements:
                 cursor.execute(statement)
+            cursor.execute("SHOW COLUMNS FROM SPOTS")
+            spot_columns = {row["Field"] for row in cursor.fetchall()}
+            required_columns = {
+                "PLACE_TYPE": "VARCHAR(20) NOT NULL DEFAULT 'TOUR'",
+                "PLACE_NAME": "VARCHAR(200) NOT NULL DEFAULT ''",
+                "PLACE_ADDRESS": "VARCHAR(500) NULL",
+            }
+            added_snapshot_column = False
+            for column, definition in required_columns.items():
+                if column in spot_columns:
+                    continue
+                cursor.execute(f"ALTER TABLE SPOTS ADD COLUMN {column} {definition}")
+                added_snapshot_column = True
+            if added_snapshot_column:
+                cursor.execute(
+                    """
+                    UPDATE SPOTS s
+                    LEFT JOIN PLACE p
+                      ON p.SOURCE = s.MAP_PROVIDER
+                     AND p.CONTENT_ID = s.MAP_PLACE_ID
+                    SET s.PLACE_TYPE = COALESCE(p.TYPE, s.PLACE_TYPE),
+                        s.PLACE_NAME = COALESCE(NULLIF(s.PLACE_NAME, ''), p.NAME, ''),
+                        s.PLACE_ADDRESS = COALESCE(s.PLACE_ADDRESS, p.ADDRESS)
+                    WHERE s.PLACE_NAME = ''
+                    """
+                )
+            cursor.execute("SHOW INDEX FROM SPOTS")
+            spot_indexes = {row["Key_name"] for row in cursor.fetchall()}
+            if "IX_SPOTS_RANKING" not in spot_indexes:
+                cursor.execute(
+                    """
+                    ALTER TABLE SPOTS ADD INDEX IX_SPOTS_RANKING (
+                        MODERATION_STATUS, DELETED_AT, LIKE_COUNT, CREATED_AT
+                    )
+                    """
+                )
