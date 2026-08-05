@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { vi } from "vitest";
 import SpotsTab from "../../../../components/spots/SpotsTab";
 
@@ -88,6 +88,7 @@ describe("SpotsTab", () => {
   });
 
   it("searches for a place and registers the selected result", async () => {
+    const setTimeoutSpy = vi.spyOn(window, "setTimeout");
     render(<SpotsTab />);
     fireEvent.click(screen.getByRole("button", { name: "나의 스팟 등록" }));
 
@@ -107,6 +108,8 @@ describe("SpotsTab", () => {
       caption: "고즈넉한 오후였습니다.",
       photoUrl: null,
     }));
+    expect(screen.getByText("스팟을 등록했어요. 10초 후 임시 승인되어 공개됩니다.")).toBeInTheDocument();
+    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10_500);
   });
 
   it("loads nearby places from the current location", async () => {
@@ -173,7 +176,7 @@ describe("SpotsTab", () => {
   it("likes a public spot and submits a comment", async () => {
     api.listPublicSpots.mockResolvedValue([SPOT]);
     render(<SpotsTab />);
-    fireEvent.click(screen.getByRole("button", { name: "목록" }));
+    fireEvent.click(screen.getByRole("button", { name: "스팟" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "좋아요" }));
     await waitFor(() => expect(api.setSpotReaction).toHaveBeenCalledWith(1, "like", true));
@@ -205,11 +208,35 @@ describe("SpotsTab", () => {
 
   it("reloads the list with the selected order", async () => {
     render(<SpotsTab />);
-    fireEvent.click(screen.getByRole("button", { name: "목록" }));
+    fireEvent.click(screen.getByRole("button", { name: "스팟" }));
     fireEvent.change(screen.getByLabelText("스팟 목록 정렬"), {
       target: { value: "newest" },
     });
 
     await waitFor(() => expect(api.listPublicSpots).toHaveBeenLastCalledWith("newest"));
+  });
+
+  it("shows layout placeholders when ranking and spot data are empty", async () => {
+    render(<SpotsTab />);
+
+    expect(await screen.findAllByTestId("ranking-placeholder")).toHaveLength(5);
+    fireEvent.click(screen.getByRole("button", { name: "스팟" }));
+    expect(await screen.findAllByTestId("spot-placeholder")).toHaveLength(6);
+    expect(screen.getByTestId("spot-placeholder-grid")).toHaveClass("grid-cols-3");
+    expect(screen.queryByText("Daily ranking")).not.toBeInTheDocument();
+    expect(screen.queryByText("Approved spots")).not.toBeInTheDocument();
+  });
+
+  it("places API errors below the matching section title", async () => {
+    api.listSpotRanking.mockRejectedValue(new Error("랭킹 연결 실패"));
+    api.listPublicSpots.mockRejectedValue(new Error("스팟 연결 실패"));
+    render(<SpotsTab />);
+
+    const rankingSection = screen.getByTestId("ranking-section");
+    expect(await within(rankingSection).findByText("랭킹 연결 실패")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "스팟" }));
+    const spotSection = screen.getByTestId("spot-section");
+    expect(await within(spotSection).findByText("스팟 연결 실패")).toBeInTheDocument();
   });
 });

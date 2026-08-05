@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Bookmark,
   Heart,
@@ -36,6 +36,20 @@ const MODERATION_LABEL = {
   1: "승인",
   2: "반려",
 };
+
+const INITIAL_ERRORS = {
+  ranking: "",
+  list: "",
+  search: "",
+  my: "",
+};
+
+// 백엔드의 10초 임시 승인 작업이 끝난 뒤 조회하도록 약간의 여유를 둔다.
+const TEMPORARY_APPROVAL_REFRESH_MS = 10_500;
+
+function getErrorMessage(error) {
+  return error instanceof Error ? error.message : "요청을 처리하지 못했습니다.";
+}
 
 function containsBlockedWord(value) {
   return BLOCKED_WORDS.some((word) => value.includes(word));
@@ -169,6 +183,41 @@ function SpotCard({
   );
 }
 
+function DummySpotGridCard({ index }) {
+  return (
+    <article
+      aria-label={`스팟 카드 자리 ${index}`}
+      data-testid="spot-placeholder"
+      className="min-w-0 rounded-xl bg-white p-2.5 shadow-[0_3px_12px_rgba(52,50,53,0.06)]"
+    >
+      <div className="aspect-square rounded-lg bg-[#f1eee9]" />
+      <div className="mt-2 h-2.5 w-3/4 rounded-full bg-[#ece8e2]" />
+      <div className="mt-1.5 h-2 w-full rounded-full bg-[#f2efeb]" />
+      <div className="mt-1 h-2 w-2/3 rounded-full bg-[#f2efeb]" />
+    </article>
+  );
+}
+
+function DummyRankingCard({ rank }) {
+  return (
+    <article
+      aria-label={`랭킹 카드 자리 ${rank}`}
+      data-testid="ranking-placeholder"
+      className="flex min-h-28 items-center gap-3 rounded-xl bg-white p-3 shadow-[0_3px_12px_rgba(52,50,53,0.06)]"
+    >
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#bd8c31] text-sm font-black text-white">
+        {rank}
+      </span>
+      <div className="h-20 w-20 shrink-0 rounded-lg bg-[#f1eee9]" />
+      <div className="min-w-0 flex-1">
+        <div className="h-3 w-2/3 rounded-full bg-[#ece8e2]" />
+        <div className="mt-2 h-2.5 w-full rounded-full bg-[#f2efeb]" />
+        <div className="mt-1.5 h-2.5 w-4/5 rounded-full bg-[#f2efeb]" />
+      </div>
+    </article>
+  );
+}
+
 export default function SpotsTab() {
   const [activeView, setActiveView] = useState("ranking");
   const [listSort, setListSort] = useState("likes");
@@ -189,42 +238,63 @@ export default function SpotsTab() {
   const [submitting, setSubmitting] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
   const [notice, setNotice] = useState("");
+  const [errors, setErrors] = useState(INITIAL_ERRORS);
+  const [refreshVersion, setRefreshVersion] = useState(0);
+  const approvalRefreshTimer = useRef(null);
 
-  const loadSpots = useCallback(async () => {
-    try {
-      const [rankingItems, publicItems, myItems] = await Promise.all([
-        listSpotRanking(),
-        listPublicSpots(listSort),
-        listMySpots(),
-      ]);
-      setRankingSpots(rankingItems);
-      setPublicSpots(publicItems);
-      setMySpots(myItems);
-    } catch (error) {
-      setNotice(error.message);
+  useEffect(() => () => {
+    if (approvalRefreshTimer.current !== null) {
+      window.clearTimeout(approvalRefreshTimer.current);
     }
-  }, [listSort]);
+  }, []);
 
   useEffect(() => {
-    loadSpots();
-  }, [loadSpots]);
+    let active = true;
+    Promise.allSettled([
+      listSpotRanking(),
+      listPublicSpots(listSort),
+      listMySpots(),
+    ]).then(([rankingResult, listResult, myResult]) => {
+      if (!active) return;
+      if (rankingResult.status === "fulfilled") {
+        setRankingSpots(rankingResult.value);
+      }
+      if (listResult.status === "fulfilled") {
+        setPublicSpots(listResult.value);
+      }
+      if (myResult.status === "fulfilled") {
+        setMySpots(myResult.value);
+      }
+      setErrors((current) => ({
+        ...current,
+        ranking: rankingResult.status === "rejected" ? getErrorMessage(rankingResult.reason) : "",
+        list: listResult.status === "rejected" ? getErrorMessage(listResult.reason) : "",
+        my: myResult.status === "rejected" ? getErrorMessage(myResult.reason) : "",
+      }));
+    });
+    return () => { active = false; };
+  }, [listSort, refreshVersion]);
 
   useEffect(() => {
     const keyword = query.trim();
     if (selectedPlace?.name === keyword || keyword.length < 2) {
       setSearchResults([]);
       setSearching(false);
+      setErrors((current) => ({ ...current, search: "" }));
       return undefined;
     }
 
     const controller = new AbortController();
     const timer = window.setTimeout(async () => {
       setSearching(true);
+      setErrors((current) => ({ ...current, search: "" }));
       try {
         const result = await searchPlaces(keyword, { signal: controller.signal });
         setSearchResults(result.places);
       } catch (error) {
-        if (error.name !== "AbortError") setNotice(error.message);
+        if (error.name !== "AbortError") {
+          setErrors((current) => ({ ...current, search: getErrorMessage(error) }));
+        }
       } finally {
         setSearching(false);
       }
@@ -245,12 +315,16 @@ export default function SpotsTab() {
 
   const loadNearbyPlaces = () => {
     if (!navigator.geolocation) {
-      setNotice("이 브라우저에서는 현재 위치를 사용할 수 없어요.");
+      setErrors((current) => ({
+        ...current,
+        search: "이 브라우저에서는 현재 위치를 사용할 수 없어요.",
+      }));
       return;
     }
 
     setLocating(true);
     setNotice("");
+    setErrors((current) => ({ ...current, search: "" }));
     navigator.geolocation.getCurrentPosition(
       async ({ coords }) => {
         try {
@@ -268,7 +342,7 @@ export default function SpotsTab() {
               : "현재 위치 주변에서 등록할 장소를 찾지 못했어요.",
           );
         } catch (error) {
-          setNotice(error.message);
+          setErrors((current) => ({ ...current, search: getErrorMessage(error) }));
         } finally {
           setLocating(false);
         }
@@ -279,7 +353,10 @@ export default function SpotsTab() {
           2: "현재 위치를 확인할 수 없어요. 장소를 직접 검색해 주세요.",
           3: "현재 위치 확인 시간이 초과됐어요. 다시 시도해 주세요.",
         };
-        setNotice(messages[error.code] || "현재 위치를 확인하지 못했어요.");
+        setErrors((current) => ({
+          ...current,
+          search: messages[error.code] || "현재 위치를 확인하지 못했어요.",
+        }));
         setLocating(false);
       },
       {
@@ -315,9 +392,16 @@ export default function SpotsTab() {
       setNearbyResults([]);
       setReview("");
       setPhotoFile(null);
-      setNotice("스팟을 등록했어요. 승인 후 공개 목록에 표시됩니다.");
+      setNotice("스팟을 등록했어요. 10초 후 임시 승인되어 공개됩니다.");
+      if (approvalRefreshTimer.current !== null) {
+        window.clearTimeout(approvalRefreshTimer.current);
+      }
+      approvalRefreshTimer.current = window.setTimeout(() => {
+        approvalRefreshTimer.current = null;
+        setRefreshVersion((current) => current + 1);
+      }, TEMPORARY_APPROVAL_REFRESH_MS);
     } catch (error) {
-      setNotice(error.message);
+      setNotice(getErrorMessage(error));
     } finally {
       setSubmitting(false);
     }
@@ -331,7 +415,8 @@ export default function SpotsTab() {
       setPublicSpots((current) => current.filter((spot) => spot.id !== spotId));
       setNotice("스팟을 삭제했어요.");
     } catch (error) {
-      setNotice(error.message);
+      const target = activeView === "ranking" ? "ranking" : activeView === "list" ? "list" : "my";
+      setErrors((current) => ({ ...current, [target]: getErrorMessage(error) }));
     }
   };
 
@@ -354,7 +439,8 @@ export default function SpotsTab() {
           : item
       )));
     } catch (error) {
-      setNotice(error.message);
+      const target = activeView === "ranking" ? "ranking" : "list";
+      setErrors((current) => ({ ...current, [target]: getErrorMessage(error) }));
     }
   };
 
@@ -369,7 +455,8 @@ export default function SpotsTab() {
       const comments = await listSpotComments(spotId);
       setCommentsBySpot((current) => ({ ...current, [spotId]: comments }));
     } catch (error) {
-      setNotice(error.message);
+      const target = activeView === "ranking" ? "ranking" : "list";
+      setErrors((current) => ({ ...current, [target]: getErrorMessage(error) }));
     }
   };
 
@@ -389,7 +476,8 @@ export default function SpotsTab() {
       setComment("");
       setNotice("댓글을 등록했어요. 승인 후 다른 사용자에게 표시됩니다.");
     } catch (error) {
-      setNotice(error.message);
+      const target = activeView === "ranking" ? "ranking" : "list";
+      setErrors((current) => ({ ...current, [target]: getErrorMessage(error) }));
     } finally {
       setSubmittingComment(false);
     }
@@ -400,13 +488,13 @@ export default function SpotsTab() {
     : nearbyResults;
 
   return (
-    <section className="space-y-7">
-      <SectionHeading eyebrow="Spot sharing" title="나만의 경주 스팟" />
-      <nav className="sticky top-0 z-20 -mx-4 border-y border-[#e6ddd2] bg-[#f7f7f5]/95 px-4 py-2 backdrop-blur" aria-label="스팟 상단 메뉴">
+    <section>
+      <SectionHeading className="mb-2" eyebrow="Spot sharing" title="나만의 경주 스팟" />
+      <nav className="sticky top-0 z-20 -mx-4 bg-[#f7f7f5]/95 px-4 py-1 backdrop-blur" aria-label="스팟 상단 메뉴">
         <div className="grid grid-cols-3 gap-2">
           {[
             { id: "ranking", label: "랭킹", icon: Trophy },
-            { id: "list", label: "목록", icon: List },
+            { id: "list", label: "스팟", icon: List },
             { id: "create", label: "나의 스팟 등록", icon: SquarePen },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -426,16 +514,18 @@ export default function SpotsTab() {
           })}
         </div>
       </nav>
-      {notice && <p className="text-sm font-bold text-[#a45118]">{notice}</p>}
 
-      <div className={activeView === "ranking" ? "" : "hidden"}>
+      <div data-testid="ranking-section" className={`mt-5 ${activeView === "ranking" ? "" : "hidden"}`}>
         <SectionHeading
-          eyebrow="Daily ranking"
+          className={errors.ranking ? "mb-2" : "mb-4"}
           title="오늘의 스팟 랭킹"
           action={<span className="text-xs font-bold text-[#8a7d71]">{RANKING_RESET_LABEL}</span>}
         />
-        <div className="space-y-3">
-          {rankingSpots.map((spot) => (
+        {errors.ranking && (
+          <p className="mb-3 text-sm font-bold text-[#a45118]">{errors.ranking}</p>
+        )}
+        <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+          {rankingSpots.length > 0 ? rankingSpots.map((spot) => (
             <div key={spot.id} className="relative">
               <span className="absolute -left-2 -top-2 z-10 flex h-8 min-w-8 items-center justify-center rounded-full bg-[#bd8c31] px-2 text-sm font-black text-white shadow-md">
                 {spot.rank}
@@ -453,19 +543,24 @@ export default function SpotsTab() {
                 submittingComment={submittingComment}
               />
             </div>
+          )) : Array.from({ length: 5 }, (_, index) => (
+            <DummyRankingCard key={index} rank={index + 1} />
           ))}
-          {rankingSpots.length === 0 && (
-            <p className="text-sm text-[#7c6d61]">오늘 랭킹에 표시할 스팟이 없어요.</p>
-          )}
         </div>
       </div>
 
-      <div className={`border-y border-[#e6ddd2] py-5 ${activeView === "create" ? "" : "hidden"}`}>
-        <label className="block">
-          <span className="mb-1.5 block text-sm font-bold text-[#241b16]">장소 검색</span>
+      <div className={`mt-5 ${activeView === "create" ? "" : "hidden"}`}>
+        <div>
+          <label htmlFor="spot-place-search" className="mb-1.5 block text-sm font-bold text-[#241b16]">
+            장소 검색
+          </label>
+          {errors.search && (
+            <p className="mb-2 text-sm font-bold text-[#a45118]">{errors.search}</p>
+          )}
           <div className="relative">
             <Search size={17} className="absolute left-3 top-3 text-[#8a7d71]" />
             <input
+              id="spot-place-search"
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value);
@@ -479,7 +574,7 @@ export default function SpotsTab() {
               <LoaderCircle size={17} className="absolute right-3 top-3 animate-spin text-[#b8661c]" />
             )}
           </div>
-        </label>
+        </div>
 
         <div className="mt-2 flex items-center gap-3">
           <AppButton
@@ -577,11 +672,12 @@ export default function SpotsTab() {
         >
           {submitting ? "등록 중..." : "스팟 공유"}
         </AppButton>
+        {notice && <p className="mt-3 text-sm font-bold text-[#a45118]">{notice}</p>}
       </div>
 
-      <div className={activeView === "list" ? "" : "hidden"}>
+      <div data-testid="spot-section" className={`mt-5 ${activeView === "list" ? "" : "hidden"}`}>
         <SectionHeading
-          eyebrow="Approved spots"
+          className={errors.list ? "mb-2" : "mb-4"}
           title="공개 스팟"
           action={(
             <label className="flex items-center gap-2 text-xs font-bold text-[#6f6256]">
@@ -598,8 +694,12 @@ export default function SpotsTab() {
             </label>
           )}
         />
-        <div className="space-y-3">
-          {publicSpots.map((spot) => (
+        {errors.list && (
+          <p className="mb-3 text-sm font-bold text-[#a45118]">{errors.list}</p>
+        )}
+        {publicSpots.length > 0 ? (
+          <div className="space-y-3">
+            {publicSpots.map((spot) => (
             <SpotCard
               key={spot.id}
               spot={spot}
@@ -613,15 +713,20 @@ export default function SpotsTab() {
               onReaction={toggleReaction}
               submittingComment={submittingComment}
             />
-          ))}
-          {publicSpots.length === 0 && (
-            <p className="text-sm text-[#7c6d61]">아직 승인된 스팟이 없어요.</p>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div data-testid="spot-placeholder-grid" className="grid grid-cols-3 gap-2">
+            {Array.from({ length: 6 }, (_, index) => (
+              <DummySpotGridCard key={index} index={index + 1} />
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className={activeView === "create" ? "" : "hidden"}>
-        <SectionHeading eyebrow="My posts" title="내가 쓴 게시글" />
+      <div className={`mt-7 ${activeView === "create" ? "" : "hidden"}`}>
+        <SectionHeading className={errors.my ? "mb-2" : "mb-4"} title="내가 쓴 게시글" />
+        {errors.my && <p className="mb-3 text-sm font-bold text-[#a45118]">{errors.my}</p>}
         <div className="space-y-2">
           {mySpots.map((spot) => (
             <div key={spot.id} className="flex items-center gap-3 rounded-lg border border-[#e6ddd2] bg-white p-3">
