@@ -227,7 +227,9 @@ Content-Type: application/json
 ```
 
 `placeType`은 `TOUR` 또는 `FOOD`, `caption`은 공백 제외 1~350자입니다.
-신규 게시물은 검수 대기 상태(`moderationStatus: 0`)입니다.
+신규 게시물은 검수 대기 상태(`moderationStatus: 0`)로 반환됩니다. 실제 검수
+연동 전까지는 서버가 실행 중인 경우에 한해 등록 10초 뒤 임시 승인(`1`)되며,
+`TEMPORARY_AUTO_APPROVAL` 제공자로 검수 이력을 남깁니다.
 
 ### Spot response
 

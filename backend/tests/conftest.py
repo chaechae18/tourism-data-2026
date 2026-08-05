@@ -8,6 +8,7 @@ import pytest
 
 from app.main import app
 from app.mysql import connect, get_mysql
+from app.routers.spots import get_temporary_spot_approval_scheduler
 
 
 TEST_DATABASE = os.getenv("TEST_DB_NAME", "play_gyeongju_test")
@@ -144,12 +145,24 @@ def database(mysql_database: pymysql.Connection) -> pymysql.Connection:
 
 
 @pytest.fixture
-def client(database: pymysql.Connection) -> Iterator[TestClient]:
+def scheduled_spot_ids() -> list[int]:
+    return []
+
+
+@pytest.fixture
+def client(
+    database: pymysql.Connection,
+    scheduled_spot_ids: list[int],
+) -> Iterator[TestClient]:
     app.dependency_overrides[get_mysql] = lambda: database
+    app.dependency_overrides[get_temporary_spot_approval_scheduler] = (
+        lambda: scheduled_spot_ids.append
+    )
     try:
         yield TestClient(app)
     finally:
         app.dependency_overrides.pop(get_mysql)
+        app.dependency_overrides.pop(get_temporary_spot_approval_scheduler)
 
 
 @pytest.fixture

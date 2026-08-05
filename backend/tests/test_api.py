@@ -26,7 +26,11 @@ SPOT_BODY = {
 }
 
 
-def test_register_and_list_my_spots(client: TestClient, rows) -> None:
+def test_register_and_list_my_spots(
+    client: TestClient,
+    rows,
+    scheduled_spot_ids: list[int],
+) -> None:
     response = client.post(
         "/api/v1/spots",
         headers={"X-User-No": "1"},
@@ -36,6 +40,7 @@ def test_register_and_list_my_spots(client: TestClient, rows) -> None:
     assert response.json()["place"]["mapPlaceId"] == "12345"
     assert "placeId" not in response.json()["place"]
     assert response.json()["moderationStatus"] == 0
+    assert scheduled_spot_ids == [response.json()["id"]]
     assert rows("SELECT COUNT(*) AS COUNT FROM PLACE")[0]["COUNT"] == 0
 
     listed = client.get("/api/v1/spots/me", headers={"X-User-No": "1"})
