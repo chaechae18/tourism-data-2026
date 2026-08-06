@@ -167,19 +167,25 @@ class TourApiClient:
                 return
             page += 1
 
+    # areaCode/sigunguCode(35/2) 로 받으면 관광지가 104건만 오고 불국사·석굴암·첨성대가
+    # 통째로 빠진다. 법정동 코드로 받아야 201건 전량이 온다.
     def area_based_list(
         self,
         content_type_id: int | None = None,
-        area_code: str | None = None,
-        sigungu_code: str | None = None,
+        ldong_regn_cd: str | None = None,
+        ldong_signgu_cd: str | None = None,
         **kwargs: Any,
     ) -> Iterator[dict[str, Any]]:
         params: dict[str, Any] = {
-            "areaCode": area_code if area_code is not None else os.getenv("TOURAPI_AREA_CODE", "35"),
-            "sigunguCode": (
-                sigungu_code
-                if sigungu_code is not None
-                else os.getenv("TOURAPI_SIGUNGU_CODE", "2")
+            "lDongRegnCd": (
+                ldong_regn_cd
+                if ldong_regn_cd is not None
+                else os.getenv("TOURAPI_LDONG_REGN_CD", "47")
+            ),
+            "lDongSignguCd": (
+                ldong_signgu_cd
+                if ldong_signgu_cd is not None
+                else os.getenv("TOURAPI_LDONG_SIGNGU_CD", "130")
             ),
             "arrange": "C",
         }
@@ -195,7 +201,6 @@ class TourApiClient:
         ldong_signgu_cd: str | None = None,
         **kwargs: Any,
     ) -> Iterator[dict[str, Any]]:
-        # 축제 조회만 지역코드가 아니라 법정동 코드를 쓴다.
         params: dict[str, Any] = {
             "eventStartDate": event_start_date,
             "lDongRegnCd": (
@@ -421,6 +426,29 @@ def _fetch_details(
     common = client.detail_common(content_id)
     intro = client.detail_intro(content_id, content_type_id)
     return common, intro
+
+
+def fetch_festivals(
+    client: TourApiClient,
+    event_start_date: str,
+    with_detail: bool = True,
+    limit: int | None = None,
+    event_end_date: str | None = None,
+) -> list[dict[str, Any]]:
+    # 두 날짜는 시작·종료일 조건이 아니라 조회 구간이다. 구간에 하루라도 걸치면 내려온다.
+    window = {"eventEndDate": event_end_date} if event_end_date else {}
+    festivals: list[dict[str, Any]] = []
+    for item in client.search_festival(event_start_date, **window):
+        if limit is not None and len(festivals) >= limit:
+            break
+        content_id = _content_id(item)
+        common, intro = (
+            _fetch_details(client, content_id, CONTENT_TYPE_FESTIVAL, with_detail)
+            if content_id
+            else (None, None)
+        )
+        festivals.append({"CONTENT_ID": content_id, **festival_fields(item, common, intro)})
+    return festivals
 
 
 def _upsert(
