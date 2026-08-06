@@ -38,7 +38,7 @@ const FESTIVAL = {
 
 const PLACE = {
   name: "불국사",
-  text: "유네스코 세계문화유산",
+  text: "석가탑과 다보탑이 마주 선 절.\n돌계단까지 국보입니다.",
   address: "경북 경주시 불국로 385",
   latitude: 35.790102,
   longitude: 129.332099,
@@ -55,21 +55,63 @@ describe("HomeTab", () => {
 
   it("renders every section from the API", async () => {
     render(<HomeTab onMapOpen={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "1건" }));
 
-    expect(await screen.findByText("경주의 밤")).toBeInTheDocument();
     expect(screen.getByText("시스템 점검 안내")).toBeInTheDocument();
     expect(screen.getByText("신라문화제")).toBeInTheDocument();
     expect(screen.getByText("8. 4 - 8. 8")).toBeInTheDocument();
     expect(screen.getByText("불국사")).toBeInTheDocument();
     expect(screen.getByText("성인 6,000원")).toBeInTheDocument();
+    // 요약은 줄바꿈을 그대로 살려 두 줄 높이 고정 상자에 담는다.
+    const summary = screen.getByText(PLACE.text.replace("\n", " "));
+    expect(summary.textContent).toBe(PLACE.text);
+    expect(summary.className).toContain("whitespace-pre-line");
+    expect(summary.className).toContain("h-12");
     expect(screen.getByRole("link", { name: "자세히 보기" })).toHaveAttribute("href", POPUP.link);
     expect(screen.getByRole("link", { name: "행사 정보" })).toHaveAttribute("href", FESTIVAL.url);
+    expect(
+      screen.getByText("신라문화제").closest("article").querySelector("img"),
+    ).toHaveAttribute("src", FESTIVAL.img);
+    expect(screen.getByRole("link", { name: PLACE.address })).toHaveAttribute(
+      "href",
+      `https://map.kakao.com/link/map/${encodeURIComponent(PLACE.name)},${PLACE.latitude},${PLACE.longitude}`,
+    );
+    // 경주 소식은 SHOW_NEWS_BANNERS 로 꺼져 있어 배너를 아예 부르지 않는다.
+    expect(screen.queryByText("경주 소식")).not.toBeInTheDocument();
+    expect(api.listBanners).not.toHaveBeenCalled();
+  });
+
+  it("keeps the notice section folded until it is opened", async () => {
+    render(<HomeTab onMapOpen={vi.fn()} />);
+    const toggle = await screen.findByRole("button", { name: "1건" });
+
+    expect(screen.queryByText("시스템 점검 안내")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.getByText("시스템 점검 안내")).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByText("시스템 점검 안내")).not.toBeInTheDocument();
+  });
+
+  it("pages the recommended places two at a time", async () => {
+    const names = ["불국사", "석굴암", "첨성대", "동궁과 월지"];
+    api.listRecommendedPlaces.mockResolvedValue(names.map((name) => ({ ...PLACE, name })));
+    render(<HomeTab onMapOpen={vi.fn()} />);
+    await screen.findByText("석굴암");
+
+    expect(screen.queryByText("첨성대")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "추천 관광지 2페이지" }));
+
+    expect(screen.getByText("첨성대")).toBeInTheDocument();
+    expect(screen.queryByText("불국사")).not.toBeInTheDocument();
   });
 
   it("opens the map and links to the tourism site", async () => {
     const onMapOpen = vi.fn();
     render(<HomeTab onMapOpen={onMapOpen} />);
-    await screen.findByText("경주의 밤");
+    await screen.findByText("신라문화제");
 
     fireEvent.click(screen.getByRole("button", { name: "가까운 장소 보기" }));
 
@@ -82,32 +124,30 @@ describe("HomeTab", () => {
 
   it("requests the user's language on every section", async () => {
     render(<HomeTab language="en" onMapOpen={vi.fn()} />);
-    await screen.findByText("경주의 밤");
+    await screen.findByText("신라문화제");
 
-    expect(api.listBanners).toHaveBeenCalledWith("en");
     expect(api.listPopups).toHaveBeenCalledWith("en");
     expect(api.listFestivals).toHaveBeenCalledWith("en");
     expect(api.listRecommendedPlaces).toHaveBeenCalledWith("en");
   });
 
   it("keeps the other sections when one of them fails", async () => {
-    api.listBanners.mockRejectedValue(new Error("서버에 연결하지 못했습니다."));
+    api.listPopups.mockRejectedValue(new Error("서버에 연결하지 못했습니다."));
     render(<HomeTab onMapOpen={vi.fn()} />);
 
     expect(await screen.findByText("서버에 연결하지 못했습니다.")).toBeInTheDocument();
-    expect(screen.getByText("지금 노출 중인 배너가 없어요.")).toBeInTheDocument();
+    expect(screen.getByText("새로운 공지가 없어요.")).toBeInTheDocument();
     expect(screen.getByText("신라문화제")).toBeInTheDocument();
     expect(screen.getByText("불국사")).toBeInTheDocument();
   });
 
   it("drops links that are not http(s)", async () => {
     api.listPopups.mockResolvedValue([{ ...POPUP, link: "javascript:alert(1)" }]);
-    api.listBanners.mockResolvedValue([{ ...BANNER, link: "javascript:alert(1)" }]);
     render(<HomeTab onMapOpen={vi.fn()} />);
-    await screen.findByText("경주의 밤");
+    fireEvent.click(await screen.findByRole("button", { name: "1건" }));
 
+    expect(screen.getByText("시스템 점검 안내")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "자세히 보기" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /경주의 밤/ })).not.toBeInTheDocument();
   });
 
   it("tells the user when a section is empty and skips missing fields", async () => {
