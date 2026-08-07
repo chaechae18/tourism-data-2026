@@ -218,6 +218,29 @@ class TourApiClient:
         items = self._items(body)
         return items[0] if items else None
 
+    def _lcls_codes(self, **params: str) -> list[tuple[str, str]]:
+        body = self._get("lclsSystmCode2", {**params, "numOfRows": 100, "pageNo": 1})
+        return [
+            (str(item.get("code", "")), str(item.get("name", "")))
+            for item in self._items(body)
+        ]
+
+    def lcls_systm_names(self) -> dict[str, tuple[str, str]]:
+        """분류체계 소분류 코드 -> (중분류 이름, 소분류 이름).
+
+        HS010800 -> ("역사유적지", "고분, 능") 처럼 코드를 사람이 읽는 이름으로
+        바꾸는 표를 만든다. 다음 단계 목록을 받으려면 그 단계 파라미터를 빈 값으로
+        함께 보내야 한다 (lclsSystm1 만 보내면 1단계 목록이 그대로 돌아온다).
+        """
+        names: dict[str, tuple[str, str]] = {}
+        for top, _ in self._lcls_codes():
+            for middle, middle_name in self._lcls_codes(lclsSystm1=top, lclsSystm2=""):
+                for leaf, leaf_name in self._lcls_codes(
+                    lclsSystm1=top, lclsSystm2=middle, lclsSystm3=""
+                ):
+                    names[leaf] = (middle_name, leaf_name)
+        return names
+
     def detail_intro(self, content_id: str, content_type_id: int) -> dict[str, Any] | None:
         body = self._get(
             "detailIntro2",
@@ -237,6 +260,9 @@ PLACE_NAME_MAX = 200
 PLACE_ADDRESS_MAX = 500
 PLACE_TEXT_FIELD_MAX = 300
 PLACE_IMG_MAX = 600
+PLACE_MENU_MAX = 500
+CATEGORY_CODE_MAX = 20
+CATEGORY_NAME_MAX = 50
 FESTIVAL_NAME_MAX = 300
 FESTIVAL_CONTENT_MAX = 700
 FESTIVAL_LOCATION_MAX = 500
@@ -248,26 +274,31 @@ INTRO_FIELDS = {
         "OPERATING_HOURS": "usetime",
         "ADMISSION_FEE": None,
         "PARKING": "parking",
+        "REST_DATE": "restdate",
     },
     CONTENT_TYPE_CULTURAL_FACILITY: {
         "OPERATING_HOURS": "usetimeculture",
         "ADMISSION_FEE": "usefee",
         "PARKING": "parkingculture",
+        "REST_DATE": "restdateculture",
     },
     CONTENT_TYPE_LEPORTS: {
         "OPERATING_HOURS": "usetimeleports",
         "ADMISSION_FEE": "usefeeleports",
         "PARKING": "parkingleports",
+        "REST_DATE": "restdateleports",
     },
     CONTENT_TYPE_SHOPPING: {
         "OPERATING_HOURS": "opentime",
         "ADMISSION_FEE": None,
         "PARKING": "parkingshopping",
+        "REST_DATE": "restdateshopping",
     },
     CONTENT_TYPE_RESTAURANT: {
         "OPERATING_HOURS": "opentimefood",
         "ADMISSION_FEE": None,
         "PARKING": "parkingfood",
+        "REST_DATE": "restdatefood",
     },
     CONTENT_TYPE_FESTIVAL: {
         "OPERATING_HOURS": "playtime",
@@ -280,6 +311,11 @@ _HREF = re.compile(r'href=["\']([^"\']+)["\']', re.IGNORECASE)
 _BARE_URL = re.compile(r"https?://[^\s\"'<>]+")
 _TAG = re.compile(r"<[^>]+>")
 
+ALWAYS_OPEN = "연중무휴"
+WEEKDAYS = "월화수목금토일"
+_WEEKDAY = re.compile(rf"([{WEEKDAYS}])요일")
+_ALWAYS_OPEN = re.compile(r"연중\s*무휴")
+
 
 def clean(value: object, limit: int | None = None) -> str | None:
     if value is None:
@@ -289,6 +325,26 @@ def clean(value: object, limit: int | None = None) -> str | None:
     if not text:
         return None
     return text[:limit] if limit else text
+
+
+def normalize_rest_date(value: object) -> str | None:
+    """자유 서술인 쉬는날을 코스 추천이 바로 쓸 수 있는 형태로 줄인다.
+
+    "매주 화요일 (단, 화요일이 공휴일인 경우 다음날 휴무)" -> "화"
+    "연중무휴"                                        -> "연중무휴"
+    "점포 별로 상이함"                                 -> None (모름)
+
+    요일을 먼저 본다. "마을 연중무휴 / 문화관 매주 월요일" 처럼 둘이 같이 있으면
+    쉬는 날이 있는 쪽으로 읽어야 헛걸음을 시키지 않는다.
+    """
+    text = clean(value)
+    if not text:
+        return None
+
+    found = {match.group(1) for match in _WEEKDAY.finditer(text)}
+    if found:
+        return ",".join(day for day in WEEKDAYS if day in found)
+    return ALWAYS_OPEN if _ALWAYS_OPEN.search(text) else None
 
 
 def parse_coordinate(value: object) -> str | None:
@@ -328,10 +384,28 @@ def join_address(item: dict[str, Any]) -> str | None:
     return joined[:PLACE_ADDRESS_MAX] if joined else None
 
 
+def category_fields(
+    item: dict[str, Any],
+    category_names: dict[str, tuple[str, str]] | None = None,
+) -> dict[str, Any]:
+    """분류체계 코드와 그 이름. 이름을 못 찾으면 코드를 그대로 넣어 빈칸을 남기지 않는다."""
+    code = clean(item.get("lclsSystm3"), CATEGORY_CODE_MAX)
+    if not code:
+        return {"CATEGORY_CODE": None, "CATEGORY_MAIN": None, "CATEGORY_SUB": None}
+
+    main, sub = (category_names or {}).get(code, (code, code))
+    return {
+        "CATEGORY_CODE": code,
+        "CATEGORY_MAIN": (main or code)[:CATEGORY_NAME_MAX],
+        "CATEGORY_SUB": (sub or code)[:CATEGORY_NAME_MAX],
+    }
+
+
 def place_fields(
     item: dict[str, Any],
     detail_common: dict[str, Any] | None = None,
     detail_intro: dict[str, Any] | None = None,
+    category_names: dict[str, tuple[str, str]] | None = None,
 ) -> dict[str, Any]:
     fields: dict[str, Any] = {
         "NAME": clean(item.get("title"), PLACE_NAME_MAX),
@@ -344,6 +418,9 @@ def place_fields(
         "OPERATING_HOURS": None,
         "ADMISSION_FEE": None,
         "PARKING": None,
+        "REST_DATE": None,
+        "MENU": None,
+        **category_fields(item, category_names),
     }
 
     if detail_common:
@@ -355,6 +432,18 @@ def place_fields(
         for column, source_key in mapping.items():
             if source_key:
                 fields[column] = clean(detail_intro.get(source_key), PLACE_TEXT_FIELD_MAX)
+        # 대표메뉴·취급메뉴는 음식점에만 온다. 코스에서 "고기집" 을 가려내는 근거라
+        # 둘을 합쳐 하나로 둔다.
+        menu = " / ".join(
+            part
+            for part in (
+                clean(detail_intro.get("firstmenu")),
+                clean(detail_intro.get("treatmenu")),
+            )
+            if part
+        )
+        fields["MENU"] = menu[:PLACE_MENU_MAX] or None
+        fields["REST_DATE"] = normalize_rest_date(fields["REST_DATE"])
 
     return fields
 
@@ -442,6 +531,15 @@ def _upsert(
         return cursor.rowcount == 1
 
 
+def load_category_names(client: TourApiClient) -> dict[str, tuple[str, str]]:
+    # 이름표를 못 받아도 코드는 그대로 저장되므로 동기화 자체는 계속 진행한다.
+    try:
+        return client.lcls_systm_names()
+    except TourApiError as exc:
+        logger.warning("분류체계 이름을 받지 못했다. 코드만 저장한다: %s", exc)
+        return {}
+
+
 def sync_places(
     connection: pymysql.Connection,
     client: TourApiClient,
@@ -451,6 +549,7 @@ def sync_places(
 ) -> SyncResult:
     result = SyncResult()
     processed = 0
+    category_names = load_category_names(client)
 
     for content_type_id in content_type_ids:
         for item in client.area_based_list(content_type_id=content_type_id):
@@ -463,7 +562,7 @@ def sync_places(
                 continue
 
             common, intro = _fetch_details(client, content_id, content_type_id, with_detail)
-            fields = place_fields(item, common, intro)
+            fields = place_fields(item, common, intro, category_names)
             fields["TYPE"] = place_type_for(item.get("contenttypeid"))
 
             created = _upsert(connection, "PLACE", content_id, fields)

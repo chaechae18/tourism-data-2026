@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 // 버튼/마커에 쓰는 아이콘들 (lucide 아이콘 라이브러리)
-import { Check, Footprints, Headphones, LocateFixed, MapPin, Navigation, Route } from "lucide-react";
+import { Check, ChevronRight, Crown, Footprints, Headphones, LocateFixed, MapPin, Navigation, RefreshCw, Route } from "lucide-react";
 // 지도 범례 문구, 장소(퀘스트) 데이터
 import { MAP_LEGEND, QUESTS } from "../../lib/app-data";
 // 지도 "계산 엔진"에서 가져오는 함수/데이터들 (lib/map/gyeongju-map.js)
@@ -75,6 +75,16 @@ function LandmarkGlyph({ icon }) {
         <path d="M-9 -5 Q0 -13 9 -5 L6 -3 L-6 -3 Z" fill="#426c6a" stroke="#304d4b" strokeWidth="1.2" />
         <rect x="-7" y="-3" width="14" height="10" rx="1" fill="#f2d6a0" stroke="#685d51" strokeWidth="1.2" />
         <path d="M-3 7 V1 M3 7 V1" stroke="#9f5c45" strokeWidth="2" />
+      </g>
+    );
+  }
+
+  if (icon === "food") {
+    return (
+      <g>
+        <path d="M-8 -1 Q0 -9 8 -1 Z" fill="#c9714e" stroke="#7d4630" strokeWidth="1.2" />
+        <rect x="-9" y="-1" width="18" height="3" rx="1.5" fill="#f2e2c8" stroke="#7d4630" strokeWidth="1.2" />
+        <path d="M-5 2 Q0 8 5 2 Z" fill="#e8d3ae" stroke="#7d4630" strokeWidth="1.2" />
       </g>
     );
   }
@@ -261,7 +271,7 @@ function IllustratedMap({ bounds, completedQuestIds, currentLocation, onSelect, 
 // 지도 화면 전체 컴포넌트 - 상태 관리 + 버튼 동작 + 화면 조립
 // props: 완료한 퀘스트 목록, 완료/도슨트/선택 콜백, 현재 선택된 장소
 // ===================================================================
-export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent, onSelect, selectedPlace }) {
+export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent, onOpenRoles, onReroll, onSelect, places = QUESTS, roleName = "왕", selectedPlace }) {
   // 선택된 장소가 도심권 안이면 "도심권", 아니면 "전체 경주"로 시작
   const initialScope = isWithinBounds(selectedPlace, MAP_SCOPES.core.bounds) ? "core" : "all";
 
@@ -280,8 +290,8 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent,
   const completed = completedQuestIds.includes(selectedPlace.id);  // 방문 완료했는지
   // 현재 범위 안에 있는 장소들만 추림 (범위 바뀔 때만 다시 계산 → useMemo로 최적화)
   const visiblePlaces = useMemo(
-    () => QUESTS.filter((place) => isWithinBounds(place, scope.bounds)),
-    [scope.bounds],
+    () => places.filter((place) => isWithinBounds(place, scope.bounds)),
+    [places, scope.bounds],
   );
 
   // 장소 선택 시: 기존 경로 지우고 알림
@@ -393,6 +403,26 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent,
 
       {/* 지도 아래: 선택한 장소 상세 카드 */}
       <div className="relative z-20 -mt-7 space-y-3 px-4">
+        {/* 지금 고른 역할 + 바꾸기 */}
+        <button
+          type="button"
+          onClick={onOpenRoles}
+          className="flex w-full items-center gap-3 rounded-2xl border border-[#e7e0cf] bg-white px-4 py-3 text-left shadow-[0_10px_24px_rgba(52,50,53,0.10)] transition-colors hover:bg-[#fdfaf3]"
+        >
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#faf1de] text-[#a67927]"><Crown size={18} /></span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10px] font-bold tracking-[0.12em] text-[#a09a8c]">지금 역할</span>
+            <span className="block truncate font-bold text-[#343235]">{roleName}</span>
+          </span>
+          <span className="shrink-0 rounded-full bg-[#f2f4f1] px-2.5 py-1 text-[11px] font-bold text-[#626762]">바꾸기</span>
+          <ChevronRight size={16} className="shrink-0 text-[#a5a8a4]" />
+        </button>
+
+        {/* 저장된 코스를 버리고 새로 뽑는다 */}
+        <AppButton className="w-full" icon={RefreshCw} variant="outline" onClick={onReroll}>
+          코스 다시 뽑기
+        </AppButton>
+
         <article className="rounded-2xl border border-[#e2e4e0] bg-white p-4 shadow-[0_12px_30px_rgba(52,50,53,0.12)]">
           {/* 장소 이름 + 거리/상태 뱃지 + 설명 */}
           <div className="flex items-start gap-3">

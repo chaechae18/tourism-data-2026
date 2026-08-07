@@ -12,6 +12,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY db ./db
+COPY sync_tourapi.py ./sync_tourapi.py
 
 RUN mkdir -p /app/uploads \
     && chown -R app:app /app

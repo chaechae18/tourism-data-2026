@@ -13,6 +13,7 @@ from app.tourapi import (
     TourApiClient,
     TourApiError,
     festival_fields,
+    normalize_rest_date,
     place_fields,
     sync_festivals,
     sync_places,
@@ -68,11 +69,15 @@ class FakeSession:
 
 
 class FakeClient:
-    def __init__(self, places=(), festivals=(), common=None, intro=None) -> None:
+    def __init__(self, places=(), festivals=(), common=None, intro=None, categories=None) -> None:
         self.places = list(places)
         self.festivals = list(festivals)
         self.common = common
         self.intro = intro
+        self.categories = categories or {}
+
+    def lcls_systm_names(self) -> dict[str, tuple[str, str]]:
+        return dict(self.categories)
 
     def area_based_list(self, content_type_id=None, **kwargs) -> list[dict]:
         return list(self.places)
@@ -213,6 +218,56 @@ def test_resync_keeps_a_festival_in_the_trash(
     assert festival["NAME"] == "경주 벚꽃축제"
     assert festival["START_DATE"].date().isoformat() == "2026-04-01"
     assert festival["IS_TRASH"] == 1
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("연중무휴", "연중무휴"),
+        ("연중 무휴", "연중무휴"),
+        ("매주 화요일", "화"),
+        ("매주 월요일, 목요일 ※ 변동될 경우 홈페이지 공지", "월,목"),
+        ("매주 화요일 (단, 화요일이 공휴일인 경우 다음날 휴무)", "화"),
+        ("매주 일요일 / 법정공휴일", "일"),
+        ("점포 별로 상이함", None),
+        ("설·추석 당일", None),
+        ("", None),
+        (None, None),
+    ],
+)
+def test_normalize_rest_date(raw: str | None, expected: str | None) -> None:
+    assert normalize_rest_date(raw) == expected
+
+
+def test_place_fields_name_the_category_and_join_the_menu() -> None:
+    tomb = place_fields(
+        {**PLACE_ITEM, "lclsSystm3": "HS010800"},
+        category_names={"HS010800": ("역사유적지", "고분, 능")},
+    )
+    restaurant = place_fields(
+        {**PLACE_ITEM, "contenttypeid": "39", "lclsSystm3": "FD010100"},
+        detail_intro={
+            "firstmenu": "장군 갈비살",
+            "treatmenu": "장군 안창살 / 장군 살치살",
+            "restdatefood": "매주 화요일",
+        },
+        category_names={"FD010100": ("한식", "관광식당")},
+    )
+    # 이름표에 없는 코드는 코드를 그대로 넣어 빈칸을 남기지 않는다.
+    unnamed = place_fields({**PLACE_ITEM, "lclsSystm3": "ZZ999999"})
+    uncategorized = place_fields(PLACE_ITEM)
+
+    assert (tomb["CATEGORY_CODE"], tomb["CATEGORY_MAIN"], tomb["CATEGORY_SUB"]) == (
+        "HS010800",
+        "역사유적지",
+        "고분, 능",
+    )
+    assert restaurant["MENU"] == "장군 갈비살 / 장군 안창살 / 장군 살치살"
+    assert restaurant["REST_DATE"] == "화"
+    assert unnamed["CATEGORY_MAIN"] == "ZZ999999"
+    assert uncategorized["CATEGORY_CODE"] is None
+    # 음식점이 아니면 메뉴 칸은 비어 있어야 한다.
+    assert tomb["MENU"] is None
 
 
 def test_place_fields_map_the_api_item() -> None:
