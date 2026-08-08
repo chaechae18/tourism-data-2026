@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -39,6 +40,18 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# ---------------------------------------------------------
+# Session
+# ---------------------------------------------------------
+app.add_middleware(
+    SessionMiddleware,
+    secret_key="dev-session-secret-key-change-this",
+    session_cookie="session",
+    max_age=60 * 60 * 24 * 7,
+    same_site="lax",
+    https_only=False,
 )
 
 

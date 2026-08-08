@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { LogOut, PawPrint } from "lucide-react";
 import { DEFAULT_USER, QUESTS } from "../../lib/app-data";
 import { notifyQuestCompleted } from "../../lib/api/notifications";
@@ -21,6 +21,7 @@ const NOTICE_DURATION = 2800;
 
 export default function PlayGyeongju() {
   const [entered, setEntered] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [authMode, setAuthMode] = useState(null);
   const [activeTab, setActiveTab] = useState(INITIAL_TAB);
   const [user, setUser] = useState(DEFAULT_USER);
@@ -30,7 +31,49 @@ export default function PlayGyeongju() {
   const [notice, setNotice] = useState("");
   const [notificationVersion, setNotificationVersion] = useState(0);
 
-  const selectedQuest = QUESTS.find((quest) => quest.id === selectedQuestId) || QUESTS[0];
+  const selectedQuest =
+    QUESTS.find((quest) => quest.id === selectedQuestId) || QUESTS[0];
+
+    // 새로고침 시 세션 확인
+    useEffect(() => {
+      const checkLogin = async () => {
+        try {
+          const response = await fetch(
+            "http://localhost:8001/api/v1/auth/me",
+            {
+              method: "GET",
+              credentials: "include",
+            }
+          );
+
+          if (!response.ok) {
+            setEntered(false);
+            setAuthMode(null);
+            return;
+          }
+
+          const data = await response.json();
+
+          console.log("현재 로그인 사용자:", data);
+
+          if (data?.user) {
+            setUser((current) => ({
+              ...current,
+              ...data.user,
+            }));
+
+            setEntered(true);
+          }
+        } catch (error) {
+          console.error("로그인 상태 확인 실패:", error);
+          setEntered(false);
+        } finally {
+          setCheckingAuth(false);
+        }
+      };
+
+      checkLogin();
+    }, []);
 
   const showNotice = (message) => {
     setNotice(message);
@@ -61,6 +104,11 @@ export default function PlayGyeongju() {
     setSelectedQuestId(quest.id);
     setActiveTab("map");
   };
+
+  // 세션 확인하는 동안에는 로그인 화면을 보여주지 않음
+  if (checkingAuth) {
+    return null;
+  }
 
   if (!entered) {
     return (
