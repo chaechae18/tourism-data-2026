@@ -1,0 +1,220 @@
+from datetime import date
+
+import pymysql
+
+from .course_builder import Course, Stop, build_course, distance_km
+from .personas import Persona
+
+
+QUEST_TYPE_VISIT = 1
+
+COURSE_STOPS_SQL = """
+    SELECT q.IDX AS QUEST_IDX, q.QUEST_ORDER, q.TIME_SLOT,
+           p.IDX AS PLACE_IDX, p.NAME, p.ADDRESS, p.IMG, p.MENU, p.REST_DATE,
+           p.CATEGORY_SUB, p.LATITUDE, p.LONGITUDE, mp.MARKER_ICON_TYPE
+    FROM QUEST q
+    JOIN MAP_PLACE mp ON mp.IDX = q.MAP_PLACE_IDX
+    JOIN PLACE p ON p.IDX = mp.PLACE_IDX
+    WHERE q.COURSE_IDX = %s
+    ORDER BY q.QUEST_ORDER
+"""
+
+
+def _scalar(connection: pymysql.Connection, sql: str, parameters: tuple = ()) -> int | None:
+    with connection.cursor() as cursor:
+        cursor.execute(sql, parameters)
+        row = cursor.fetchone()
+    return next(iter(row.values())) if row else None
+
+
+def _execute(connection: pymysql.Connection, sql: str, parameters: tuple = ()) -> int:
+    with connection.cursor() as cursor:
+        cursor.execute(sql, parameters)
+        return cursor.lastrowid
+
+
+def ensure_character(connection: pymysql.Connection, persona: Persona) -> int:
+    # 캐릭터 등록 
+    found = _scalar(
+        connection, "SELECT IDX FROM CHARACTER_MASTER WHERE CHARACTER_TYPE = %s", (persona.key,)
+    )
+    if found:
+        return found
+    return _execute(
+        connection,
+        "INSERT INTO CHARACTER_MASTER (CHARACTER_TYPE, IS_ACTIVE) VALUES (%s, 1)",
+        (persona.key,),
+    )
+
+
+def ensure_user_character(
+    connection: pymysql.Connection,
+    user_no: int,
+    character_idx: int,
+) -> int:
+    # 사용자 캐릭터 등록, 선택 캐릭터로 지정
+    found = _scalar(
+        connection,
+        "SELECT IDX FROM USER_CHARACTER WHERE USER_NO = %s AND CHARACTER_IDX = %s",
+        (user_no, character_idx),
+    )
+    if found is None:
+        found = _execute(
+            connection,
+            "INSERT INTO USER_CHARACTER (USER_NO, CHARACTER_IDX, IS_SELECTED) VALUES (%s, %s, 1)",
+            (user_no, character_idx),
+        )
+    _execute(
+        connection,
+        "UPDATE USER_CHARACTER SET IS_SELECTED = (IDX = %s) WHERE USER_NO = %s",
+        (found, user_no),
+    )
+    return found
+
+
+def ensure_map_place(connection: pymysql.Connection, stop: Stop) -> int:
+    # 장소 등록, 이미 있으면 아이콘만 업데이트
+    found = _scalar(
+        connection, "SELECT IDX FROM MAP_PLACE WHERE PLACE_IDX = %s", (stop.place_idx,)
+    )
+    if found:
+        _execute(
+            connection,
+            "UPDATE MAP_PLACE SET MARKER_ICON_TYPE = %s WHERE IDX = %s",
+            (stop.icon, found),
+        )
+        return found
+    return _execute(
+        connection,
+        "INSERT INTO MAP_PLACE (PLACE_IDX, PLACE_CODE, MARKER_ICON_TYPE) VALUES (%s, %s, %s)",
+        (stop.place_idx, f"PLACE-{stop.place_idx}", stop.icon),
+    )
+
+
+def find_active_course(connection: pymysql.Connection, user_character_idx: int) -> int | None:
+    return _scalar(
+        connection,
+        """SELECT IDX FROM COURSE
+           WHERE USER_CHARACTER_IDX = %s AND IS_ACTIVE = 1
+           ORDER BY IDX DESC LIMIT 1""",
+        (user_character_idx,),
+    )
+
+
+def load_course(
+    connection: pymysql.Connection,
+    course_idx: int,
+    persona: Persona,
+    visit_date: date,
+) -> Course | None:
+    with connection.cursor() as cursor:
+        cursor.execute(COURSE_STOPS_SQL, (course_idx,))
+        rows = cursor.fetchall()
+    if not rows:
+        return None
+
+    stops: list[Stop] = []
+    position: tuple[float, float] | None = None
+    for row in rows:
+        point = (float(row["LATITUDE"]), float(row["LONGITUDE"]))
+        stops.append(
+            Stop(
+                order=row["QUEST_ORDER"],
+                time_slot=row["TIME_SLOT"] or "",
+                place_idx=row["PLACE_IDX"],
+                name=row["NAME"],
+                category=row["CATEGORY_SUB"],
+                address=row["ADDRESS"],
+                latitude=point[0],
+                longitude=point[1],
+                menu=row["MENU"],
+                rest_date=row["REST_DATE"],
+                # 이전 장소가 있으면 거리 계산, 없으면 0
+                distance_km=round(distance_km(position, point), 2),
+                img=row["IMG"],
+                icon=row["MARKER_ICON_TYPE"],
+                quest_id=row["QUEST_IDX"],
+            )
+        )
+        position = point
+
+    return Course(
+        persona_key=persona.key,
+        persona_name=persona.name,
+        visit_date=visit_date,
+        stops=tuple(stops),
+        skipped_slots=(),
+        course_id=course_idx,
+    )
+
+
+def save_course(
+    connection: pymysql.Connection,
+    user_character_idx: int,
+    persona: Persona,
+    course: Course,
+) -> int:
+    # 코스 저장, 이전 코스는 비활성
+    connection.begin()
+    try:
+        _execute(
+            connection,
+            "UPDATE COURSE SET IS_ACTIVE = 0 WHERE USER_CHARACTER_IDX = %s",
+            (user_character_idx,),
+        )
+        course_idx = _execute(
+            connection,
+            """INSERT INTO COURSE (USER_CHARACTER_IDX, COURSE_NAME, DESCRIPTION, REWARD_IMAGE)
+               VALUES (%s, %s, %s, '')""",
+            (
+                user_character_idx,
+                f"{persona.name} 코스",
+                f"{persona.name}의 하루를 따라 걷는 코스",
+            ),
+        )
+        for stop in course.stops:
+            map_place_idx = ensure_map_place(connection, stop)
+            _execute(
+                connection,
+                """INSERT INTO QUEST
+                   (COURSE_IDX, MAP_PLACE_IDX, QUEST_ORDER, TIME_SLOT, QUEST_TYPE, TITLE, CONTENT)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                (
+                    course_idx,
+                    map_place_idx,
+                    stop.order,
+                    stop.time_slot,
+                    QUEST_TYPE_VISIT,
+                    stop.name,
+                    stop.category,
+                ),
+            )
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    return course_idx
+
+
+def get_or_create_course(
+    connection: pymysql.Connection,
+    *,
+    user_no: int,
+    persona: Persona,
+    visit_date: date | None = None,
+    refresh: bool = False,
+) -> Course:
+    visit_date = visit_date or date.today()
+    character_idx = ensure_character(connection, persona)
+    user_character_idx = ensure_user_character(connection, user_no, character_idx)
+
+    if not refresh:
+        course_idx = find_active_course(connection, user_character_idx)
+        if course_idx:
+            saved = load_course(connection, course_idx, persona, visit_date)
+            if saved:
+                return saved
+
+    built = build_course(connection, persona, visit_date=visit_date)
+    course_idx = save_course(connection, user_character_idx, persona, built)
+    return load_course(connection, course_idx, persona, visit_date) or built

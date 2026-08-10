@@ -105,6 +105,8 @@ def login(
                 u.ID AS user_id,
                 u.NICKNAME AS nickname,
                 u.EMAIL AS email,
+                u.PROFILE_IMAGE AS profile_image,
+                u.LANGUAGE_CODE AS language_code,
                 u.COUNTRY AS country,
                 u.STATUS AS status,
                 ua.PASSWORD_HASH AS password_hash
@@ -142,4 +144,6 @@ def login(
         "nickname": user["nickname"],
         "email": user["email"],
         "country": user["country"],
+        "profile_image": user["profile_image"],
+        "language_code": user["language_code"]
     }

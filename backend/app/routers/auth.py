@@ -87,8 +87,8 @@ async def create_login(
         "nickname": user["nickname"],
         "country": user["country"],
         "email": user["email"],
-        "profile_image": user["profileImage"],
-        "language_code": user["languageCode"],
+        "profile_image": user["profile_image"],
+        "language_code": user["language_code"],
     }
     return {
         "message": "로그인 성공",
