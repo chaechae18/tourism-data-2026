@@ -49,7 +49,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key="dev-session-secret-key-change-this",
     session_cookie="session",
-    max_age=60 * 60 * 24 * 7,
+    max_age=60 * 60 * 24,
     same_site="lax",
     https_only=False,
 )

@@ -2,7 +2,7 @@ services:
   db:
     image: mysql:8.4
     ports:
-       - "3307:3306"
+      - "${MYSQL_PORT:-3306}:3306"
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-play_gyeongju}
       MYSQL_USER: ${MYSQL_USER:-play_gyeongju}

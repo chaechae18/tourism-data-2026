@@ -58,7 +58,7 @@ export default function PlayGyeongju() {
 
           if (data?.user) {
             setUser((current) => ({
-              ...current,
+              ...DEFAULT_USER,
               ...data.user,
             }));
 
@@ -80,10 +80,26 @@ export default function PlayGyeongju() {
     window.setTimeout(() => setNotice(""), NOTICE_DURATION);
   };
 
-  const enterApp = (profile = {}) => {
-    setUser((current) => ({ ...current, ...profile }));
+  const enterApp = (data = {}) => {
+    const profile = data?.user ?? data;
+
+    setUser({
+      ...DEFAULT_USER,
+      ...profile,
+    });
+
     setAuthMode(null);
     setEntered(true);
+  };
+
+
+  const logout = () => {
+    setEntered(false);
+    setUser(DEFAULT_USER);
+    setCompletedQuestIds([]);
+    setSelectedQuestId(INITIAL_SELECTED_QUEST_ID);
+    setOutfit({});
+    setNotificationVersion(0);
   };
 
   const completeQuest = async (id) => {
@@ -127,7 +143,7 @@ export default function PlayGyeongju() {
           <button type="button" onClick={() => setActiveTab("home")} className="flex items-center gap-2 text-left"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#bd8c31] text-white"><PawPrint size={18} /></span><span><span className="block font-semibold text-[#343235]">Play Gyeongju</span><span className="block text-xs text-[#747579]">{user.nickname}</span></span></button>
           <div className="flex items-center gap-2">
             <NotificationButton refreshKey={notificationVersion} />
-            <IconButton icon={LogOut} label="로그아웃" onClick={() => setEntered(false)} />
+            <IconButton icon={LogOut} label="로그아웃"  onClick={logout} />
           </div>
         </div>
       </header>
@@ -137,7 +153,7 @@ export default function PlayGyeongju() {
         {activeTab === "my-dg" && <MyDGTab completedQuestIds={completedQuestIds} onMapQuest={openQuestOnMap} onSaveOutfit={() => showNotice("현재 착장을 저장했어요.")} outfit={outfit} setOutfit={setOutfit} />}
         {activeTab === "map" && <GyeongjuMap2D completedQuestIds={completedQuestIds} onComplete={completeQuest} onDocent={(quest) => showNotice(`${quest.name} 도슨트를 준비하고 있어요.`)} onSelect={(quest) => setSelectedQuestId(quest.id)} selectedPlace={selectedQuest} />}
         {activeTab === "spots" && <SpotsTab user={user} />}
-        {activeTab === "my-page" && <MyPageTab completedQuestIds={completedQuestIds} onLogout={() => setEntered(false)} onNotice={showNotice} setUser={setUser} user={user} />}
+        {activeTab === "my-page" && <MyPageTab completedQuestIds={completedQuestIds}  onLogout={logout} onNotice={showNotice} setUser={setUser} user={user} />}
       </main>
 
       {notice && <div className="fixed bottom-24 left-1/2 z-40 w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 rounded-lg bg-[#343235] px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">{notice}</div>}

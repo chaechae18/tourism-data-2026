@@ -80,8 +80,16 @@ async def create_login(
         )
 
     request.session.clear()
-    request.session["user_no"] = user["userNo"]
 
+    request.session["user"] = {
+        "user_no": user["userNo"],
+        "user_id": user["userId"],
+        "nickname": user["nickname"],
+        "country": user["country"],
+        "email": user["email"],
+        "profile_image": user["profileImage"],
+        "language_code": user["languageCode"],
+    }
     return {
         "message": "로그인 성공",
         "user": user,
