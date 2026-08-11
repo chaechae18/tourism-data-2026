@@ -23,6 +23,7 @@ const NOTICE_DURATION = 2800;
 
 export default function PlayGyeongju() {
   const [entered, setEntered] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [authMode, setAuthMode] = useState(null);
   const [activeTab, setActiveTab] = useState(INITIAL_TAB);
   const [user, setUser] = useState(DEFAULT_USER);
@@ -41,6 +42,44 @@ export default function PlayGyeongju() {
 
   // 코스 규칙이 아직 없는 역할은 왕 코스를 그대로 둔다.
   const courseRoleKey = role.ready ? role.key : null;
+
+  useEffect(() => {
+  const checkLogin = async () => {
+    try {
+      const response = await fetch(
+        "http://localhost:8001/api/v1/auth/me",
+        {
+          method: "GET",
+          credentials: "include",
+        }
+      );
+
+      if (!response.ok) {
+        setEntered(false);
+        setAuthMode(null);
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data?.user) {
+        setUser((current) => ({
+          ...DEFAULT_USER,
+          ...data.user,
+        }));
+
+        setEntered(true);
+      }
+    } catch (error) {
+      console.error("로그인 상태 확인 실패:", error);
+      setEntered(false);
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
+
+  checkLogin();
+}, []);
 
   useEffect(() => {
     if (!entered || !courseRoleKey) return undefined;
@@ -98,10 +137,25 @@ export default function PlayGyeongju() {
     window.setTimeout(() => setNotice(""), NOTICE_DURATION);
   };
 
-  const enterApp = (profile = {}) => {
-    setUser((current) => ({ ...current, ...profile }));
+  const enterApp = (data = {}) => {
+    const profile = data?.user ?? data;
+
+    setUser({
+      ...DEFAULT_USER,
+      ...profile,
+    });
+
     setAuthMode(null);
     setEntered(true);
+  };
+  
+  const logout = () => {
+    setEntered(false);
+    setUser(DEFAULT_USER);
+    setCompletedQuestIds([]);
+    setSelectedQuestId(INITIAL_SELECTED_QUEST_ID);
+    setOutfit({});
+    setNotificationVersion(0);
   };
 
   const completeQuest = async (id) => {
@@ -122,6 +176,10 @@ export default function PlayGyeongju() {
     setSelectedQuestId(quest.id);
     setActiveTab("map");
   };
+
+  if (checkingAuth) {
+    return null;
+  }
 
   if (!entered) {
     return (
@@ -156,7 +214,7 @@ export default function PlayGyeongju() {
         {activeTab === "my-dg" && <MyDGTab completedQuestIds={completedQuestIds} onMapQuest={openQuestOnMap} onSaveOutfit={() => showNotice("현재 착장을 저장했어요.")} outfit={outfit} setOutfit={setOutfit} />}
         {activeTab === "map" && <GyeongjuMap2D completedQuestIds={completedQuestIds} onComplete={completeQuest} onDocent={(quest) => showNotice(`${quest.name} 도슨트를 준비하고 있어요.`)} onOpenRoles={() => setRoleOpen(true)} onReroll={rerollCourse} onSelect={(quest) => setSelectedQuestId(quest.id)} places={places} roleName={role.name} selectedPlace={selectedQuest} />}
         {activeTab === "spots" && <SpotsTab user={user} />}
-        {activeTab === "my-page" && <MyPageTab completedQuestIds={completedQuestIds} onLogout={() => setEntered(false)} onNotice={showNotice} setUser={setUser} user={user} />}
+        {activeTab === "my-page" && <MyPageTab completedQuestIds={completedQuestIds} onLogout={logout} onNotice={showNotice} setUser={setUser} user={user} />}
       </main>
 
       {notice && <div className="fixed bottom-24 left-1/2 z-40 w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 rounded-lg bg-[#343235] px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">{notice}</div>}
