@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { CalendarDays, ChevronRight, MapPin, MapPinned, Ticket } from "lucide-react";
+import { CalendarDays, ChevronDown, ChevronRight, MapPin, MapPinned, Ticket } from "lucide-react";
 import {
   listBanners,
   listFestivals,
@@ -13,6 +13,9 @@ import AppButton from "../ui/AppButton";
 import SectionHeading from "../ui/SectionHeading";
 
 const ACCENTS = ["#c96d2d", "#287c70", "#405a9d", "#8f4515"];
+const PLACES_PER_PAGE = 2;
+// 경주 소식 배너는 번역본이 없어 당분간 숨긴다. 되살릴 때는 이 값만 true 로 바꾼다.
+const SHOW_NEWS_BANNERS = false;
 
 function toDate(iso) {
   if (!iso) return null;
@@ -66,17 +69,44 @@ function BannerCard({ banner }) {
   );
 }
 
+// 앱 안의 그림지도는 도심권 좌표만 그릴 수 있어서, 추천 관광지는 카카오맵으로 넘긴다.
+function PlaceAddress({ place }) {
+  const style = "mt-3 flex items-start gap-1.5 text-xs text-[#8a7d71]";
+  const body = (
+    <>
+      <MapPin className="mt-0.5 shrink-0" size={13} />
+      {place.address}
+    </>
+  );
+
+  if (place.latitude == null || place.longitude == null) return <p className={style}>{body}</p>;
+
+  const name = encodeURIComponent(place.name || "관광지");
+  return (
+    <a
+      className={`${style} hover:text-[#9a4e17]`}
+      href={`https://map.kakao.com/link/map/${name},${place.latitude},${place.longitude}`}
+      rel="noreferrer"
+      target="_blank"
+    >
+      {body}
+    </a>
+  );
+}
+
 export default function HomeTab({ onMapOpen, language = "ko" }) {
   const [banners, setBanners] = useState([]);
   const [popups, setPopups] = useState([]);
   const [festivals, setFestivals] = useState([]);
   const [places, setPlaces] = useState([]);
+  const [placePage, setPlacePage] = useState(0);
   const [notice, setNotice] = useState("");
+  const [noticeOpen, setNoticeOpen] = useState(false);
 
   const loadHome = useCallback(async () => {
     // 한 섹션이 실패해도 나머지는 그대로 보여준다.
     const results = await Promise.allSettled([
-      listBanners(language),
+      SHOW_NEWS_BANNERS ? listBanners(language) : [],
       listPopups(language),
       listFestivals(language),
       listRecommendedPlaces(language),
@@ -88,6 +118,7 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
     setPopups(popupItems);
     setFestivals(festivalItems);
     setPlaces(placeItems);
+    setPlacePage(0);
 
     const failed = results.find((result) => result.status === "rejected");
     setNotice(failed ? failed.reason.message : "");
@@ -97,74 +128,84 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
     loadHome();
   }, [loadHome]);
 
+  const placePageCount = Math.ceil(places.length / PLACES_PER_PAGE);
+  const pagedPlaces = places.slice(placePage * PLACES_PER_PAGE, (placePage + 1) * PLACES_PER_PAGE);
+
   return (
     <section className="space-y-7">
-      <div className="overflow-hidden rounded-xl bg-[#2c1e19] p-6 text-[#fff8ec]">
+      <div className="overflow-hidden rounded-xl bg-[#2c1e19] px-6 py-4 text-[#fff8ec]">
         <p className="text-xs font-bold text-[#e0b06a]">Gyeongju</p>
-        <h1 className="mt-2 text-xl font-bold leading-8">{HOME_CONTENT.hero.title}</h1>
-        <p className="mt-3 text-sm leading-6 text-[#f0dcc4]">{HOME_CONTENT.hero.description}</p>
-        <AppButton className="mt-5" icon={MapPinned} onClick={onMapOpen} variant="light">가까운 장소 보기</AppButton>
+        <h1 className="mt-1 text-xl font-bold leading-7">{HOME_CONTENT.hero.title}</h1>
+        <AppButton className="mt-3" icon={MapPinned} onClick={onMapOpen} variant="light">가까운 장소 보기</AppButton>
         {notice && <p className="mt-3 text-sm font-bold text-[#ffd4a0]">{notice}</p>}
       </div>
 
       <div>
-        <SectionHeading eyebrow="Notice" title="지금 알려드려요" />
-        <div className="space-y-4">
-          {popups.length === 0 && (
-            <p className="text-sm text-[#7c6d61]">새로운 공지가 없어요.</p>
+        <div className={`flex items-center justify-between gap-4 ${noticeOpen ? "mb-5" : "mb-0"}`}>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a67927]">Notice</p>
+          {popups.length > 0 && (
+            <button
+              aria-expanded={noticeOpen}
+              className="flex shrink-0 items-center gap-1 rounded-full bg-[#fff1df] px-3 py-1.5 text-xs font-bold text-[#a45118]"
+              onClick={() => setNoticeOpen((open) => !open)}
+              type="button"
+            >
+              {popups.length}건
+              <ChevronDown className={noticeOpen ? "rotate-180" : ""} size={14} />
+            </button>
           )}
-          {popups.map((popup, index) => (
-            <div className="flex items-start gap-3" key={`${popup.title}-${index}`}>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#fff1df] text-[#a45118]"><CalendarDays size={18} /></div>
-              <div>
-                <p className="font-bold text-[#241b16]">{popup.title}</p>
-                {popup.content && <p className="mt-1 text-sm leading-6 text-[#6f6256]">{popup.content}</p>}
-                {safeHref(popup.link) && (
-                  <a className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]" href={safeHref(popup.link)}>
-                    자세히 보기 <ChevronRight size={15} />
-                  </a>
-                )}
-              </div>
-            </div>
-          ))}
         </div>
-      </div>
-
-      <div>
-        <SectionHeading eyebrow="Banner" title="경주 소식" />
-        {banners.length === 0 ? (
-          <p className="text-sm text-[#7c6d61]">지금 노출 중인 배너가 없어요.</p>
-        ) : (
-          <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1">
-            {banners.map((banner, index) => (
-              <li key={`${banner.title}-${index}`} className="w-[86%] shrink-0 snap-start sm:w-[420px]">
-                <BannerCard banner={banner} />
-              </li>
+        {popups.length === 0 && (
+          <p className="mt-2 text-sm text-[#7c6d61]">새로운 공지가 없어요.</p>
+        )}
+        {noticeOpen && (
+          <div className="space-y-4">
+            {popups.map((popup, index) => (
+              <div className="flex items-start gap-3" key={`${popup.title}-${index}`}>
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#fff1df] text-[#a45118]"><CalendarDays size={18} /></div>
+                <div>
+                  <p className="font-bold text-[#241b16]">{popup.title}</p>
+                  {popup.content && <p className="mt-1 text-sm leading-6 text-[#6f6256]">{popup.content}</p>}
+                  {safeHref(popup.link) && (
+                    <a className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]" href={safeHref(popup.link)}>
+                      자세히 보기 <ChevronRight size={15} />
+                    </a>
+                  )}
+                </div>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </div>
 
       <div>
-        <SectionHeading eyebrow="Festival" title="다가오는 행사" />
+        <SectionHeading eyebrow="Festival" title="진행중인 행사" />
         <div className="space-y-3">
           {festivals.length === 0 && (
-            <p className="text-sm text-[#7c6d61]">예정된 행사가 없어요.</p>
+            <p className="text-sm text-[#7c6d61]">이번 달에 열리는 행사가 없어요.</p>
           )}
           {festivals.map((festival, index) => {
             const period = formatPeriod(festival.startDate, festival.endDate);
             const url = safeHref(festival.url);
+            // TourAPI 행사 이미지는 대부분 세로 포스터(443×627)라 썸네일을 세로로 잡는다.
             return (
-              <article className="rounded-lg border border-[#e6ddd2] bg-white p-4" key={`${festival.name}-${index}`}>
-                <div className="h-1.5 w-12 rounded-full" style={{ background: ACCENTS[index % ACCENTS.length] }} />
-                {festival.location && <p className="mt-4 text-xs font-bold text-[#8a7d71]">{festival.location}</p>}
-                <h2 className="mt-1 font-bold text-[#241b16]">{festival.name}</h2>
-                {period && <p className="mt-2 text-sm text-[#6f6256]">{period}</p>}
-                {url && (
-                  <a className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]" href={url} rel="noreferrer" target="_blank">
-                    행사 정보 <ChevronRight size={15} />
-                  </a>
+              <article className="flex gap-4 rounded-lg border border-[#e6ddd2] bg-white p-4" key={`${festival.name}-${index}`}>
+                {festival.img ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img alt="" aria-hidden="true" className="aspect-[5/7] w-[4.5rem] shrink-0 rounded-md object-cover" src={festival.img} />
+                ) : (
+                  <div className="aspect-[5/7] w-[4.5rem] shrink-0 rounded-md" style={{ background: ACCENTS[index % ACCENTS.length] }} />
                 )}
+                <div className="min-w-0">
+                  {festival.location && <p className="text-xs font-bold text-[#8a7d71]">{festival.location}</p>}
+                  <h2 className="mt-1 font-bold text-[#241b16]">{festival.name}</h2>
+                  {period && <p className="mt-2 text-sm text-[#6f6256]">{period}</p>}
+                  {url && (
+                    <a className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]" href={url} rel="noreferrer" target="_blank">
+                      행사 정보 <ChevronRight size={15} />
+                    </a>
+                  )}
+                </div>
               </article>
             );
           })}
@@ -177,7 +218,7 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
           {places.length === 0 && (
             <li className="text-sm text-[#7c6d61]">추천 중인 관광지가 없어요.</li>
           )}
-          {places.map((place, index) => (
+          {pagedPlaces.map((place, index) => (
             <li key={`${place.name}-${index}`}>
               <article className="rounded-lg border border-[#e6ddd2] bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -190,19 +231,46 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
                   )}
                 </div>
 
-                {place.text && <p className="mt-2 line-clamp-2 text-sm leading-6 text-[#6f6256]">{place.text}</p>}
+                {/* 요약은 문장마다 줄이 바뀌어 내려온다. 길이가 달라도 카드가 흔들리지 않게 두 줄로 고정한다. */}
+                <p className="mt-2 line-clamp-2 h-12 whitespace-pre-line text-sm leading-6 text-[#6f6256]">{place.text}</p>
 
-                {place.address && (
-                  <p className="mt-3 flex items-start gap-1.5 text-xs text-[#8a7d71]">
-                    <MapPin className="mt-0.5 shrink-0" size={13} />
-                    {place.address}
-                  </p>
-                )}
+                {place.address && <PlaceAddress place={place} />}
               </article>
             </li>
           ))}
         </ul>
+        {placePageCount > 1 && (
+          <div className="mt-4 flex justify-center gap-2">
+            {Array.from({ length: placePageCount }, (_, page) => (
+              <button
+                aria-current={page === placePage}
+                aria-label={`추천 관광지 ${page + 1}페이지`}
+                className={`h-2 rounded-full transition-all ${page === placePage ? "w-5 bg-[#9a4e17]" : "w-2 bg-[#ded2c4]"}`}
+                key={page}
+                onClick={() => setPlacePage(page)}
+                type="button"
+              />
+            ))}
+          </div>
+        )}
       </div>
+
+      {SHOW_NEWS_BANNERS && (
+        <div>
+          <SectionHeading eyebrow="Banner" title="경주 소식" />
+          {banners.length === 0 ? (
+            <p className="text-sm text-[#7c6d61]">지금 노출 중인 배너가 없어요.</p>
+          ) : (
+            <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1">
+              {banners.map((banner, index) => (
+                <li key={`${banner.title}-${index}`} className="w-[86%] shrink-0 snap-start sm:w-[420px]">
+                  <BannerCard banner={banner} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       <div className="border-t border-[#e6ddd2] pt-5">
         <a href={HOME_CONTENT.tourismUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]">경주 관광 정보 <ChevronRight size={16} /></a>

@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, Header, Query
 import pymysql
 
 from ..home import (
+    get_tour_api_client,
     list_banners,
     list_festivals,
     list_popups,
@@ -17,6 +18,7 @@ from ..models.home import (
     RecommendedPlaceResponse,
 )
 from ..mysql import get_mysql
+from ..tourapi import TourApiClient
 
 
 router = APIRouter(prefix="/api/v1/main", tags=["main"])
@@ -46,8 +48,11 @@ def get_festivals(
     lang: LanguageQuery = None,
     accept_language: AcceptLanguage = None,
     database: pymysql.Connection = Depends(get_mysql),
+    client: TourApiClient | None = Depends(get_tour_api_client),
 ) -> list[FestivalResponse]:
-    return list_festivals(database, language=resolve_language(lang, accept_language))
+    return list_festivals(
+        database, client, language=resolve_language(lang, accept_language)
+    )
 
 
 @router.get(

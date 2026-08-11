@@ -6,6 +6,7 @@ from fastapi.testclient import TestClient
 import pymysql
 import pytest
 
+from app.home import festival_cache, get_tour_api_client
 from app.main import app
 from app.mysql import connect, get_mysql
 from app.routers.spots import get_temporary_spot_approval_scheduler
@@ -159,15 +160,19 @@ def client(
     database: pymysql.Connection,
     scheduled_spot_ids: list[int],
 ) -> Iterator[TestClient]:
+    festival_cache.clear()
     app.dependency_overrides[get_mysql] = lambda: database
     app.dependency_overrides[get_temporary_spot_approval_scheduler] = (
         lambda: scheduled_spot_ids.append
     )
+    # 기본값은 TourAPI 없음. 실제 호출은 행사 테스트가 가짜 클라이언트로 덮어쓴다.
+    app.dependency_overrides[get_tour_api_client] = lambda: None
     try:
         yield TestClient(app)
     finally:
         app.dependency_overrides.pop(get_mysql)
         app.dependency_overrides.pop(get_temporary_spot_approval_scheduler)
+        app.dependency_overrides.pop(get_tour_api_client)
 
 
 @pytest.fixture
