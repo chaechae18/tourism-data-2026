@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -18,7 +19,7 @@ from .routers.journey import router as journey_router
 from .routers.places import router as places_router
 from .routers.spots import router as spots_router
 from .routers.uploads import router as uploads_router
-
+from .routers.auth import router as auth_router
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -39,6 +40,18 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# ---------------------------------------------------------
+# Session
+# ---------------------------------------------------------
+app.add_middleware(
+    SessionMiddleware,
+    secret_key="dev-session-secret-key-change-this",
+    session_cookie="session",
+    max_age=60 * 60 * 24,
+    same_site="lax",
+    https_only=False,
 )
 
 
@@ -99,3 +112,4 @@ app.include_router(notifications_router)
 app.include_router(admin_router)
 app.include_router(uploads_router)
 app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
+app.include_router(auth_router)
