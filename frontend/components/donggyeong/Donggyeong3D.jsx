@@ -3,9 +3,14 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { createDonggyeong } from "../../lib/donggyeong/create-donggyeong";
+import { donggyeongModelCache } from "../../lib/donggyeong/glb-memory-cache";
+import { useI18n } from "../i18n/LanguageProvider";
 
-export default function Donggyeong3D({ className = "", interactive = true }) {
+export default function Donggyeong3D({ className = "", interactive = true, items = [] }) {
+  const { t } = useI18n();
   const mountRef = useRef(null);
+  const modelUrls = [...new Set(items.map((item) => item.modelUrl).filter(Boolean))];
+  const modelKey = modelUrls.join("|");
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -52,6 +57,30 @@ export default function Donggyeong3D({ className = "", interactive = true }) {
 
     const donggyeong = createDonggyeong();
     scene.add(donggyeong.root);
+    let active = true;
+    const itemHandles = [];
+    const itemScenes = [];
+
+    const itemLoadPromise = Promise.allSettled(modelUrls.map(async (url) => {
+      try {
+        const handle = await donggyeongModelCache.acquire(url);
+        if (!active) {
+          handle.release();
+          return;
+        }
+        const itemScene = handle.asset.scene.clone(true);
+        itemScene.traverse((object) => {
+          if (!object.isMesh) return;
+          object.castShadow = true;
+          object.receiveShadow = true;
+        });
+        itemHandles.push(handle);
+        itemScenes.push(itemScene);
+        donggyeong.root.add(itemScene);
+      } catch {
+        // Keep the base mascot usable if one optional item asset fails to load.
+      }
+    }));
 
     const orbit = { theta: 0, phi: 1.5, radius: 12.3, drag: false, x: 0, y: 0 };
     const applyCamera = () => {
@@ -116,6 +145,7 @@ export default function Donggyeong3D({ className = "", interactive = true }) {
     render();
 
     return () => {
+      active = false;
       cancelAnimationFrame(frame);
       resizeObserver.disconnect();
       canvas.removeEventListener("pointerdown", onPointerDown);
@@ -124,17 +154,20 @@ export default function Donggyeong3D({ className = "", interactive = true }) {
       canvas.removeEventListener("pointercancel", stopDrag);
       canvas.removeEventListener("pointerleave", stopDrag);
       canvas.removeEventListener("wheel", onWheel);
+      itemScenes.forEach((itemScene) => donggyeong.root.remove(itemScene));
+      itemHandles.forEach((handle) => handle.release());
+      void itemLoadPromise.then(() => donggyeongModelCache.clearUnused());
       donggyeong.dispose();
       renderer.dispose();
       mount.removeChild(canvas);
     };
-  }, [interactive]);
+  }, [interactive, modelKey]);
 
   return (
     <div
       ref={mountRef}
       className={className}
-      aria-label="3D 동경이 캐릭터 뷰어"
+      aria-label={t("donggyeong.viewerLabel")}
       role="img"
     />
   );

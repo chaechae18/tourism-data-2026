@@ -27,15 +27,17 @@ import {
   setSpotReaction,
   uploadSpotImage,
 } from "../../lib/api/spots";
-import { BLOCKED_WORDS, RANKING_RESET_LABEL, SPOT_REVIEW_LIMIT } from "../../lib/app-data";
+import { BLOCKED_WORDS, SPOT_REVIEW_LIMIT } from "../../lib/app-data";
+import { translateError } from "../../lib/i18n";
+import { useI18n } from "../i18n/LanguageProvider";
 import AppButton, { IconButton } from "../ui/AppButton";
 import AppModal from "../ui/AppModal";
 import SectionHeading from "../ui/SectionHeading";
 
-const MODERATION_LABEL = {
-  0: "검수 대기",
-  1: "승인",
-  2: "반려",
+const MODERATION_KEY = {
+  0: "pending",
+  1: "approved",
+  2: "rejected",
 };
 
 const INITIAL_ERRORS = {
@@ -48,8 +50,8 @@ const INITIAL_ERRORS = {
 // 백엔드의 10초 임시 승인 작업이 끝난 뒤 조회하도록 약간의 여유를 둔다.
 const TEMPORARY_APPROVAL_REFRESH_MS = 10_500;
 
-function getErrorMessage(error) {
-  return error instanceof Error ? error.message : "요청을 처리하지 못했습니다.";
+function getErrorMessage(error, t) {
+  return translateError(error, t);
 }
 
 function containsBlockedWord(value) {
@@ -104,10 +106,12 @@ function SpotCard({
   className = "rounded-lg border border-[#e6ddd2] bg-white p-4",
   hidePhoto = false,
 }) {
+  const { t } = useI18n();
+
   return (
     <article className={className}>
       <div className="flex items-start gap-3">
-        {!hidePhoto && <SpotPhoto alt={`${spot.place.name} 사진`} spot={spot} />}
+        {!hidePhoto && <SpotPhoto alt={t("spots.photoAlt", { name: spot.place.name })} spot={spot} />}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-[#8a7d71]">
@@ -124,28 +128,28 @@ function SpotCard({
       <div className="mt-4 flex items-center gap-1 border-t border-[#f0e8de] pt-3">
         <IconButton
           icon={Heart}
-          label={spot.isLiked ? "좋아요 취소" : "좋아요"}
+          label={t(spot.isLiked ? "spots.unlike" : "spots.like")}
           className={`h-9 w-9 border-0 ${spot.isLiked ? "bg-[#fff0ed] text-[#a8463d]" : "bg-transparent"}`}
           onClick={() => onReaction(spot, "like")}
         />
         <span className="mr-2 text-xs font-bold text-[#6f6256]">{spot.likeCount}</span>
         <IconButton
           icon={MessageCircle}
-          label="댓글"
+          label={t("spots.comment")}
           className={`h-9 w-9 border-0 ${commentsOpen ? "bg-[#f1f4f2]" : "bg-transparent"}`}
           onClick={() => onOpenComments(spot.id)}
         />
         <span className="mr-auto text-xs font-bold text-[#6f6256]">{spot.commentCount}</span>
         <IconButton
           icon={Bookmark}
-          label={spot.isBookmarked ? "북마크 취소" : "북마크"}
+          label={t(spot.isBookmarked ? "spots.unbookmark" : "spots.bookmark")}
           className={`h-9 w-9 border-0 ${spot.isBookmarked ? "bg-[#fff1df] text-[#a45118]" : "bg-transparent"}`}
           onClick={() => onReaction(spot, "bookmark")}
         />
         {spot.isOwner && (
           <IconButton
             icon={Trash2}
-            label="내 스팟 삭제"
+            label={t("spots.deleteMine")}
             className="h-9 w-9 border-0 bg-transparent text-[#a8463d]"
             onClick={() => onDelete(spot.id)}
           />
@@ -161,28 +165,28 @@ function SpotCard({
                   @{item.authorNickname}
                 </span>
                 {item.moderationStatus === 0 && (
-                  <span className="text-[10px] font-bold text-[#a45118]">검수 대기</span>
+                  <span className="text-[10px] font-bold text-[#a45118]">{t("spots.pending")}</span>
                 )}
               </div>
               <p className="mt-1 text-sm text-[#5f5044]">{item.content}</p>
             </div>
           ))}
           {comments.length === 0 && (
-            <p className="text-xs text-[#7c6d61]">첫 댓글을 남겨보세요.</p>
+            <p className="text-xs text-[#7c6d61]">{t("spots.firstComment")}</p>
           )}
           <div className="flex gap-2">
             <input
               value={comment}
               onChange={(event) => onCommentChange(event.target.value)}
               className="h-10 min-w-0 flex-1 rounded-lg border border-[#d9cfc2] bg-white px-3 text-sm outline-none"
-              placeholder="댓글을 남겨보세요"
+              placeholder={t("spots.commentPlaceholder")}
             />
             <AppButton
               size="sm"
               disabled={submittingComment || !comment.trim()}
               onClick={() => onCommentSubmit(spot.id)}
             >
-              등록
+              {t("spots.submitComment")}
             </AppButton>
           </div>
         </div>
@@ -192,15 +196,17 @@ function SpotCard({
 }
 
 function SpotGridTile({ onOpen, spot }) {
+  const { t } = useI18n();
+
   return (
     <button
       type="button"
-      aria-label={`${spot.place.name} 게시물 열기`}
+      aria-label={t("spots.openPost", { name: spot.place.name })}
       className="group relative aspect-square min-w-0 overflow-hidden rounded-xl bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8661c]"
       onClick={() => onOpen(spot.id)}
     >
       <SpotPhoto
-        alt={`${spot.place.name} 미리보기`}
+        alt={t("spots.previewAlt", { name: spot.place.name })}
         className="h-full w-full rounded-none object-cover transition-transform duration-200 group-hover:scale-105"
         iconSize={28}
         spot={spot}
@@ -226,13 +232,15 @@ function SpotDetailModal({
   spot,
   submittingComment,
 }) {
+  const { t } = useI18n();
+
   return (
-    <AppModal open={Boolean(spot)} onClose={onClose} title="스팟 게시물">
+    <AppModal open={Boolean(spot)} onClose={onClose} title={t("spots.postTitle")}>
       {spot && (
         <>
           <div className="-mx-6">
             <SpotPhoto
-              alt={`${spot.place.name} 게시물 사진`}
+              alt={t("spots.postPhotoAlt", { name: spot.place.name })}
               className="aspect-square w-full rounded-none object-cover"
               iconSize={52}
               spot={spot}
@@ -259,9 +267,11 @@ function SpotDetailModal({
 }
 
 function DummySpotGridCard({ index }) {
+  const { t } = useI18n();
+
   return (
     <article
-      aria-label={`스팟 카드 자리 ${index}`}
+      aria-label={t("spots.spotPlaceholder", { index })}
       data-testid="spot-placeholder"
       className="aspect-square min-w-0 overflow-hidden rounded-xl bg-white p-2 shadow-[0_3px_12px_rgba(52,50,53,0.06)]"
     >
@@ -271,9 +281,11 @@ function DummySpotGridCard({ index }) {
 }
 
 function DummyRankingCard({ rank }) {
+  const { t } = useI18n();
+
   return (
     <article
-      aria-label={`랭킹 카드 자리 ${rank}`}
+      aria-label={t("spots.rankingPlaceholder", { rank })}
       data-testid="ranking-placeholder"
       className="flex min-h-28 items-center gap-3 rounded-xl bg-white p-3 shadow-[0_3px_12px_rgba(52,50,53,0.06)]"
     >
@@ -291,6 +303,7 @@ function DummyRankingCard({ rank }) {
 }
 
 export default function SpotsTab() {
+  const { language, t } = useI18n();
   const [activeView, setActiveView] = useState("ranking");
   const [listSort, setListSort] = useState("likes");
   const [query, setQuery] = useState("");
@@ -322,6 +335,10 @@ export default function SpotsTab() {
   }, []);
 
   useEffect(() => {
+    setNotice("");
+  }, [language]);
+
+  useEffect(() => {
     let active = true;
     Promise.allSettled([
       listSpotRanking(),
@@ -340,13 +357,13 @@ export default function SpotsTab() {
       }
       setErrors((current) => ({
         ...current,
-        ranking: rankingResult.status === "rejected" ? getErrorMessage(rankingResult.reason) : "",
-        list: listResult.status === "rejected" ? getErrorMessage(listResult.reason) : "",
-        my: myResult.status === "rejected" ? getErrorMessage(myResult.reason) : "",
+        ranking: rankingResult.status === "rejected" ? getErrorMessage(rankingResult.reason, t) : "",
+        list: listResult.status === "rejected" ? getErrorMessage(listResult.reason, t) : "",
+        my: myResult.status === "rejected" ? getErrorMessage(myResult.reason, t) : "",
       }));
     });
     return () => { active = false; };
-  }, [listSort, refreshVersion]);
+  }, [listSort, refreshVersion, t]);
 
   useEffect(() => {
     const keyword = query.trim();
@@ -366,7 +383,7 @@ export default function SpotsTab() {
         setSearchResults(result.places);
       } catch (error) {
         if (error.name !== "AbortError") {
-          setErrors((current) => ({ ...current, search: getErrorMessage(error) }));
+          setErrors((current) => ({ ...current, search: getErrorMessage(error, t) }));
         }
       } finally {
         setSearching(false);
@@ -377,7 +394,7 @@ export default function SpotsTab() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [query, selectedPlace]);
+  }, [query, selectedPlace, t]);
 
   const selectPlace = (place) => {
     setSelectedPlace(place);
@@ -390,7 +407,7 @@ export default function SpotsTab() {
     if (!navigator.geolocation) {
       setErrors((current) => ({
         ...current,
-        search: "이 브라우저에서는 현재 위치를 사용할 수 없어요.",
+        search: t("spots.geolocationUnsupported"),
       }));
       return;
     }
@@ -411,24 +428,24 @@ export default function SpotsTab() {
           setNearbyResults(result.places);
           setNotice(
             result.places.length > 0
-              ? "현재 위치에서 가까운 장소를 불러왔어요."
-              : "현재 위치 주변에서 등록할 장소를 찾지 못했어요.",
+              ? t("spots.nearbyLoaded")
+              : t("spots.nearbyEmpty"),
           );
         } catch (error) {
-          setErrors((current) => ({ ...current, search: getErrorMessage(error) }));
+          setErrors((current) => ({ ...current, search: getErrorMessage(error, t) }));
         } finally {
           setLocating(false);
         }
       },
       (error) => {
         const messages = {
-          1: "위치 권한이 필요해요. 권한을 허용하거나 장소를 직접 검색해 주세요.",
-          2: "현재 위치를 확인할 수 없어요. 장소를 직접 검색해 주세요.",
-          3: "현재 위치 확인 시간이 초과됐어요. 다시 시도해 주세요.",
+          1: t("spots.permissionDenied"),
+          2: t("spots.positionUnavailable"),
+          3: t("spots.timeout"),
         };
         setErrors((current) => ({
           ...current,
-          search: messages[error.code] || "현재 위치를 확인하지 못했어요.",
+          search: messages[error.code] || t("spots.locationFailed"),
         }));
         setLocating(false);
       },
@@ -442,11 +459,11 @@ export default function SpotsTab() {
 
   const shareSpot = async () => {
     if (!selectedPlace || !review.trim()) {
-      setNotice("검색 결과에서 장소를 선택하고 한줄평을 입력해 주세요.");
+      setNotice(t("spots.selectPlace"));
       return;
     }
     if (containsBlockedWord(review)) {
-      setNotice("한줄평에 사용할 수 없는 표현이 있어요.");
+      setNotice(t("spots.blockedReview"));
       return;
     }
 
@@ -465,7 +482,7 @@ export default function SpotsTab() {
       setNearbyResults([]);
       setReview("");
       setPhotoFile(null);
-      setNotice("스팟을 등록했어요. 10초 후 임시 승인되어 공개됩니다.");
+      setNotice(t("spots.created"));
       if (approvalRefreshTimer.current !== null) {
         window.clearTimeout(approvalRefreshTimer.current);
       }
@@ -474,24 +491,24 @@ export default function SpotsTab() {
         setRefreshVersion((current) => current + 1);
       }, TEMPORARY_APPROVAL_REFRESH_MS);
     } catch (error) {
-      setNotice(getErrorMessage(error));
+      setNotice(getErrorMessage(error, t));
     } finally {
       setSubmitting(false);
     }
   };
 
   const removeSpot = async (spotId) => {
-    if (!window.confirm("이 스팟을 삭제할까요?")) return;
+    if (!window.confirm(t("spots.deleteConfirm"))) return;
     try {
       await deleteSpot(spotId);
       setMySpots((current) => current.filter((spot) => spot.id !== spotId));
       setPublicSpots((current) => current.filter((spot) => spot.id !== spotId));
       setRankingSpots((current) => current.filter((spot) => spot.id !== spotId));
       setDetailSpotId((current) => (current === spotId ? null : current));
-      setNotice("스팟을 삭제했어요.");
+      setNotice(t("spots.deleted"));
     } catch (error) {
       const target = activeView === "ranking" ? "ranking" : activeView === "list" ? "list" : "my";
-      setErrors((current) => ({ ...current, [target]: getErrorMessage(error) }));
+      setErrors((current) => ({ ...current, [target]: getErrorMessage(error, t) }));
     }
   };
 
@@ -515,7 +532,7 @@ export default function SpotsTab() {
       )));
     } catch (error) {
       const target = activeView === "ranking" ? "ranking" : "list";
-      setErrors((current) => ({ ...current, [target]: getErrorMessage(error) }));
+      setErrors((current) => ({ ...current, [target]: getErrorMessage(error, t) }));
     }
   };
 
@@ -531,14 +548,14 @@ export default function SpotsTab() {
       setCommentsBySpot((current) => ({ ...current, [spotId]: comments }));
     } catch (error) {
       const target = activeView === "ranking" ? "ranking" : "list";
-      setErrors((current) => ({ ...current, [target]: getErrorMessage(error) }));
+      setErrors((current) => ({ ...current, [target]: getErrorMessage(error, t) }));
     }
   };
 
   const submitComment = async (spotId) => {
     if (!comment.trim()) return;
     if (containsBlockedWord(comment)) {
-      setNotice("댓글에 사용할 수 없는 표현이 있어요.");
+      setNotice(t("spots.blockedComment"));
       return;
     }
     setSubmittingComment(true);
@@ -549,10 +566,10 @@ export default function SpotsTab() {
         [spotId]: [...(current[spotId] || []), created],
       }));
       setComment("");
-      setNotice("댓글을 등록했어요. 승인 후 다른 사용자에게 표시됩니다.");
+      setNotice(t("spots.commentCreated"));
     } catch (error) {
       const target = activeView === "ranking" ? "ranking" : "list";
-      setErrors((current) => ({ ...current, [target]: getErrorMessage(error) }));
+      setErrors((current) => ({ ...current, [target]: getErrorMessage(error, t) }));
     } finally {
       setSubmittingComment(false);
     }
@@ -571,13 +588,13 @@ export default function SpotsTab() {
 
   return (
     <section>
-      <SectionHeading className="mb-2" eyebrow="Spot sharing" title="나만의 경주 스팟" />
-      <nav className="sticky top-0 z-20 -mx-4 bg-[#f7f7f5]/95 px-4 py-1 backdrop-blur" aria-label="스팟 상단 메뉴">
+      <SectionHeading className="mb-2" eyebrow="Spot sharing" title={t("spots.title")} />
+      <nav className="sticky top-0 z-20 -mx-4 bg-[#f7f7f5]/95 px-4 py-1 backdrop-blur" aria-label={t("spots.navLabel")}>
         <div className="grid grid-cols-3 gap-2">
           {[
-            { id: "ranking", label: "랭킹", icon: Trophy },
-            { id: "list", label: "스팟", icon: List },
-            { id: "create", label: "나의 스팟 등록", icon: SquarePen },
+            { id: "ranking", label: t("spots.ranking"), icon: Trophy },
+            { id: "list", label: t("spots.spots"), icon: List },
+            { id: "create", label: t("spots.create"), icon: SquarePen },
           ].map((tab) => {
             const Icon = tab.icon;
             const active = activeView === tab.id;
@@ -600,8 +617,8 @@ export default function SpotsTab() {
       <div data-testid="ranking-section" className={`mt-5 ${activeView === "ranking" ? "" : "hidden"}`}>
         <SectionHeading
           className={errors.ranking ? "mb-2" : "mb-4"}
-          title="오늘의 스팟 랭킹"
-          action={<span className="text-xs font-bold text-[#8a7d71]">{RANKING_RESET_LABEL}</span>}
+          title={t("spots.rankingTitle")}
+          action={<span className="text-xs font-bold text-[#8a7d71]">{t("spots.resetLabel")}</span>}
         />
         {errors.ranking && (
           <p className="mb-3 text-sm font-bold text-[#a45118]">{errors.ranking}</p>
@@ -634,7 +651,7 @@ export default function SpotsTab() {
       <div className={`mt-5 ${activeView === "create" ? "" : "hidden"}`}>
         <div>
           <label htmlFor="spot-place-search" className="mb-1.5 block text-sm font-bold text-[#241b16]">
-            장소 검색
+            {t("spots.searchLabel")}
           </label>
           {errors.search && (
             <p className="mb-2 text-sm font-bold text-[#a45118]">{errors.search}</p>
@@ -650,7 +667,7 @@ export default function SpotsTab() {
                 setNearbyResults([]);
               }}
               className="h-11 w-full rounded-lg border border-[#d9cfc2] pl-10 pr-9 text-sm outline-none focus:border-[#b8661c]"
-              placeholder="어디에서 발견했나요?"
+              placeholder={t("spots.locationPlaceholder")}
             />
             {searching && (
               <LoaderCircle size={17} className="absolute right-3 top-3 animate-spin text-[#b8661c]" />
@@ -666,15 +683,15 @@ export default function SpotsTab() {
             disabled={locating}
             onClick={loadNearbyPlaces}
           >
-            {locating ? "주변 장소 찾는 중..." : "내 주변 장소"}
+            {t(locating ? "spots.locating" : "spots.nearby")}
           </AppButton>
-          <span className="text-xs text-[#7c6d61]">현재 위치 기준 2km</span>
+          <span className="text-xs text-[#7c6d61]">{t("spots.radius")}</span>
         </div>
 
         {nearbyResults.length > 0 && (
           <div className="mt-3 flex items-center justify-between text-xs font-bold text-[#7c6d61]">
-            <span>내 주변 장소</span>
-            <span>가까운 순</span>
+            <span>{t("spots.nearby")}</span>
+            <span>{t("spots.nearest")}</span>
           </div>
         )}
 
@@ -720,10 +737,10 @@ export default function SpotsTab() {
         )}
 
         <div className="mt-3">
-          <span className="mb-1.5 block text-sm font-bold text-[#241b16]">사진</span>
+          <span className="mb-1.5 block text-sm font-bold text-[#241b16]">{t("spots.photo")}</span>
           <label className="flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-[#d9cfc2] px-3 text-sm text-[#6f6256]">
             <ImagePlus size={17} />
-            <span className="truncate">{photoFile?.name || "사진 선택"}</span>
+            <span className="truncate">{photoFile?.name || t("spots.choosePhoto")}</span>
             <input
               className="sr-only"
               type="file"
@@ -734,13 +751,13 @@ export default function SpotsTab() {
         </div>
 
         <label className="mt-3 block">
-          <span className="mb-1.5 block text-sm font-bold text-[#241b16]">한줄평</span>
+          <span className="mb-1.5 block text-sm font-bold text-[#241b16]">{t("spots.review")}</span>
           <textarea
             value={review}
             maxLength={SPOT_REVIEW_LIMIT}
             onChange={(event) => setReview(event.target.value)}
             className="min-h-28 w-full resize-none rounded-lg border border-[#d9cfc2] p-3 text-sm leading-6 outline-none focus:border-[#b8661c]"
-            placeholder="경주에서 발견한 순간을 350자 이내로 남겨 보세요."
+            placeholder={t("spots.reviewPlaceholder")}
           />
           <span className="mt-1 block text-right text-xs text-[#8a7d71]">
             {review.length} / {SPOT_REVIEW_LIMIT}
@@ -752,7 +769,7 @@ export default function SpotsTab() {
           disabled={submitting}
           onClick={shareSpot}
         >
-          {submitting ? "등록 중..." : "스팟 공유"}
+          {t(submitting ? "spots.submitting" : "spots.share")}
         </AppButton>
         {notice && <p className="mt-3 text-sm font-bold text-[#a45118]">{notice}</p>}
       </div>
@@ -760,18 +777,18 @@ export default function SpotsTab() {
       <div data-testid="spot-section" className={`mt-5 ${activeView === "list" ? "" : "hidden"}`}>
         <SectionHeading
           className={errors.list ? "mb-2" : "mb-4"}
-          title="공개 스팟"
+          title={t("spots.publicTitle")}
           action={(
             <label className="flex items-center gap-2 text-xs font-bold text-[#6f6256]">
-              정렬
+              {t("spots.sort")}
               <select
-                aria-label="스팟 목록 정렬"
+                aria-label={t("spots.sortLabel")}
                 value={listSort}
                 onChange={(event) => setListSort(event.target.value)}
                 className="h-9 rounded-lg border border-[#d9cfc2] bg-white px-2 outline-none"
               >
-                <option value="likes">좋아요순</option>
-                <option value="newest">신규순</option>
+                <option value="likes">{t("spots.sortLikes")}</option>
+                <option value="newest">{t("spots.sortNewest")}</option>
               </select>
             </label>
           )}
@@ -802,7 +819,7 @@ export default function SpotsTab() {
       </div>
 
       <div className={`mt-7 ${activeView === "create" ? "" : "hidden"}`}>
-        <SectionHeading className={errors.my ? "mb-2" : "mb-4"} title="내가 쓴 게시글" />
+        <SectionHeading className={errors.my ? "mb-2" : "mb-4"} title={t("spots.mineTitle")} />
         {errors.my && <p className="mb-3 text-sm font-bold text-[#a45118]">{errors.my}</p>}
         <div className="space-y-2">
           {mySpots.map((spot) => (
@@ -812,21 +829,21 @@ export default function SpotsTab() {
                 <div className="flex items-center gap-2">
                   <p className="truncate font-bold text-[#241b16]">{spot.place.name}</p>
                   <span className="shrink-0 text-[10px] font-bold text-[#a45118]">
-                    {MODERATION_LABEL[spot.moderationStatus]}
+                    {t(`spots.${MODERATION_KEY[spot.moderationStatus]}`)}
                   </span>
                 </div>
                 <p className="mt-0.5 truncate text-xs text-[#7c6d61]">{spot.caption}</p>
               </div>
               <IconButton
                 icon={Trash2}
-                label="내 스팟 삭제"
+                label={t("spots.deleteMine")}
                 className="h-9 w-9 shrink-0 border-0 bg-transparent text-[#a8463d]"
                 onClick={() => removeSpot(spot.id)}
               />
             </div>
           ))}
           {mySpots.length === 0 && (
-            <p className="text-sm text-[#7c6d61]">아직 작성한 스팟이 없어요.</p>
+            <p className="text-sm text-[#7c6d61]">{t("spots.noMine")}</p>
           )}
         </div>
       </div>

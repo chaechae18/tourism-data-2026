@@ -1,5 +1,6 @@
 import { Check, Sparkles } from "lucide-react";
 import AppModal from "../ui/AppModal";
+import { useI18n } from "../i18n/LanguageProvider";
 
 // 신라 시대 역할. key 는 백엔드 personas.py 의 페르소나 key 와 맞춘다.
 // ready=false 는 아직 코스 규칙이 없는 역할 (화면만 먼저 보여 주는 중).
@@ -130,6 +131,7 @@ function RoleEmblem({ role }) {
 }
 
 function RoleCard({ onSelect, role, selected }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
@@ -162,24 +164,31 @@ function RoleCard({ onSelect, role, selected }) {
             : { backgroundColor: "#f0efec", color: "#9a978f" }
         }
       >
-        {role.ready ? "코스 준비됨" : "준비 중"}
+        {role.ready ? t("roles.courseReady") : t("roles.pending")}
       </span>
     </button>
   );
 }
 
 export default function RoleSelect({ onClose, onSelect, open, selectedKey }) {
+  const { t } = useI18n();
   return (
-    <AppModal onClose={onClose} open={open} title="역할 선택">
+    <AppModal onClose={onClose} open={open} title={t("roles.title")}>
       <p className="-mt-2 mb-5 flex items-start gap-2 rounded-xl bg-[#f4f6f3] px-3 py-2.5 text-xs leading-5 text-[#5f6560]">
         <Sparkles size={15} className="mt-0.5 shrink-0 text-[#bd8c31]" />
-        <span>신라 사람 중 하나를 고르면, 그 인물이 다녔을 법한 하루 코스를 지도에 그려 드려요.</span>
+        <span>{t("roles.guide")}</span>
       </p>
 
       <div className="grid grid-cols-2 gap-3 pb-4">
-        {ROLES.map((role) => (
-          <RoleCard key={role.key} onSelect={onSelect} role={role} selected={role.key === selectedKey} />
-        ))}
+        {ROLES.map((role) => {
+          const localizedRole = {
+            ...role,
+            name: t(`roles.${role.key}.name`),
+            tagline: t(`roles.${role.key}.tagline`),
+            description: t(`roles.${role.key}.description`),
+          };
+          return <RoleCard key={role.key} onSelect={onSelect} role={localizedRole} selected={role.key === selectedKey} />;
+        })}
       </div>
     </AppModal>
   );

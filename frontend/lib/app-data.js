@@ -49,11 +49,11 @@ export const DG_SLOTS = [
 ];
 
 export const DG_INVENTORY = [
-  { id: "crown", slot: "hat", name: "금관", symbol: "♛", color: "#d4a538" },
-  { id: "lotus", slot: "accessory", name: "연꽃 장식", symbol: "✿", color: "#d96b94" },
-  { id: "hanbok", slot: "clothes", name: "청록 두루마기", symbol: "◈", color: "#287c70" },
-  { id: "camera", slot: "hand", name: "여행 카메라", symbol: "◉", color: "#405a9d" },
-  { id: "lantern", slot: "hand", name: "천년 등불", symbol: "✦", color: "#c96d2d" },
+  { id: "crown", slot: "hat", name: "금관", symbol: "♛", color: "#d4a538", modelUrl: "/models/donggyeong/items/crown.glb" },
+  { id: "lotus", slot: "accessory", name: "연꽃 장식", symbol: "✿", color: "#d96b94", modelUrl: "/models/donggyeong/items/lotus.glb" },
+  { id: "hanbok", slot: "clothes", name: "청록 두루마기", symbol: "◈", color: "#287c70", modelUrl: "/models/donggyeong/items/hanbok.glb" },
+  { id: "camera", slot: "hand", name: "여행 카메라", symbol: "◉", color: "#405a9d", modelUrl: "/models/donggyeong/items/camera.glb" },
+  { id: "lantern", slot: "hand", name: "천년 등불", symbol: "✦", color: "#c96d2d", modelUrl: "/models/donggyeong/items/lantern.glb" },
 ];
 
 export const SPOT_RANKING = [

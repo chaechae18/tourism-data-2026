@@ -135,7 +135,7 @@ describe("HomeTab", () => {
     api.listPopups.mockRejectedValue(new Error("서버에 연결하지 못했습니다."));
     render(<HomeTab onMapOpen={vi.fn()} />);
 
-    expect(await screen.findByText("서버에 연결하지 못했습니다.")).toBeInTheDocument();
+    expect(await screen.findByText("요청을 처리하지 못했습니다.")).toBeInTheDocument();
     expect(screen.getByText("새로운 공지가 없어요.")).toBeInTheDocument();
     expect(screen.getByText("신라문화제")).toBeInTheDocument();
     expect(screen.getByText("불국사")).toBeInTheDocument();

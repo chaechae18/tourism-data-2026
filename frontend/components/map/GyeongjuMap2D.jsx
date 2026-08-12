@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 // 버튼/마커에 쓰는 아이콘들 (lucide 아이콘 라이브러리)
 import { Check, ChevronRight, Crown, Footprints, Headphones, LocateFixed, MapPin, Navigation, RefreshCw, Route } from "lucide-react";
 // 지도 범례 문구, 장소(퀘스트) 데이터
-import { MAP_LEGEND, QUESTS } from "../../lib/app-data";
+import { QUESTS } from "../../lib/app-data";
 // 지도 "계산 엔진"에서 가져오는 함수/데이터들 (lib/map/gyeongju-map.js)
 import {
   coordinatesToPath,
@@ -22,6 +22,7 @@ import {
 import { requestTmapPedestrianRoute } from "../../lib/tmap/pedestrian-route";
 // 공통 버튼 컴포넌트
 import AppButton, { IconButton } from "../ui/AppButton";
+import { useI18n } from "../i18n/LanguageProvider";
 
 // 1000(m) 이내면 "가까운 장소"로 표시
 const NEARBY_DISTANCE_METERS = 1000;
@@ -41,9 +42,11 @@ const LANDMARK_LABEL_OFFSETS = {
 };
 
 // 초 단위 시간을 "35분" / "1시간 20분" 형태로 변환
-function formatDuration(durationSeconds) {
+function formatDuration(durationSeconds, t) {
   const minutes = Math.max(1, Math.round(durationSeconds / 60));
-  return minutes >= 60 ? `${Math.floor(minutes / 60)}시간 ${minutes % 60}분` : `${minutes}분`;
+  return minutes >= 60
+    ? t("map.hoursMinutes", { hours: Math.floor(minutes / 60), minutes: minutes % 60 })
+    : t("map.minutes", { minutes });
 }
 
 // 지도 좌하단 "1km 축척 막대"의 픽셀 길이 계산
@@ -111,11 +114,12 @@ function LandmarkGlyph({ icon }) {
 //  - completed=방문완료(초록) / nearby=가까움(주황) / 그 외=회색
 //  - active=지금 선택된 장소면 테두리 강조 + 펄스 효과
 function PlaceMarker({ active, completed, nearby, onClick, place, point }) {
+  const { t } = useI18n();
   const markerColor = completed ? "#2d8c86" : nearby ? "#bd8c31" : "#7f8582";
   const labelOffset = LANDMARK_LABEL_OFFSETS[place.id] || { x: 0, y: 30 };
   return (
     <g
-      aria-label={`${place.name} 선택`}  // 접근성 라벨 (테스트도 이 이름으로 마커를 찾음)
+      aria-label={t("map.selectPlace", { name: place.name })}  // 접근성 라벨 (테스트도 이 이름으로 마커를 찾음)
       className="cursor-pointer outline-none"
       onClick={onClick}  // 마커 클릭 시 장소 선택
       onKeyDown={(event) => event.key === "Enter" && onClick()}  // 키보드 Enter로도 선택
@@ -146,12 +150,13 @@ function PlaceMarker({ active, completed, nearby, onClick, place, point }) {
 
 // 지도 전체를 그리는 SVG. 배경→강→도로→장식→경로→마커→현재위치 순으로 겹쳐 그림
 function IllustratedMap({ bounds, completedQuestIds, currentLocation, onSelect, route, selectedPlace, visiblePlaces }) {
+  const { t } = useI18n();
   const currentPoint = projectCoordinate(currentLocation, bounds);  // 현재위치 화면 좌표
   const routePath = route ? coordinatesToPath(route.coordinates, bounds) : "";  // 경로 선
   const riverPath = coordinatesToPath(HYEONGSAN_RIVER, bounds);  // 형산강 선
 
   return (
-    <svg viewBox={`0 0 ${MAP_VIEWBOX.width} ${MAP_VIEWBOX.height}`} className="h-auto w-full" aria-label="실제 위치 비율을 반영한 경주 일러스트 지도" role="img">
+    <svg viewBox={`0 0 ${MAP_VIEWBOX.width} ${MAP_VIEWBOX.height}`} className="h-auto w-full" aria-label={t("map.illustrationLabel")} role="img">
       {/* 그라데이션·종이질감·그림자 등 그림 효과 정의 */}
       <defs>
         <linearGradient id="gyeongju-ground" x1="0" y1="0" x2="1" y2="1">
@@ -271,7 +276,9 @@ function IllustratedMap({ bounds, completedQuestIds, currentLocation, onSelect, 
 // 지도 화면 전체 컴포넌트 - 상태 관리 + 버튼 동작 + 화면 조립
 // props: 완료한 퀘스트 목록, 완료/도슨트/선택 콜백, 현재 선택된 장소
 // ===================================================================
-export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent, onOpenRoles, onReroll, onSelect, places = QUESTS, roleName = "왕", selectedPlace }) {
+export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent, onOpenRoles, onReroll, onSelect, places = QUESTS, roleName, selectedPlace }) {
+  const { t } = useI18n();
+  const currentRoleName = roleName || t("roles.king.name");
   // 선택된 장소가 도심권 안이면 "도심권", 아니면 "전체 경주"로 시작
   const initialScope = isWithinBounds(selectedPlace, MAP_SCOPES.core.bounds) ? "core" : "all";
 
@@ -304,24 +311,24 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent,
   // "현재 위치 찾기" 버튼: 브라우저 GPS로 실제 위치를 받아 지도에 반영
   const findCurrentLocation = () => {
     if (!navigator.geolocation) {
-      setLocationMessage("현재 브라우저에서는 위치 기능을 사용할 수 없어요.");
+      setLocationMessage(t("map.unsupportedLocation"));
       return;
     }
 
-    setLocationMessage("현재 위치를 확인하고 있어요.");
+    setLocationMessage(t("map.locating"));
     navigator.geolocation.getCurrentPosition(
       ({ coords }) => {
-        const nextLocation = { name: "현재 위치", latitude: coords.latitude, longitude: coords.longitude };
+        const nextLocation = { name: t("map.currentLocation"), latitude: coords.latitude, longitude: coords.longitude };
         // 경주 관광권 밖이면 데모 위치 유지
         if (!isWithinBounds(nextLocation, MAP_SCOPES.all.bounds)) {
-          setLocationMessage("경주 관광권 밖이에요. 데모 위치를 유지합니다.");
+          setLocationMessage(t("map.outside"));
           return;
         }
         setCurrentLocation(nextLocation);
-        setLocationMessage("현재 위치를 지도에 표시했어요.");
+        setLocationMessage(t("map.located"));
         setRoute(null);
       },
-      () => setLocationMessage("위치 권한을 허용하면 가까운 장소를 확인할 수 있어요."),
+      () => setLocationMessage(t("map.permission")),
       { enableHighAccuracy: true, timeout: 8000 },
     );
   };
@@ -332,7 +339,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent,
     // TMAP 키가 없으면 경로를 그리지 않고 안내만
     if (!TMAP_APP_KEY) {
       setRoute(null);
-      setRouteMessage("TMAP 키 연결이 필요해요.");
+      setRouteMessage(t("map.routeKey"));
       return;
     }
 
@@ -346,11 +353,11 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent,
         end: selectedPlace,
       });
       setRoute(tmapRoute);
-      setRouteMessage("TMAP 도보 경로를 불러왔어요.");
+      setRouteMessage(t("map.routeLoaded"));
     } catch {
       // 실패 시 경로 없이 안내만
       setRoute(null);
-      setRouteMessage("TMAP 연결에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      setRouteMessage(t("map.routeFailed"));
     } finally {
       setRouteLoading(false);
     }
@@ -365,12 +372,12 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent,
         <div className="absolute inset-x-4 top-3 z-10 flex items-center justify-between gap-3">
           <div className="rounded-full bg-[#343235]/90 px-3.5 py-2 text-white shadow-sm backdrop-blur">
             <p className="text-[10px] font-semibold tracking-[0.12em] text-white/70">SILLA WALK</p>
-            <p className="text-sm font-bold">경주 2D 지도</p>
+            <p className="text-sm font-bold">{t("map.title")}</p>
           </div>
-          <IconButton className="border-white/70 bg-white/90 shadow-sm" icon={LocateFixed} label="현재 위치 찾기" onClick={findCurrentLocation} />
+          <IconButton className="border-white/70 bg-white/90 shadow-sm" icon={LocateFixed} label={t("map.findLocation")} onClick={findCurrentLocation} />
         </div>
         {/* 지도 범위 전환 버튼 (도심권 / 전체 경주) */}
-        <div className="absolute inset-x-4 top-[4.25rem] z-10 grid grid-cols-2 rounded-full bg-white/80 p-1 shadow-sm backdrop-blur" aria-label="지도 범위">
+        <div className="absolute inset-x-4 top-[4.25rem] z-10 grid grid-cols-2 rounded-full bg-white/80 p-1 shadow-sm backdrop-blur" aria-label={t("map.rangeLabel")}>
             {Object.values(MAP_SCOPES).map((item) => (
               <button
                 key={item.id}
@@ -379,15 +386,15 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent,
                 onClick={() => setScopeId(item.id)}
                 className={`h-9 rounded-full text-xs font-semibold transition-colors ${scopeId === item.id ? "bg-[#343235] text-white shadow-sm" : "text-[#626762]"}`}
               >
-                {item.label}
+                {t(item.id === "core" ? "map.city" : "map.all")}
               </button>
             ))}
         </div>
         {/* 범례 (가까움/멀리/현재위치 색 설명) */}
         <div className="absolute bottom-[3.25rem] left-4 z-10 flex flex-wrap items-center gap-3 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-semibold text-[#626762] shadow-sm backdrop-blur">
-          <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#bd8c31]" />{MAP_LEGEND.nearby}</span>
-          <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#7f8582]" />{MAP_LEGEND.distant}</span>
-          <span className="inline-flex items-center gap-1"><Navigation size={13} className="text-[#356b98]" />{MAP_LEGEND.current}</span>
+          <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#bd8c31]" />{t("map.within1km")}</span>
+          <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#7f8582]" />{t("map.beyond1km")}</span>
+          <span className="inline-flex items-center gap-1"><Navigation size={13} className="text-[#356b98]" />{t("map.currentLocation")}</span>
         </div>
         {/* 실제 지도 그림 */}
         <IllustratedMap
@@ -411,16 +418,16 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent,
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#faf1de] text-[#a67927]"><Crown size={18} /></span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[10px] font-bold tracking-[0.12em] text-[#a09a8c]">지금 역할</span>
-            <span className="block truncate font-bold text-[#343235]">{roleName}</span>
+            <span className="block text-[10px] font-bold tracking-[0.12em] text-[#a09a8c]">{t("map.currentRole")}</span>
+            <span className="block truncate font-bold text-[#343235]">{currentRoleName}</span>
           </span>
-          <span className="shrink-0 rounded-full bg-[#f2f4f1] px-2.5 py-1 text-[11px] font-bold text-[#626762]">바꾸기</span>
+          <span className="shrink-0 rounded-full bg-[#f2f4f1] px-2.5 py-1 text-[11px] font-bold text-[#626762]">{t("common.change")}</span>
           <ChevronRight size={16} className="shrink-0 text-[#a5a8a4]" />
         </button>
 
         {/* 저장된 코스를 버리고 새로 뽑는다 */}
         <AppButton className="w-full" icon={RefreshCw} variant="outline" onClick={onReroll}>
-          코스 다시 뽑기
+          {t("map.reroll")}
         </AppButton>
 
         <article className="rounded-2xl border border-[#e2e4e0] bg-white p-4 shadow-[0_12px_30px_rgba(52,50,53,0.12)]">
@@ -430,7 +437,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent,
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-bold text-[#343235]">{selectedPlace.name}</h2>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${selectedNearby ? "bg-[#f8f0de] text-[#8a641f]" : "bg-[#eef0ee] text-[#686d69]"}`}>{selectedNearby ? "가까워요" : formatDistance(selectedDistance)}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${selectedNearby ? "bg-[#f8f0de] text-[#8a641f]" : "bg-[#eef0ee] text-[#686d69]"}`}>{selectedNearby ? t("map.near") : formatDistance(selectedDistance)}</span>
               </div>
               <p className="mt-1 text-sm leading-6 text-[#626367]">{selectedPlace.description}</p>
             </div>
@@ -439,16 +446,16 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onDocent,
           {/* 경로가 있으면 도보 거리/예상 시간 표시 */}
           {route && (
             <div className="mt-4 grid grid-cols-2 divide-x divide-[#cbd9e3] rounded-xl bg-[#edf4f7] px-3 py-2.5 text-center">
-              <div><p className="text-[10px] font-semibold text-[#6d7479]">도보 거리</p><p className="mt-0.5 text-sm font-bold text-[#315d7f]">{formatDistance(route.distanceMeters)}</p></div>
-              <div><p className="text-[10px] font-semibold text-[#6d7479]">예상 시간</p><p className="mt-0.5 text-sm font-bold text-[#315d7f]">{formatDuration(route.durationSeconds)}</p></div>
+              <div><p className="text-[10px] font-semibold text-[#6d7479]">{t("map.walkDistance")}</p><p className="mt-0.5 text-sm font-bold text-[#315d7f]">{formatDistance(route.distanceMeters)}</p></div>
+              <div><p className="text-[10px] font-semibold text-[#6d7479]">{t("map.duration")}</p><p className="mt-0.5 text-sm font-bold text-[#315d7f]">{formatDuration(route.durationSeconds, t)}</p></div>
             </div>
           )}
 
           {/* 하단 액션 버튼들: 길찾기 / 퀘스트 완료 / 도슨트 듣기 */}
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <AppButton className="col-span-2" disabled={routeLoading} icon={route ? Route : Footprints} onClick={previewRoute}>{routeLoading ? "경로 불러오는 중" : route ? "TMAP 경로 다시 보기" : "TMAP 길찾기"}</AppButton>
-            <AppButton icon={completed ? Check : MapPin} variant={completed ? "outline" : "secondary"} onClick={() => onComplete(selectedPlace.id)}>{completed ? "방문 완료" : "퀘스트 완료"}</AppButton>
-            <AppButton disabled={!selectedPlace.docent} icon={Headphones} variant="outline" onClick={() => onDocent(selectedPlace)}>{selectedPlace.docent ? "도슨트 듣기" : "준비 중"}</AppButton>
+            <AppButton className="col-span-2" disabled={routeLoading} icon={route ? Route : Footprints} onClick={previewRoute}>{routeLoading ? t("map.routeLoading") : route ? t("map.routeAgain") : t("map.route")}</AppButton>
+            <AppButton icon={completed ? Check : MapPin} variant={completed ? "outline" : "secondary"} onClick={() => onComplete(selectedPlace.id)}>{completed ? t("map.visited") : t("map.complete")}</AppButton>
+            <AppButton disabled={!selectedPlace.docent} icon={Headphones} variant="outline" onClick={() => onDocent(selectedPlace)}>{selectedPlace.docent ? t("map.docent") : t("map.pending")}</AppButton>
           </div>
         </article>
 

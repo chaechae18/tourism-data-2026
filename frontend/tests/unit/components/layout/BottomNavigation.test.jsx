@@ -7,7 +7,7 @@ describe("BottomNavigation", () => {
     const onChange = vi.fn();
     render(<BottomNavigation activeTab="home" onChange={onChange} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Map" }));
+    fireEvent.click(screen.getByRole("button", { name: "지도" }));
 
     expect(onChange).toHaveBeenCalledWith("map");
   });

@@ -1,7 +1,9 @@
 import { X } from "lucide-react";
+import { useI18n } from "../i18n/LanguageProvider";
 import { IconButton } from "./AppButton";
 
 export default function AppModal({ children, onClose, open, title }) {
+  const { t } = useI18n();
   if (!open) return null;
 
   return (
@@ -9,7 +11,7 @@ export default function AppModal({ children, onClose, open, title }) {
       <section className="app-modal-sheet h-[100svh] w-full max-w-[430px] overflow-y-auto bg-white px-6 py-7 shadow-2xl" aria-modal="true" role="dialog" aria-label={title}>
         <div className="mb-5 flex items-center justify-between gap-4">
           <h2 className="text-xl font-semibold text-[#343235]">{title}</h2>
-          <IconButton icon={X} label="닫기" onClick={onClose} />
+          <IconButton icon={X} label={t("common.close")} onClick={onClose} />
         </div>
         {children}
       </section>
