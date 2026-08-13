@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 from pydantic import Field
 
@@ -22,6 +22,10 @@ class CourseStopResponse(CamelModel):
     rest_date: str | None = Field(default=None, alias="restDate")
     hours_unknown: bool = Field(alias="hoursUnknown")
     distance_km: float = Field(alias="distanceKm")
+    # 사용자가 방문 완료로 저장한 퀘스트인지
+    completed: bool = False
+    # 도슨트로 읽어 줄 설명이 있는지
+    docent: bool = False
 
 
 class CourseResponse(CamelModel):
@@ -38,3 +42,18 @@ class CourseResponse(CamelModel):
 class CharacterResponse(CamelModel):
     key: str
     name: str
+
+
+class DocentResponse(CamelModel):
+    place_id: int = Field(alias="placeId")
+    name: str | None = None
+    # PLACE.TEXT 원문 전체. 화면에 같이 보여 주고, 음성도 이 글을 읽는다.
+    text: str
+    source: str = "한국관광공사"
+
+
+class QuestCompletionResponse(CamelModel):
+    quest_id: int = Field(alias="questId")
+    name: str | None = None
+    completed: bool
+    completed_at: datetime | None = Field(default=None, alias="completedAt")

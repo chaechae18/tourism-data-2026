@@ -7,17 +7,38 @@ from .personas import Persona
 
 
 QUEST_TYPE_VISIT = 1
+# USER_QUEST.STATUS (0: 미진행, 1: 진행중, 2: 완료)
+QUEST_STATUS_DONE = 2
 
+# 코스의 퀘스트 + 장소 + 사용자의 완료 여부(USER_QUEST)
 COURSE_STOPS_SQL = """
     SELECT q.IDX AS QUEST_IDX, q.QUEST_ORDER, q.TIME_SLOT,
            p.IDX AS PLACE_IDX, p.NAME, p.ADDRESS, p.IMG, p.MENU, p.REST_DATE,
-           p.CATEGORY_SUB, p.LATITUDE, p.LONGITUDE, mp.MARKER_ICON_TYPE
+           p.CATEGORY_SUB, p.LATITUDE, p.LONGITUDE, mp.MARKER_ICON_TYPE,
+           uq.STATUS AS QUEST_STATUS,
+           (p.TEXT IS NOT NULL AND p.TEXT <> '') AS HAS_DOCENT
     FROM QUEST q
+    JOIN COURSE c ON c.IDX = q.COURSE_IDX
     JOIN MAP_PLACE mp ON mp.IDX = q.MAP_PLACE_IDX
     JOIN PLACE p ON p.IDX = mp.PLACE_IDX
+    LEFT JOIN USER_QUEST uq
+      ON uq.QUEST_IDX = q.IDX AND uq.USER_CHARACTER_IDX = c.USER_CHARACTER_IDX
     WHERE q.COURSE_IDX = %s
     ORDER BY q.QUEST_ORDER
 """
+
+# 퀘스트가 정말 이 사용자의 코스에 속하는지 확인하면서 사용자 캐릭터를 찾는다.
+QUEST_OWNER_SQL = """
+    SELECT c.USER_CHARACTER_IDX, q.TITLE
+    FROM QUEST q
+    JOIN COURSE c ON c.IDX = q.COURSE_IDX
+    JOIN USER_CHARACTER uc ON uc.IDX = c.USER_CHARACTER_IDX
+    WHERE q.IDX = %s AND uc.USER_NO = %s
+"""
+
+
+class QuestNotFoundError(Exception):
+    """요청한 퀘스트가 이 사용자의 코스에 없다."""
 
 
 def _scalar(connection: pymysql.Connection, sql: str, parameters: tuple = ()) -> int | None:
@@ -134,6 +155,8 @@ def load_course(
                 img=row["IMG"],
                 icon=row["MARKER_ICON_TYPE"],
                 quest_id=row["QUEST_IDX"],
+                completed=row["QUEST_STATUS"] == QUEST_STATUS_DONE,
+                has_docent=bool(row["HAS_DOCENT"]),
             )
         )
         position = point
@@ -194,6 +217,45 @@ def save_course(
         connection.rollback()
         raise
     return course_idx
+
+
+def complete_quest(
+    connection: pymysql.Connection,
+    *,
+    user_no: int,
+    quest_id: int,
+) -> dict:
+    # 방문 완료를 USER_QUEST 에 저장
+    with connection.cursor() as cursor:
+        cursor.execute(QUEST_OWNER_SQL, (quest_id, user_no))
+        owner = cursor.fetchone()
+    if not owner:
+        raise QuestNotFoundError(quest_id)
+
+    _execute(
+        connection,
+        """INSERT INTO USER_QUEST (USER_CHARACTER_IDX, QUEST_IDX, STATUS, COMPLETED_AT)
+           VALUES (%s, %s, %s, NOW())
+           ON DUPLICATE KEY UPDATE
+               STATUS = %s,
+               COMPLETED_AT = COALESCE(COMPLETED_AT, NOW())""",
+        (owner["USER_CHARACTER_IDX"], quest_id, QUEST_STATUS_DONE, QUEST_STATUS_DONE),
+    )
+
+    with connection.cursor() as cursor:
+        cursor.execute(
+            """SELECT STATUS, COMPLETED_AT FROM USER_QUEST
+               WHERE USER_CHARACTER_IDX = %s AND QUEST_IDX = %s""",
+            (owner["USER_CHARACTER_IDX"], quest_id),
+        )
+        saved = cursor.fetchone() or {}
+
+    return {
+        "quest_id": quest_id,
+        "name": owner["TITLE"],
+        "completed": saved.get("STATUS") == QUEST_STATUS_DONE,
+        "completed_at": saved.get("COMPLETED_AT"),
+    }
 
 
 def get_or_create_course(

@@ -14,13 +14,17 @@ function toPlace(stop) {
   return {
     id: `place-${stop.placeId}`,
     placeId: stop.placeId,
+    // 방문 완료 저장에 쓰는 퀘스트 번호 (QUEST.IDX)
+    questId: stop.questId,
+    completed: Boolean(stop.completed),
     name: stop.name,
     description: `${details}${stop.menu ? ` — ${stop.menu}` : ""}${notice}`,
     distance: stop.order === 1 ? "출발" : `${stop.distanceKm}km`,
     latitude: stop.latitude,
     longitude: stop.longitude,
     icon: stop.icon,
-    docent: false,
+    // 서버에 읽어 줄 설명(PLACE.TEXT)이 있으면 도슨트 버튼이 켜진다.
+    docent: Boolean(stop.docent),
     timeSlot: stop.timeSlot,
     order: stop.order,
     img: stop.img,
@@ -65,4 +69,31 @@ export async function fetchCourse({ persona = "king", date, signal } = {}) {
 // 코스를 새로 뽑아 저장한다. 이전 코스는 비활성으로 내려간다.
 export async function refreshCourse({ persona = "king", date, signal } = {}) {
   return requestCourse({ persona, date, method: "POST", signal });
+}
+
+// 방문 완료를 서버에 저장한다. 저장해 두면 다시 들어와도 완료 상태가 남는다.
+export async function completeQuest({ questId, signal } = {}) {
+  if (!questId) throw new ApiError("퀘스트 번호가 없습니다.", "QUEST_ID_MISSING", null);
+
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/v1/journey/quests/${questId}/complete`, {
+      method: "POST",
+      headers: { "X-User-No": String(LOCAL_USER_NO) },
+      signal,
+    });
+  } catch (error) {
+    if (error.name === "AbortError") throw error;
+    throw new ApiError("서버에 연결하지 못했습니다.", "NETWORK_ERROR", null);
+  }
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new ApiError(
+      payload.error?.message || "방문 완료를 저장하지 못했습니다.",
+      payload.error?.code || "UNKNOWN_ERROR",
+      response.status,
+    );
+  }
+  return payload;
 }

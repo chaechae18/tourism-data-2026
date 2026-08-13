@@ -19,7 +19,8 @@ function SlotButton({ item, label, onClick }) {
   );
 }
 
-export default function MyDGTab({ completedQuestIds, onMapQuest, onSaveOutfit, outfit, setOutfit }) {
+// places: 지금 지도에 그려 둔 코스 장소들. 없으면 샘플 장소를 쓴다.
+export default function MyDGTab({ completedQuestIds, onMapQuest, onSaveOutfit, outfit, places = QUESTS, setOutfit }) {
   const [inventory, setInventory] = useState(DG_INVENTORY);
   const getItem = (itemId) => inventory.find((item) => item.id === itemId);
   const equipItem = (item) => setOutfit((current) => ({ ...current, [item.slot]: item.id }));
@@ -74,7 +75,7 @@ export default function MyDGTab({ completedQuestIds, onMapQuest, onSaveOutfit, o
       <div>
         <SectionHeading eyebrow="Quest" title="방문 퀘스트" />
         <div className="space-y-2">
-          {QUESTS.map((quest) => {
+          {places.map((quest) => {
             const done = completedQuestIds.includes(quest.id);
             return (
               <button key={quest.id} type="button" onClick={() => onMapQuest(quest)} className="flex w-full items-center gap-3 rounded-lg border border-[#e2e4e0] bg-white p-3 text-left transition-colors hover:bg-[#f1f4f2]">

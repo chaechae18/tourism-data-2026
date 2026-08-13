@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { LogOut, PawPrint } from "lucide-react";
 import { DEFAULT_USER, QUESTS } from "../../lib/app-data";
 import { notifyQuestCompleted } from "../../lib/api/notifications";
-import { fetchCourse, refreshCourse } from "../../lib/api/journey";
+import { completeQuest as saveQuestCompletion, fetchCourse, refreshCourse } from "../../lib/api/journey";
 import RoleSelect, { ROLES } from "../journey/RoleSelect";
 import AuthModal from "../auth/AuthModal";
 import HomeTab from "../home/HomeTab";
@@ -91,6 +91,8 @@ export default function PlayGyeongju() {
         if (!course.places.length) return;
         setCoursePlaces(course.places);
         setSelectedQuestId(course.places[0].id);
+        // 서버에 저장해 둔 방문 완료 기록을 그대로 되살린다.
+        setCompletedQuestIds(course.places.filter((place) => place.completed).map((place) => place.id));
       })
       // 코스를 못 받아오면 기존 샘플 장소로 지도를 그린다. 왜 실패했는지는 알려 준다.
       .catch((error) => {
@@ -111,6 +113,8 @@ export default function PlayGyeongju() {
         if (!course.places.length) return;
         setCoursePlaces(course.places);
         setSelectedQuestId(course.places[0].id);
+        // 코스가 바뀌면 퀘스트도 새로 생기므로 완료 표시도 새 코스 기준으로 맞춘다.
+        setCompletedQuestIds(course.places.filter((place) => place.completed).map((place) => place.id));
         showNotice("새 코스를 뽑았어요.");
       })
       .catch((error) => {
@@ -160,10 +164,26 @@ export default function PlayGyeongju() {
 
   const completeQuest = async (id) => {
     if (completedQuestIds.includes(id)) return;
-    const quest = QUESTS.find((item) => item.id === id);
-    setCompletedQuestIds((current) => [...current, id]);
-    showNotice("방문 완료로 표시했어요.");
+    // 지금 지도에 그린 장소들 중에서 찾는다. (샘플 장소든 서버 코스든 여기 들어 있다)
+    const quest = places.find((item) => item.id === id);
     if (!quest) return;
+
+    setCompletedQuestIds((current) => [...current, id]);
+
+    // 서버 코스에서 온 장소면 방문 완료를 저장한다. 저장에 실패하면 완료 표시를 되돌린다.
+    if (quest.questId) {
+      try {
+        await saveQuestCompletion({ questId: quest.questId });
+      } catch (error) {
+        setCompletedQuestIds((current) => current.filter((item) => item !== id));
+        showNotice(error.message || "방문 완료를 저장하지 못했어요.");
+        return;
+      }
+      showNotice("방문 완료를 저장했어요.");
+    } else {
+      showNotice("방문 완료로 표시했어요.");
+    }
+
     try {
       await notifyQuestCompleted(quest);
       setNotificationVersion((current) => current + 1);
@@ -211,8 +231,8 @@ export default function PlayGyeongju() {
 
       <main className="w-full px-4 py-6">
         {activeTab === "home" && <HomeTab language={user.language} onMapOpen={() => setActiveTab("map")} />}
-        {activeTab === "my-dg" && <MyDGTab completedQuestIds={completedQuestIds} onMapQuest={openQuestOnMap} onSaveOutfit={() => showNotice("현재 착장을 저장했어요.")} outfit={outfit} setOutfit={setOutfit} />}
-        {activeTab === "map" && <GyeongjuMap2D completedQuestIds={completedQuestIds} onComplete={completeQuest} onDocent={(quest) => showNotice(`${quest.name} 도슨트를 준비하고 있어요.`)} onOpenRoles={() => setRoleOpen(true)} onReroll={rerollCourse} onSelect={(quest) => setSelectedQuestId(quest.id)} places={places} roleName={role.name} selectedPlace={selectedQuest} />}
+        {activeTab === "my-dg" && <MyDGTab completedQuestIds={completedQuestIds} onMapQuest={openQuestOnMap} onSaveOutfit={() => showNotice("현재 착장을 저장했어요.")} outfit={outfit} places={places} setOutfit={setOutfit} />}
+        {activeTab === "map" && <GyeongjuMap2D completedQuestIds={completedQuestIds} onComplete={completeQuest} onOpenRoles={() => setRoleOpen(true)} onReroll={rerollCourse} onSelect={(quest) => setSelectedQuestId(quest.id)} places={places} roleName={role.name} selectedPlace={selectedQuest} />}
         {activeTab === "spots" && <SpotsTab user={user} />}
         {activeTab === "my-page" && <MyPageTab completedQuestIds={completedQuestIds} onLogout={logout} onNotice={showNotice} setUser={setUser} user={user} />}
       </main>

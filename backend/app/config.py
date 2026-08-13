@@ -22,6 +22,13 @@ class Settings:
     search_rate_window_seconds: int
     admin_api_key: str
     cors_origins: tuple[str, ...]
+    # 도슨트 음성(구글 TTS). 키가 없으면 도슨트 재생만 막히고 나머지는 그대로 돈다.
+    google_tts_api_key: str = ""
+    tts_voice: str = "ko-KR-Neural2-A"
+    tts_speaking_rate: float = 0.95
+    # 만든 음성은 파일로 남기지 않고 메모리에만 잠깐 들고 있는다.
+    tts_cache_entries: int = 32
+    tts_cache_ttl_seconds: int = 86400
 
 
 @lru_cache
@@ -54,4 +61,9 @@ def get_settings() -> Settings:
         ),
         admin_api_key=os.getenv("ADMIN_API_KEY", "").strip(),
         cors_origins=cors_origins,
+        google_tts_api_key=os.getenv("GOOGLE_TTS_API_KEY", "").strip(),
+        tts_voice=os.getenv("TTS_VOICE", "ko-KR-Neural2-A").strip(),
+        tts_speaking_rate=float(os.getenv("TTS_SPEAKING_RATE", "0.95")),
+        tts_cache_entries=int(os.getenv("TTS_CACHE_ENTRIES", "32")),
+        tts_cache_ttl_seconds=int(os.getenv("TTS_CACHE_TTL_SECONDS", "86400")),
     )
