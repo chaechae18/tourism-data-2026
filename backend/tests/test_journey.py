@@ -159,3 +159,27 @@ def test_unknown_persona_is_rejected(client: TestClient) -> None:
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "PERSONA_NOT_FOUND"
+
+
+def test_course_uses_requested_place_translation(
+    client: TestClient,
+    database: pymysql.Connection,
+    insert: Callable[..., int],
+) -> None:
+    add_places(insert)
+    with database.cursor() as cursor:
+        cursor.execute("SELECT IDX, NAME FROM PLACE")
+        places = cursor.fetchall()
+        cursor.executemany(
+            """INSERT INTO PLACE_I18N (PLACE_IDX, LANGUAGE_CODE, NAME, ADDRESS)
+               VALUES (%s, 'en', %s, 'Palace Road')""",
+            [(place["IDX"], f"EN {place['NAME']}") for place in places],
+        )
+
+    response = client.post(
+        "/api/v1/journey/course/refresh?lang=en",
+        headers={"X-User-No": "1"},
+    )
+
+    assert response.status_code == 201
+    assert all(stop["name"].startswith("EN ") for stop in response.json()["stops"])

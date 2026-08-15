@@ -36,15 +36,22 @@ MARKER_ICONS = {
     KOREAN_RESTAURANT: "food",
 }
 
-CANDIDATE_SQL = """
-    SELECT IDX, NAME, ADDRESS, IMG, MENU, REST_DATE,
-           CATEGORY_CODE, CATEGORY_SUB, LATITUDE, LONGITUDE
-    FROM PLACE
-    WHERE IS_DISPLAY = 1
-      AND CATEGORY_CODE IS NOT NULL
-      AND LATITUDE IS NOT NULL AND LATITUDE <> ''
-      AND LONGITUDE IS NOT NULL AND LONGITUDE <> ''
-"""
+
+def candidate_sql() -> str:
+    return """
+        SELECT p.IDX,
+               COALESCE(NULLIF(t.NAME, ''), NULLIF(k.NAME, ''), p.NAME) AS NAME,
+               COALESCE(NULLIF(t.ADDRESS, ''), NULLIF(k.ADDRESS, ''), p.ADDRESS) AS ADDRESS,
+               p.IMG, p.MENU, p.REST_DATE,
+               p.CATEGORY_CODE, p.CATEGORY_SUB, p.LATITUDE, p.LONGITUDE
+        FROM PLACE p
+        LEFT JOIN PLACE_I18N t ON t.PLACE_IDX = p.IDX AND t.LANGUAGE_CODE = %s
+        LEFT JOIN PLACE_I18N k ON k.PLACE_IDX = p.IDX AND k.LANGUAGE_CODE = 'ko'
+        WHERE p.IS_DISPLAY = 1
+          AND p.CATEGORY_CODE IS NOT NULL
+          AND p.LATITUDE IS NOT NULL AND p.LATITUDE <> ''
+          AND p.LONGITUDE IS NOT NULL AND p.LONGITUDE <> ''
+    """
 
 
 @dataclass(frozen=True)
@@ -197,12 +204,13 @@ def build_course(
     visit_date: date | None = None,
     rng: random.Random | None = None,
     attempts: int = 5,
+    language: str = "ko",
 ) -> Course:
     # 경로 생성 시도 
     visit_date = visit_date or date.today()
     rng = rng or random.Random()
     weekday = WEEKDAYS[visit_date.weekday()]
-    rows = fetch_all(connection, CANDIDATE_SQL)
+    rows = fetch_all(connection, candidate_sql(), (language,))
 
     best: tuple[list[Stop], list[str]] | None = None
     for _ in range(max(1, attempts)):

@@ -1,4 +1,5 @@
 import { ApiError } from "./spots";
+import { createTranslator } from "../i18n";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
@@ -8,9 +9,9 @@ const LOCAL_USER_NO = 1;
 
 // 코스 API 응답을 지도 컴포넌트가 쓰는 장소 모양으로 바꾼다.
 // (id / name / description / distance / latitude / longitude / icon / docent)
-function toPlace(stop) {
+function toPlace(stop, t) {
   const details = [stop.timeSlot, stop.category].filter(Boolean).join(" · ");
-  const notice = stop.hoursUnknown ? " ※ 휴무일 확인 필요" : "";
+  const notice = stop.hoursUnknown ? t("map.closedNotice") : "";
   return {
     id: `place-${stop.placeId}`,
     placeId: stop.placeId,
@@ -19,7 +20,7 @@ function toPlace(stop) {
     completed: Boolean(stop.completed),
     name: stop.name,
     description: `${details}${stop.menu ? ` — ${stop.menu}` : ""}${notice}`,
-    distance: stop.order === 1 ? "출발" : `${stop.distanceKm}km`,
+    distance: stop.order === 1 ? t("map.start") : `${stop.distanceKm}km`,
     latitude: stop.latitude,
     longitude: stop.longitude,
     icon: stop.icon,
@@ -32,9 +33,10 @@ function toPlace(stop) {
   };
 }
 
-async function requestCourse({ persona, date, method, signal }) {
+async function requestCourse({ persona, date, language = "ko", method, signal, t = createTranslator(language) }) {
   const parameters = new URLSearchParams({ persona });
   if (date) parameters.set("date", date);
+  parameters.set("lang", language);
 
   const path = method === "POST" ? "/api/v1/journey/course/refresh" : "/api/v1/journey/course";
   let response;
@@ -58,17 +60,17 @@ async function requestCourse({ persona, date, method, signal }) {
     );
   }
 
-  return { ...payload, places: (payload.stops || []).map(toPlace) };
+  return { ...payload, places: (payload.stops || []).map((stop) => toPlace(stop, t)) };
 }
 
 // 저장된 코스를 준다. 없으면 서버가 이때 한 번 뽑아 저장한다.
-export async function fetchCourse({ persona = "king", date, signal } = {}) {
-  return requestCourse({ persona, date, method: "GET", signal });
+export async function fetchCourse({ persona = "king", date, language, signal, t } = {}) {
+  return requestCourse({ persona, date, language, method: "GET", signal, t });
 }
 
 // 코스를 새로 뽑아 저장한다. 이전 코스는 비활성으로 내려간다.
-export async function refreshCourse({ persona = "king", date, signal } = {}) {
-  return requestCourse({ persona, date, method: "POST", signal });
+export async function refreshCourse({ persona = "king", date, language, signal, t } = {}) {
+  return requestCourse({ persona, date, language, method: "POST", signal, t });
 }
 
 // 방문 완료를 서버에 저장한다. 저장해 두면 다시 들어와도 완료 상태가 남는다.

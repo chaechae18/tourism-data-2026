@@ -1,4 +1,5 @@
 import "./globals.css";
+import { LanguageProvider } from "../components/i18n/LanguageProvider";
 
 export const metadata = {
   title: "Play Gyeongju | Donggyeong",
@@ -12,7 +13,7 @@ export default function RootLayout({ children }) {
         <link rel="preload" as="image" href="/images/cheomseongdae-paper-cut-day.webp" fetchPriority="high" />
         <link rel="preload" as="image" href="/images/cheomseongdae-paper-cut-night.webp" />
       </head>
-      <body>{children}</body>
+      <body><LanguageProvider>{children}</LanguageProvider></body>
     </html>
   );
 }

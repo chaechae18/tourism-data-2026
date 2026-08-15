@@ -421,13 +421,20 @@ WHERE NOT EXISTS (
 INSERT INTO ITEM (
     ITEM_NAME, ITEM_TYPE, CHARACTER_IDX, ITEM_IMAGE, ITEM_MODEL_IMAGE, ITEM_DESCRIPTION
 )
-SELECT seed.ITEM_NAME, seed.ITEM_TYPE, character_row.IDX, NULL, NULL, seed.ITEM_DESCRIPTION
+SELECT seed.ITEM_NAME, seed.ITEM_TYPE, character_row.IDX, NULL,
+    seed.ITEM_MODEL_IMAGE, seed.ITEM_DESCRIPTION
 FROM (
-    SELECT '금관' AS ITEM_NAME, 1 AS ITEM_TYPE, '신라 금관을 본뜬 머리 장식' AS ITEM_DESCRIPTION
-    UNION ALL SELECT '연꽃 장식', 6, '동경이 목에 착용하는 연꽃 장식'
-    UNION ALL SELECT '청록 두루마기', 2, '동경이 전용 청록색 의상'
-    UNION ALL SELECT '여행 카메라', 5, '여행 기록을 남기는 손 착용 아이템'
-    UNION ALL SELECT '천년 등불', 5, '야간 여행을 밝히는 손 착용 아이템'
+    SELECT '금관' AS ITEM_NAME, 1 AS ITEM_TYPE,
+        '/models/donggyeong/items/crown.glb' AS ITEM_MODEL_IMAGE,
+        '신라 금관을 본뜬 머리 장식' AS ITEM_DESCRIPTION
+    UNION ALL SELECT '연꽃 장식', 6, '/models/donggyeong/items/lotus.glb',
+        '동경이 목에 착용하는 연꽃 장식'
+    UNION ALL SELECT '청록 두루마기', 2, '/models/donggyeong/items/hanbok.glb',
+        '동경이 전용 청록색 의상'
+    UNION ALL SELECT '여행 카메라', 5, '/models/donggyeong/items/camera.glb',
+        '여행 기록을 남기는 손 착용 아이템'
+    UNION ALL SELECT '천년 등불', 5, '/models/donggyeong/items/lantern.glb',
+        '야간 여행을 밝히는 손 착용 아이템'
 ) seed
 JOIN CHARACTER_MASTER character_row ON character_row.CHARACTER_TYPE = 'DONGGYEONG'
 WHERE NOT EXISTS (
@@ -436,3 +443,15 @@ WHERE NOT EXISTS (
     WHERE existing.CHARACTER_IDX = character_row.IDX
       AND existing.ITEM_NAME = seed.ITEM_NAME
 );
+
+UPDATE ITEM item
+JOIN CHARACTER_MASTER character_row ON character_row.IDX = item.CHARACTER_IDX
+SET item.ITEM_MODEL_IMAGE = CASE item.ITEM_NAME
+    WHEN '금관' THEN '/models/donggyeong/items/crown.glb'
+    WHEN '연꽃 장식' THEN '/models/donggyeong/items/lotus.glb'
+    WHEN '청록 두루마기' THEN '/models/donggyeong/items/hanbok.glb'
+    WHEN '여행 카메라' THEN '/models/donggyeong/items/camera.glb'
+    WHEN '천년 등불' THEN '/models/donggyeong/items/lantern.glb'
+END
+WHERE character_row.CHARACTER_TYPE = 'DONGGYEONG'
+  AND item.ITEM_NAME IN ('금관', '연꽃 장식', '청록 두루마기', '여행 카메라', '천년 등불');
