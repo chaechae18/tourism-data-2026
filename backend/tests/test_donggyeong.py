@@ -19,15 +19,17 @@ def test_seeded_donggyeong_item_list(database: pymysql.Connection) -> None:
         character_id = cursor.lastrowid
         cursor.executemany(
             """
-            INSERT INTO ITEM (ITEM_NAME, ITEM_TYPE, CHARACTER_IDX, ITEM_DESCRIPTION)
-            VALUES (%s, %s, %s, %s)
+            INSERT INTO ITEM (
+                ITEM_NAME, ITEM_TYPE, CHARACTER_IDX, ITEM_MODEL_IMAGE, ITEM_DESCRIPTION
+            )
+            VALUES (%s, %s, %s, %s, %s)
             """,
             [
-                ("금관", 1, character_id, "머리 장식"),
-                ("연꽃 장식", 6, character_id, "장식"),
-                ("청록 두루마기", 2, character_id, "의상"),
-                ("여행 카메라", 5, character_id, "손 아이템"),
-                ("천년 등불", 5, character_id, "손 아이템"),
+                ("금관", 1, character_id, "/models/donggyeong/items/crown.glb", "머리 장식"),
+                ("연꽃 장식", 6, character_id, "/models/donggyeong/items/lotus.glb", "장식"),
+                ("청록 두루마기", 2, character_id, "/models/donggyeong/items/hanbok.glb", "의상"),
+                ("여행 카메라", 5, character_id, "/models/donggyeong/items/camera.glb", "손 아이템"),
+                ("천년 등불", 5, character_id, "/models/donggyeong/items/lantern.glb", "손 아이템"),
             ],
         )
     items = list_donggyeong_items(database)
@@ -39,3 +41,4 @@ def test_seeded_donggyeong_item_list(database: pymysql.Connection) -> None:
         "연꽃 장식",
     ]
     assert {item.slot for item in items} == {"hat", "clothes", "hand", "accessory"}
+    assert all(item.model_extension is ModelFileExtension.GLB for item in items)

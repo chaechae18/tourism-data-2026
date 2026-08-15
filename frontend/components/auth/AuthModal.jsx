@@ -1,19 +1,13 @@
-import { useState, useMemo } from "react";
-import {
-  Check,
-  LockKeyhole,
-  Mail,
-  UserRound,
-  Calendar,
-} from "lucide-react";
-import { AUTH_COPY } from "../../lib/app-data";
-import AppModal from "../ui/AppModal";
-import AppButton from "../ui/AppButton";
+import { useMemo, useState } from "react";
+import { Calendar, Check, LockKeyhole, Mail, UserRound } from "lucide-react";
 import Select from "react-select";
 import countryList from "react-select-country-list";
+import { LANGUAGE_LOCALES } from "../../lib/i18n";
+import { useI18n } from "../i18n/LanguageProvider";
+import AppButton from "../ui/AppButton";
+import AppModal from "../ui/AppModal";
 
-console.log("AUTH MODAL FILE LOADED");
-
+const AUTH_API_BASE_URL = "http://localhost:8001/api/v1/auth";
 const INITIAL_FORM = {
   id: "",
   nickname: "",
@@ -25,184 +19,152 @@ const INITIAL_FORM = {
 };
 
 export default function AuthModal({ mode, onClose, onComplete, onAuth }) {
+  const { language, t } = useI18n();
   const [form, setForm] = useState(INITIAL_FORM);
   const [consented, setConsented] = useState(false);
-
   const isSignup = mode === "signup";
-
-  const countries = useMemo(() => countryList().getData(), []);
-
-  const title = isSignup ? "회원가입" : "로그인";
-
-  const submitLabel = isSignup ? "동의하고 시작하기" : "로그인";
-
-  console.log("AuthModal 렌더링:", { mode, isSignup });
-
-  const setField = (field) => (event) => {
-    setForm((current) => ({
-      ...current,
-      [field]: event.target.value,
+  const countries = useMemo(() => {
+    const options = countryList().getData();
+    if (!Intl.DisplayNames) return options;
+    const displayNames = new Intl.DisplayNames([LANGUAGE_LOCALES[language]], { type: "region" });
+    return options.map((country) => ({
+      ...country,
+      label: displayNames.of(country.value) || country.label,
     }));
-  };
+  }, [language]);
+  const title = isSignup ? t("auth.signup") : t("auth.login");
+  const submitLabel = isSignup ? t("auth.signupSubmit") : t("auth.login");
+
+  const setField = (field) => (event) => setForm((current) => ({
+    ...current,
+    [field]: event.target.value,
+  }));
 
   const complete = async () => {
-    console.log("버튼 클릭");
-    console.log("mode:", mode);
-    console.log("form:", form);
-
     if (isSignup) {
-      // 회원가입
-      if (!consented) {
-        return alert("약관에 동의해주세요.");
-      }
-
+      if (!consented) return alert(t("auth.consentRequired"));
       if (!form.id || !form.nickname || !form.email || !form.password) {
-        return alert("필수 정보를 모두 입력해주세요.");
+        return alert(t("auth.requiredFields"));
       }
-
-      if (form.password !== form.confirmPassword) {
-        return alert("비밀번호가 일치하지 않습니다.");
-      }
-
-      try {
-        console.log("회원가입 API 요청 시작");
-
-        const response = await fetch("http://localhost:8001/api/v1/auth/signup", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            id: form.id,
-            nickname: form.nickname,
-            email: form.email,
-            password: form.password,
-            country: form.country,
-            birthDate: form.birthDate || null,
-          }),
-        });
-
-        console.log("회원가입 응답:", response.status);
-
-        const data = await response.json();
-
-        console.log("회원가입 데이터:", data);
-
-        if (!response.ok) {
-          return alert(data?.detail || "회원가입 실패");
-        }
-
-        alert("회원가입 성공");
-
-        onComplete(data);
-      } catch (error) {
-        console.error("회원가입 오류:", error);
-
-        alert("서버 연결 실패");
-        return;
-      }
-    } else {
-      // 로그인
-      console.log("로그인 분기 진입");
-
-      if (!form.id || !form.password) {
-        return alert("아이디와 비밀번호를 입력해주세요.");
-      }
-
-      try {
-        console.log("로그인 API 요청 시작");
-
-        const response = await fetch("http://localhost:8001/api/v1/auth/login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify({
-            id: form.id,
-            password: form.password,
-          }),
-        });
-
-        console.log("로그인 API 응답:", response.status);
-
-        const data = await response.json();
-
-        console.log("로그인 API 데이터:", data);
-
-        if (!response.ok) {
-          return alert(data?.detail || data?.error?.message || "로그인 실패");
-        }
-
-        console.log("로그인 성공");
-
-        onComplete(data);
-      } catch (error) {
-        console.error("로그인 API 오류:", error);
-
-        alert("서버 연결 실패");
-        return;
-      }
+      if (form.password !== form.confirmPassword) return alert(t("auth.passwordMismatch"));
+    } else if (!form.id || !form.password) {
+      return alert(t("auth.loginRequired"));
     }
 
-    setForm(INITIAL_FORM);
-    setConsented(false);
+    try {
+      const response = await fetch(`${AUTH_API_BASE_URL}/${isSignup ? "signup" : "login"}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: isSignup ? "same-origin" : "include",
+        body: JSON.stringify(isSignup ? {
+          id: form.id,
+          nickname: form.nickname,
+          email: form.email,
+          password: form.password,
+          country: form.country,
+          birthDate: form.birthDate || null,
+        } : {
+          id: form.id,
+          password: form.password,
+        }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        return alert(data?.detail || data?.error?.message || t(isSignup ? "auth.signupFailed" : "auth.loginFailed"));
+      }
+      onComplete(data);
+      setForm(INITIAL_FORM);
+      setConsented(false);
+    } catch {
+      alert(t("common.networkError"));
+    }
   };
 
   return (
-    <AppModal open={!!mode} onClose={onClose} title={title}>
-      {isSignup && (
-        <>
-          아이디
-          <input value={form.id} onChange={setField("id")} placeholder="로그인 아이디" className="h-11 w-full border" />
+    <AppModal open={Boolean(mode)} onClose={onClose} title={title}>
+      <div className="space-y-3">
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-semibold text-[#343235]">{t("auth.id")}</span>
+          <div className="flex items-center gap-2 rounded-lg border border-[#e2e4e0] px-3">
+            <UserRound size={17} className="text-[#747579]" />
+            <input value={form.id} onChange={setField("id")} className="h-11 w-full bg-transparent text-sm outline-none" placeholder={t("auth.idPlaceholder")} />
+          </div>
+        </label>
 
-          닉네임
-          <input value={form.nickname} onChange={setField("nickname")} placeholder="여행자 이름" className="h-11 w-full border" />
-        </>
-      )}
+        {isSignup && (
+          <>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-semibold text-[#343235]">{t("auth.nickname")}</span>
+              <div className="flex items-center gap-2 rounded-lg border border-[#e2e4e0] px-3">
+                <UserRound size={17} className="text-[#747579]" />
+                <input value={form.nickname} onChange={setField("nickname")} className="h-11 w-full bg-transparent text-sm outline-none" placeholder={t("auth.nicknamePlaceholder")} />
+              </div>
+            </label>
 
-      {!isSignup && (
-        <>
-          아이디
-          <input value={form.id} onChange={setField("id")} placeholder="로그인 아이디" className="h-11 w-full border" />
-        </>
-      )}
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-semibold text-[#343235]">{t("auth.email")}</span>
+              <div className="flex items-center gap-2 rounded-lg border border-[#e2e4e0] px-3">
+                <Mail size={17} className="text-[#747579]" />
+                <input type="email" value={form.email} onChange={setField("email")} className="h-11 w-full bg-transparent text-sm outline-none" placeholder="name@example.com" />
+              </div>
+            </label>
+          </>
+        )}
 
-      {isSignup && (
-        <>
-          이메일
-          <input type="email" value={form.email} onChange={setField("email")} placeholder="name@example.com" className="h-11 w-full border" />
-        </>
-      )}
+        <label className="block">
+          <span className="mb-1.5 block text-sm font-semibold text-[#343235]">{t("auth.password")}</span>
+          <div className="flex items-center gap-2 rounded-lg border border-[#e2e4e0] px-3">
+            <LockKeyhole size={17} className="text-[#747579]" />
+            <input type="password" value={form.password} onChange={setField("password")} className="h-11 w-full bg-transparent text-sm outline-none" placeholder={t("auth.password")} />
+          </div>
+        </label>
 
-      비밀번호
-      <input type="password" value={form.password} onChange={setField("password")} placeholder="비밀번호" className="h-11 w-full border" />
+        {isSignup && (
+          <>
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-semibold text-[#343235]">{t("auth.passwordConfirm")}</span>
+              <div className="flex items-center gap-2 rounded-lg border border-[#e2e4e0] px-3">
+                <LockKeyhole size={17} className="text-[#747579]" />
+                <input type="password" value={form.confirmPassword} onChange={setField("confirmPassword")} className="h-11 w-full bg-transparent text-sm outline-none" placeholder={t("auth.passwordConfirmPlaceholder")} />
+              </div>
+            </label>
 
-      {isSignup && (
-        <>
-          비밀번호 확인
-          <input type="password" value={form.confirmPassword} onChange={setField("confirmPassword")} placeholder="비밀번호 확인" className="h-11 w-full border" />
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-semibold text-[#343235]">{t("auth.country")}</span>
+              <Select
+                options={countries}
+                value={countries.find((country) => country.value === form.country)}
+                onChange={(selected) => setForm((current) => ({ ...current, country: selected?.value || "" }))}
+                placeholder={t("auth.countryPlaceholder")}
+                isSearchable
+                className="text-sm"
+              />
+            </label>
 
-          국가
-          <Select options={countries} value={countries.find((country) => country.value === form.country)} onChange={(selected) => setForm((current) => ({ ...current, country: selected?.value || "" }))} />
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-semibold text-[#343235]">{t("auth.birthDate")}</span>
+              <div className="flex items-center gap-2 rounded-lg border border-[#e2e4e0] px-3">
+                <Calendar size={17} className="text-[#747579]" />
+                <input type="date" value={form.birthDate} onChange={setField("birthDate")} className="h-11 w-full bg-transparent text-sm outline-none" />
+              </div>
+            </label>
 
-          생년월일
-          <input type="date" value={form.birthDate} onChange={setField("birthDate")} className="h-11 w-full border" />
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-[#f4f6f4] p-3 text-sm text-[#55565a]">
+              <input type="checkbox" checked={consented} onChange={(event) => setConsented(event.target.checked)} className="mt-0.5 h-4 w-4 accent-[#bd8c31]" />
+              <span>{t("auth.consent")}</span>
+            </label>
+          </>
+        )}
 
-          <input type="checkbox" checked={consented} onChange={(event) => setConsented(event.target.checked)} />{" "}
-          {AUTH_COPY.consent}
-        </>
-      )}
-
-      <AppButton type="button" className="w-full" disabled={isSignup && !consented} icon={Check} onClick={() => { console.log("AppButton onClick 실행"); complete(); }}>
-        {submitLabel}
-      </AppButton>
-
-      {!isSignup && (
-        <AppButton type="button" className="w-full mt-3" variant="outline" onClick={() => { console.log("회원가입 버튼 클릭"); onAuth("signup"); }}>
-          회원가입
+        <AppButton type="button" className="w-full" disabled={isSignup && !consented} icon={Check} onClick={complete}>
+          {submitLabel}
         </AppButton>
-      )}
+        {!isSignup && (
+          <AppButton type="button" className="mt-3 w-full" variant="outline" onClick={() => onAuth("signup")}>
+            {t("auth.signup")}
+          </AppButton>
+        )}
+      </div>
     </AppModal>
   );
 }

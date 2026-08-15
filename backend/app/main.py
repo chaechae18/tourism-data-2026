@@ -2,24 +2,26 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, status
-from starlette.middleware.sessions import SessionMiddleware
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.sessions import SessionMiddleware
 
 from .config import get_settings
 from .mysql import initialize_database
 from .routers.admin import router as admin_router
+from .routers.auth import router as auth_router
 from .routers.donggyeong import router as donggyeong_router
 from .routers.home import router as home_router
 from .routers.interactions import router as interactions_router
-from .routers.notifications import router as notifications_router
 from .routers.journey import router as journey_router
+from .routers.notifications import router as notifications_router
 from .routers.places import router as places_router
 from .routers.spots import router as spots_router
 from .routers.uploads import router as uploads_router
-from .routers.auth import router as auth_router
+from .routers.users import router as users_router
+
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
@@ -41,10 +43,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# ---------------------------------------------------------
-# Session
-# ---------------------------------------------------------
 app.add_middleware(
     SessionMiddleware,
     secret_key="dev-session-secret-key-change-this",
@@ -102,6 +100,7 @@ async def http_error_handler(_, error: HTTPException) -> JSONResponse:
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
+
 app.include_router(home_router)
 app.include_router(donggyeong_router)
 app.include_router(places_router)
@@ -111,5 +110,6 @@ app.include_router(interactions_router)
 app.include_router(notifications_router)
 app.include_router(admin_router)
 app.include_router(uploads_router)
-app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")
+app.include_router(users_router)
 app.include_router(auth_router)
+app.mount("/uploads", StaticFiles(directory=settings.upload_dir), name="uploads")

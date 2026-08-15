@@ -8,16 +8,23 @@ from .personas import Persona
 
 QUEST_TYPE_VISIT = 1
 
-COURSE_STOPS_SQL = """
-    SELECT q.IDX AS QUEST_IDX, q.QUEST_ORDER, q.TIME_SLOT,
-           p.IDX AS PLACE_IDX, p.NAME, p.ADDRESS, p.IMG, p.MENU, p.REST_DATE,
-           p.CATEGORY_SUB, p.LATITUDE, p.LONGITUDE, mp.MARKER_ICON_TYPE
-    FROM QUEST q
-    JOIN MAP_PLACE mp ON mp.IDX = q.MAP_PLACE_IDX
-    JOIN PLACE p ON p.IDX = mp.PLACE_IDX
-    WHERE q.COURSE_IDX = %s
-    ORDER BY q.QUEST_ORDER
-"""
+
+def course_stops_sql() -> str:
+    return """
+        SELECT q.IDX AS QUEST_IDX, q.QUEST_ORDER, q.TIME_SLOT,
+               p.IDX AS PLACE_IDX,
+               COALESCE(NULLIF(t.NAME, ''), NULLIF(k.NAME, ''), p.NAME) AS NAME,
+               COALESCE(NULLIF(t.ADDRESS, ''), NULLIF(k.ADDRESS, ''), p.ADDRESS) AS ADDRESS,
+               p.IMG, p.MENU, p.REST_DATE,
+               p.CATEGORY_SUB, p.LATITUDE, p.LONGITUDE, mp.MARKER_ICON_TYPE
+        FROM QUEST q
+        JOIN MAP_PLACE mp ON mp.IDX = q.MAP_PLACE_IDX
+        JOIN PLACE p ON p.IDX = mp.PLACE_IDX
+        LEFT JOIN PLACE_I18N t ON t.PLACE_IDX = p.IDX AND t.LANGUAGE_CODE = %s
+        LEFT JOIN PLACE_I18N k ON k.PLACE_IDX = p.IDX AND k.LANGUAGE_CODE = 'ko'
+        WHERE q.COURSE_IDX = %s
+        ORDER BY q.QUEST_ORDER
+    """
 
 
 def _scalar(connection: pymysql.Connection, sql: str, parameters: tuple = ()) -> int | None:
@@ -106,9 +113,10 @@ def load_course(
     course_idx: int,
     persona: Persona,
     visit_date: date,
+    language: str = "ko",
 ) -> Course | None:
     with connection.cursor() as cursor:
-        cursor.execute(COURSE_STOPS_SQL, (course_idx,))
+        cursor.execute(course_stops_sql(), (language, course_idx))
         rows = cursor.fetchall()
     if not rows:
         return None
@@ -203,6 +211,7 @@ def get_or_create_course(
     persona: Persona,
     visit_date: date | None = None,
     refresh: bool = False,
+    language: str = "ko",
 ) -> Course:
     visit_date = visit_date or date.today()
     character_idx = ensure_character(connection, persona)
@@ -211,10 +220,10 @@ def get_or_create_course(
     if not refresh:
         course_idx = find_active_course(connection, user_character_idx)
         if course_idx:
-            saved = load_course(connection, course_idx, persona, visit_date)
+            saved = load_course(connection, course_idx, persona, visit_date, language)
             if saved:
                 return saved
 
-    built = build_course(connection, persona, visit_date=visit_date)
+    built = build_course(connection, persona, visit_date=visit_date, language=language)
     course_idx = save_course(connection, user_character_idx, persona, built)
-    return load_course(connection, course_idx, persona, visit_date) or built
+    return load_course(connection, course_idx, persona, visit_date, language) or built

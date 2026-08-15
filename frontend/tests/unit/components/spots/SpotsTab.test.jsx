@@ -258,10 +258,10 @@ describe("SpotsTab", () => {
     render(<SpotsTab />);
 
     const rankingSection = screen.getByTestId("ranking-section");
-    expect(await within(rankingSection).findByText("랭킹 연결 실패")).toBeInTheDocument();
+    expect(await within(rankingSection).findByText("요청을 처리하지 못했습니다.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "스팟" }));
     const spotSection = screen.getByTestId("spot-section");
-    expect(await within(spotSection).findByText("스팟 연결 실패")).toBeInTheDocument();
+    expect(await within(spotSection).findByText("요청을 처리하지 못했습니다.")).toBeInTheDocument();
   });
 });

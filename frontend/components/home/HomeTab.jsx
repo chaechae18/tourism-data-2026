@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarDays, ChevronDown, ChevronRight, MapPin, MapPinned, Ticket } from "lucide-react";
 import {
   listBanners,
@@ -9,6 +9,8 @@ import {
   listRecommendedPlaces,
 } from "../../lib/api/home";
 import { HOME_CONTENT } from "../../lib/app-data";
+import { createTranslator, translateError } from "../../lib/i18n";
+import { useI18n } from "../i18n/LanguageProvider";
 import AppButton from "../ui/AppButton";
 import SectionHeading from "../ui/SectionHeading";
 
@@ -27,13 +29,13 @@ function short(date) {
   return `${date.getMonth() + 1}. ${date.getDate()}`;
 }
 
-function formatPeriod(startIso, endIso) {
+function formatPeriod(startIso, endIso, t) {
   const start = toDate(startIso);
   const end = toDate(endIso);
 
   if (start && end) return `${short(start)} - ${short(end)}`;
-  if (start) return `${short(start)} 시작`;
-  if (end) return `${short(end)} 종료`;
+  if (start) return t("home.starts", { date: short(start) });
+  if (end) return t("home.ends", { date: short(end) });
   return null;
 }
 
@@ -61,7 +63,6 @@ function BannerCard({ banner }) {
   );
 
   if (!link) return body;
-
   return (
     <a className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bd8c31]" href={link}>
       {body}
@@ -94,7 +95,10 @@ function PlaceAddress({ place }) {
   );
 }
 
-export default function HomeTab({ onMapOpen, language = "ko" }) {
+export default function HomeTab({ onMapOpen, language: languageProp }) {
+  const { language: contextLanguage } = useI18n();
+  const language = languageProp || contextLanguage;
+  const t = useMemo(() => createTranslator(language), [language]);
   const [banners, setBanners] = useState([]);
   const [popups, setPopups] = useState([]);
   const [festivals, setFestivals] = useState([]);
@@ -121,8 +125,8 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
     setPlacePage(0);
 
     const failed = results.find((result) => result.status === "rejected");
-    setNotice(failed ? failed.reason.message : "");
-  }, [language]);
+    setNotice(failed ? translateError(failed.reason, t) : "");
+  }, [language, t]);
 
   useEffect(() => {
     loadHome();
@@ -135,8 +139,9 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
     <section className="space-y-7">
       <div className="overflow-hidden rounded-xl bg-[#2c1e19] px-6 py-4 text-[#fff8ec]">
         <p className="text-xs font-bold text-[#e0b06a]">Gyeongju</p>
-        <h1 className="mt-1 text-xl font-bold leading-7">{HOME_CONTENT.hero.title}</h1>
-        <AppButton className="mt-3" icon={MapPinned} onClick={onMapOpen} variant="light">가까운 장소 보기</AppButton>
+        <h1 className="mt-1 text-xl font-bold leading-7">{t("home.title")}</h1>
+        <p className="mt-2 text-sm leading-6 text-[#f0dcc4]">{t("home.description")}</p>
+        <AppButton className="mt-3" icon={MapPinned} onClick={onMapOpen} variant="light">{t("home.nearby")}</AppButton>
         {notice && <p className="mt-3 text-sm font-bold text-[#ffd4a0]">{notice}</p>}
       </div>
 
@@ -150,14 +155,12 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
               onClick={() => setNoticeOpen((open) => !open)}
               type="button"
             >
-              {popups.length}건
+              {t("home.noticeCount", { count: popups.length })}
               <ChevronDown className={noticeOpen ? "rotate-180" : ""} size={14} />
             </button>
           )}
         </div>
-        {popups.length === 0 && (
-          <p className="mt-2 text-sm text-[#7c6d61]">새로운 공지가 없어요.</p>
-        )}
+        {popups.length === 0 && <p className="mt-2 text-sm text-[#7c6d61]">{t("home.noNotice")}</p>}
         {noticeOpen && (
           <div className="space-y-4">
             {popups.map((popup, index) => (
@@ -168,7 +171,7 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
                   {popup.content && <p className="mt-1 text-sm leading-6 text-[#6f6256]">{popup.content}</p>}
                   {safeHref(popup.link) && (
                     <a className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]" href={safeHref(popup.link)}>
-                      자세히 보기 <ChevronRight size={15} />
+                      {t("home.detail")} <ChevronRight size={15} />
                     </a>
                   )}
                 </div>
@@ -179,15 +182,12 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
       </div>
 
       <div>
-        <SectionHeading eyebrow="Festival" title="진행중인 행사" />
+        <SectionHeading eyebrow="Festival" title={t("home.festivals")} />
         <div className="space-y-3">
-          {festivals.length === 0 && (
-            <p className="text-sm text-[#7c6d61]">이번 달에 열리는 행사가 없어요.</p>
-          )}
+          {festivals.length === 0 && <p className="text-sm text-[#7c6d61]">{t("home.noFestival")}</p>}
           {festivals.map((festival, index) => {
-            const period = formatPeriod(festival.startDate, festival.endDate);
+            const period = formatPeriod(festival.startDate, festival.endDate, t);
             const url = safeHref(festival.url);
-            // TourAPI 행사 이미지는 대부분 세로 포스터(443×627)라 썸네일을 세로로 잡는다.
             return (
               <article className="flex gap-4 rounded-lg border border-[#e6ddd2] bg-white p-4" key={`${festival.name}-${index}`}>
                 {festival.img ? (
@@ -202,7 +202,7 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
                   {period && <p className="mt-2 text-sm text-[#6f6256]">{period}</p>}
                   {url && (
                     <a className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]" href={url} rel="noreferrer" target="_blank">
-                      행사 정보 <ChevronRight size={15} />
+                      {t("home.festivalInfo")} <ChevronRight size={15} />
                     </a>
                   )}
                 </div>
@@ -213,11 +213,9 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
       </div>
 
       <div>
-        <SectionHeading eyebrow="Recommended" title="추천 관광지" />
+        <SectionHeading eyebrow="Recommended" title={t("home.recommended")} />
         <ul className="space-y-3">
-          {places.length === 0 && (
-            <li className="text-sm text-[#7c6d61]">추천 중인 관광지가 없어요.</li>
-          )}
+          {places.length === 0 && <li className="text-sm text-[#7c6d61]">{t("home.noRecommended")}</li>}
           {pagedPlaces.map((place, index) => (
             <li key={`${place.name}-${index}`}>
               <article className="rounded-lg border border-[#e6ddd2] bg-white p-4">
@@ -230,10 +228,7 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
                     </span>
                   )}
                 </div>
-
-                {/* 요약은 문장마다 줄이 바뀌어 내려온다. 길이가 달라도 카드가 흔들리지 않게 두 줄로 고정한다. */}
                 <p className="mt-2 line-clamp-2 h-12 whitespace-pre-line text-sm leading-6 text-[#6f6256]">{place.text}</p>
-
                 {place.address && <PlaceAddress place={place} />}
               </article>
             </li>
@@ -244,7 +239,7 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
             {Array.from({ length: placePageCount }, (_, page) => (
               <button
                 aria-current={page === placePage}
-                aria-label={`추천 관광지 ${page + 1}페이지`}
+                aria-label={t("home.recommendedPage", { page: page + 1 })}
                 className={`h-2 rounded-full transition-all ${page === placePage ? "w-5 bg-[#9a4e17]" : "w-2 bg-[#ded2c4]"}`}
                 key={page}
                 onClick={() => setPlacePage(page)}
@@ -257,9 +252,9 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
 
       {SHOW_NEWS_BANNERS && (
         <div>
-          <SectionHeading eyebrow="Banner" title="경주 소식" />
+          <SectionHeading eyebrow="Banner" title={t("home.news")} />
           {banners.length === 0 ? (
-            <p className="text-sm text-[#7c6d61]">지금 노출 중인 배너가 없어요.</p>
+            <p className="text-sm text-[#7c6d61]">{t("home.noBanner")}</p>
           ) : (
             <ul className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1">
               {banners.map((banner, index) => (
@@ -273,7 +268,9 @@ export default function HomeTab({ onMapOpen, language = "ko" }) {
       )}
 
       <div className="border-t border-[#e6ddd2] pt-5">
-        <a href={HOME_CONTENT.tourismUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]">경주 관광 정보 <ChevronRight size={16} /></a>
+        <a href={HOME_CONTENT.tourismUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]">
+          {t("home.tourismInfo")} <ChevronRight size={16} />
+        </a>
       </div>
     </section>
   );

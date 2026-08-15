@@ -6,10 +6,13 @@ import {
   listNotifications,
   markNotificationRead,
 } from "../../lib/api/notifications";
+import { translateError } from "../../lib/i18n";
 import { IconButton } from "../ui/AppButton";
+import { useI18n } from "../i18n/LanguageProvider";
 
 
 export default function NotificationButton({ refreshKey = 0 }) {
+  const { t } = useI18n();
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
@@ -19,9 +22,9 @@ export default function NotificationButton({ refreshKey = 0 }) {
       setNotifications(await listNotifications());
       setError("");
     } catch (loadError) {
-      setError(loadError.message);
+      setError(translateError(loadError, t));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -40,7 +43,7 @@ export default function NotificationButton({ refreshKey = 0 }) {
         item.id === notification.id ? { ...item, isRead: true } : item
       )));
     } catch (readError) {
-      setError(readError.message);
+      setError(translateError(readError, t));
     }
   };
 
@@ -49,7 +52,7 @@ export default function NotificationButton({ refreshKey = 0 }) {
   return (
     <div className="relative">
       <div className="relative">
-        <IconButton icon={Bell} label="알림" onClick={toggle} />
+        <IconButton icon={Bell} label={t("notifications.label")} onClick={toggle} />
         {unreadCount > 0 && (
           <span className="pointer-events-none absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#a8463d] px-1 text-[10px] font-bold text-white">
             {Math.min(unreadCount, 99)}
@@ -60,8 +63,8 @@ export default function NotificationButton({ refreshKey = 0 }) {
       {open && (
         <div className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#e2e4e0] bg-white shadow-xl">
           <div className="border-b border-[#e2e4e0] px-4 py-3">
-            <p className="font-bold text-[#343235]">알림</p>
-            <p className="mt-0.5 text-xs text-[#747579]">좋아요와 퀘스트 소식을 확인하세요.</p>
+            <p className="font-bold text-[#343235]">{t("notifications.label")}</p>
+            <p className="mt-0.5 text-xs text-[#747579]">{t("notifications.description")}</p>
           </div>
           <div className="max-h-80 overflow-y-auto">
             {notifications.map((notification) => (
@@ -75,13 +78,13 @@ export default function NotificationButton({ refreshKey = 0 }) {
                   {notification.isRead ? <Check size={14} /> : <Bell size={14} />}
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-bold text-[#343235]">{notification.title}</span>
-                  <span className="mt-1 block text-xs leading-5 text-[#747579]">{notification.message}</span>
+                  <span className="block text-sm font-bold text-[#343235]">{t(`notifications.${notification.type}.title`)}</span>
+                  <span className="mt-1 block text-xs leading-5 text-[#747579]">{t(`notifications.${notification.type}.message`)}</span>
                 </span>
               </button>
             ))}
             {!error && notifications.length === 0 && (
-              <p className="px-4 py-8 text-center text-sm text-[#747579]">새 알림이 없어요.</p>
+              <p className="px-4 py-8 text-center text-sm text-[#747579]">{t("notifications.empty")}</p>
             )}
             {error && <p className="px-4 py-4 text-sm font-semibold text-[#a8463d]">{error}</p>}
           </div>

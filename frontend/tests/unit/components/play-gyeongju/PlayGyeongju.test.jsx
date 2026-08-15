@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
 
 vi.mock("../../../../components/intro/IntroScreen", () => ({
   default: ({ onAuth }) => <button type="button" onClick={() => onAuth("login")}>로그인</button>,
@@ -16,10 +16,15 @@ vi.mock("../../../../components/my-page/MyPageTab", () => ({ default: () => <div
 import PlayGyeongju from "../../../../components/play-gyeongju/PlayGyeongju";
 
 describe("PlayGyeongju", () => {
-  it("passes the login mode to the authentication modal", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("passes the login mode to the authentication modal", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: false }));
     render(<PlayGyeongju />);
 
-    fireEvent.click(screen.getByRole("button", { name: "로그인" }));
+    fireEvent.click(await screen.findByRole("button", { name: "로그인" }));
 
     expect(screen.getByText("login")).toBeInTheDocument();
   });

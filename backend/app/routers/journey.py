@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 import pymysql
 
 from ..course_builder import Course
+from ..home import resolve_language
 from ..journey import get_or_create_course
 from ..models.journey import CharacterResponse, CourseResponse, CourseStopResponse
 from ..mysql import get_mysql
@@ -16,6 +17,7 @@ router = APIRouter(prefix="/api/v1/journey", tags=["journey"])
 UserNo = Annotated[int, Header(alias="X-User-No", ge=1)]
 PersonaQuery = Annotated[str, Query(max_length=30)]
 VisitDate = Annotated[date | None, Query(alias="date")]
+LanguageQuery = Annotated[str | None, Query(alias="lang", max_length=20)]
 
 
 def to_response(course: Course) -> CourseResponse:
@@ -74,6 +76,7 @@ def get_course(
     user_no: UserNo,
     persona: PersonaQuery = "king",
     visit_date: VisitDate = None,
+    lang: LanguageQuery = None,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> CourseResponse:
     # 저장된 코스 저장, 없으면 새로 뽑아 저장 
@@ -83,6 +86,7 @@ def get_course(
             user_no=user_no,
             persona=resolve_persona(persona),
             visit_date=visit_date,
+            language=resolve_language(lang, None),
         )
     )
 
@@ -97,6 +101,7 @@ def refresh_course(
     user_no: UserNo,
     persona: PersonaQuery = "king",
     visit_date: VisitDate = None,
+    lang: LanguageQuery = None,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> CourseResponse:
     # 저장된 코스 저장, 없으면 새로 뽑아 저장 
@@ -107,5 +112,6 @@ def refresh_course(
             persona=resolve_persona(persona),
             visit_date=visit_date,
             refresh=True,
+            language=resolve_language(lang, None),
         )
     )
