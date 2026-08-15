@@ -1,6 +1,5 @@
 from collections.abc import Callable, Iterator
 import os
-from pathlib import Path
 
 from fastapi.testclient import TestClient
 import pymysql
@@ -8,12 +7,13 @@ import pytest
 
 from app.home import festival_cache, get_tour_api_client
 from app.main import app
-from app.mysql import connect, get_mysql
+from app.mysql import connect, get_mysql, initialize_database
 from app.routers.spots import get_temporary_spot_approval_scheduler
 
 
 TEST_DATABASE = os.getenv("TEST_DB_NAME", "play_gyeongju_test")
-SCHEMA_PATH = Path(__file__).resolve().parents[1] / "db" / "schema.mysql.sql"
+# 테스트는 반드시 테스트 DB 만 건드린다. 마이그레이션도 이 DB 에 적용된다.
+os.environ["DB_NAME"] = TEST_DATABASE
 
 # 팀 MySQL DDL 중 홈 API 가 읽는 테이블만 옮겨 적었다. MAIN_BANNER / POPUP /
 # POPUP_I18N 은 아직 팀 DDL 에 없어서 여기가 유일한 정의다.
@@ -123,9 +123,9 @@ def mysql_database() -> Iterator[pymysql.Connection]:
     with connection.cursor() as cursor:
         for table, columns in TABLES.items():
             cursor.execute(f"CREATE TABLE {table} ({columns})")
-        for statement in SCHEMA_PATH.read_text(encoding="utf-8").split(";"):
-            if statement.strip():
-                cursor.execute(statement)
+    # 테스트 DB 도 운영과 같은 경로(마이그레이션)로 만든다.
+    # 그래야 마이그레이션이 깨지면 테스트가 먼저 알려 준다.
+    initialize_database()
     yield connection
     connection.close()
 
