@@ -73,7 +73,6 @@ export const BLOCKED_WORDS = ["바보", "욕설"];
 
 export const PROFILE_MENU = [
   { id: "privacy", label: "개인정보 수정" },
-  { id: "places", label: "내가 다녀간 장소" },
   { id: "contact", label: "Contact us." },
   { id: "withdraw", label: "회원 탈퇴" },
 ];

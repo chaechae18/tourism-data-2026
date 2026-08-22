@@ -24,13 +24,14 @@ router = APIRouter(
 )
 def create_signup(
     request: SignupRequest,
+    http_request: Request,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> SignupResponse:
 
     print("signup request:", request)
 
     try:
-        return signup(
+        user = signup(
             database,
             user_id=request.id,
             nickname=request.nickname,
@@ -38,7 +39,26 @@ def create_signup(
             birth_date=request.birth_date,
             email=request.email,
             password=request.password,
+            language_code=request.language_code,
         )
+
+        # 회원가입 직후 바로 로그인 상태로 만든다.
+        http_request.session.clear()
+
+        http_request.session["user"] = {
+            "user_no": user["userNo"],
+            "user_id": user["userId"],
+            "nickname": user["nickname"],
+            "country": user["country"],
+            "email": user["email"],
+            "language_code": user["languageCode"],
+        }
+
+        return {
+            "userNo": user["userNo"],
+            "message": "회원가입 성공",
+            "user": user,
+        }
 
     except UserAlreadyExistsError:
         raise HTTPException(
@@ -87,22 +107,24 @@ async def create_login(
         "nickname": user["nickname"],
         "country": user["country"],
         "email": user["email"],
-        "profile_image": user["profile_image"],
         "language_code": user["language_code"],
     }
+
     return {
         "message": "로그인 성공",
         "user": user,
     }
-    
-    
+
+
 # 현재 로그인 사용자
 @router.get("/me")
 def get_current_user(
     request: Request,
     database: pymysql.Connection = Depends(get_mysql),
 ):
-    user_no = request.session.get("user_no")
+    # 세션 안의 user에서 user_no를 가져온다.
+    session_user = request.session.get("user")
+    user_no = session_user.get("user_no") if session_user else None
 
     if not user_no:
         raise HTTPException(
@@ -142,6 +164,38 @@ def get_current_user(
 
     return {
         "user": user,
+    }
+
+
+# 아이디 중복확인
+@router.get("/check-id")
+def check_id(
+    id: str,
+    database: pymysql.Connection = Depends(get_mysql),
+):
+    with database.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT NO
+            FROM USERS
+            WHERE ID = %s
+              AND DELETED_AT IS NULL
+            LIMIT 1
+            """,
+            (id,),
+        )
+
+        user = cursor.fetchone()
+
+    if user:
+        return {
+            "available": False,
+            "message": "이미 사용 중인 아이디입니다.",
+        }
+
+    return {
+        "available": True,
+        "message": "사용 가능한 아이디입니다.",
     }
 
 

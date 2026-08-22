@@ -25,6 +25,7 @@ def signup(
     birth_date,
     email: str,
     password: str,
+    language_code: str,
 ):
     with connection.cursor() as cursor:
         cursor.execute(
@@ -50,10 +51,11 @@ def signup(
                 NICKNAME,
                 COUNTRY,
                 BIRTH_DATE,
-                EMAIL
+                EMAIL,
+                LANGUAGE_CODE
             )
             VALUES
-            (%s, %s, %s, %s, %s)
+            (%s, %s, %s, %s, %s, %s)
             """,
             (
                 user_id,
@@ -61,6 +63,7 @@ def signup(
                 country,
                 birth_date,
                 email,
+                language_code,
             ),
         )
 
@@ -87,6 +90,11 @@ def signup(
 
     return {
         "userNo": user_no,
+        "userId": user_id,
+        "nickname": nickname,
+        "email": email,
+        "country": country,
+        "languageCode": language_code,
         "message": "회원가입 성공",
     }
 
