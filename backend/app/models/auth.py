@@ -16,11 +16,17 @@ class SignupRequest(CamelModel):
     email: str
     password: str
 
+    language_code: str = Field(
+        default="ko",
+        alias="languageCode",
+    )
+
     @field_validator(
         "id",
         "nickname",
         "country",
         "email",
+        "language_code",
         mode="before",
     )
     @classmethod
@@ -31,6 +37,7 @@ class SignupRequest(CamelModel):
 class SignupResponse(CamelModel):
     user_no: int = Field(alias="userNo")
     message: str
+    user: dict
 
 
 class LoginRequest(CamelModel):
