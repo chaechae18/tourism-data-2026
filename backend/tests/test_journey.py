@@ -84,6 +84,76 @@ def test_course_endpoint_keeps_the_same_course(client: TestClient, insert: Calla
     ]
 
 
+def test_completed_quest_is_saved_and_comes_back_with_the_course(
+    client: TestClient,
+    insert: Callable[..., int],
+    rows: Callable[..., list[dict]],
+) -> None:
+    add_places(insert)
+    headers = {"X-User-No": "1"}
+    stops = client.get("/api/v1/journey/course", headers=headers).json()["stops"]
+    quest_id = stops[0]["questId"]
+
+    completed = client.post(f"/api/v1/journey/quests/{quest_id}/complete", headers=headers)
+
+    assert completed.status_code == 200
+    assert completed.json()["completed"] is True
+    # 다시 불러와도 완료 표시가 남아 있어야 한다.
+    reloaded = client.get("/api/v1/journey/course", headers=headers).json()["stops"]
+    assert [stop["completed"] for stop in reloaded] == [True] + [False] * (len(reloaded) - 1)
+    assert len(rows("SELECT IDX FROM USER_QUEST WHERE STATUS = 2")) == 1
+
+
+def test_completing_the_same_quest_twice_keeps_one_record(
+    client: TestClient,
+    insert: Callable[..., int],
+    rows: Callable[..., list[dict]],
+) -> None:
+    add_places(insert)
+    headers = {"X-User-No": "1"}
+    quest_id = client.get("/api/v1/journey/course", headers=headers).json()["stops"][0]["questId"]
+
+    first = client.post(f"/api/v1/journey/quests/{quest_id}/complete", headers=headers)
+    second = client.post(f"/api/v1/journey/quests/{quest_id}/complete", headers=headers)
+
+    assert second.status_code == 200
+    # 완료일시는 처음 누른 시각을 지킨다.
+    assert first.json()["completedAt"] == second.json()["completedAt"]
+    assert len(rows("SELECT IDX FROM USER_QUEST")) == 1
+
+
+def test_completing_a_quest_outside_my_course_is_rejected(
+    client: TestClient,
+    insert: Callable[..., int],
+) -> None:
+    add_places(insert)
+    headers = {"X-User-No": "1"}
+    quest_id = client.get("/api/v1/journey/course", headers=headers).json()["stops"][0]["questId"]
+
+    response = client.post(f"/api/v1/journey/quests/{quest_id}/complete", headers={"X-User-No": "2"})
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "QUEST_NOT_FOUND"
+
+
+def test_course_marks_places_that_can_be_read_aloud(
+    client: TestClient,
+    insert: Callable[..., int],
+    database: pymysql.Connection,
+) -> None:
+    add_places(insert)
+    with database.cursor() as cursor:
+        cursor.execute(
+            "UPDATE PLACE SET TEXT = %s WHERE NAME = %s",
+            ("동궁과 월지는 신라 왕궁의 별궁 터다.", "경주 동궁과 월지"),
+        )
+
+    stops = client.get("/api/v1/journey/course", headers={"X-User-No": "1"}).json()["stops"]
+
+    # 설명이 있는 장소만 도슨트 버튼이 켜진다.
+    assert [stop["name"] for stop in stops if stop["docent"]] == ["경주 동궁과 월지"]
+
+
 def test_unknown_persona_is_rejected(client: TestClient) -> None:
     response = client.get("/api/v1/journey/course?persona=ghost", headers={"X-User-No": "1"})
 

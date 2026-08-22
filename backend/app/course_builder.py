@@ -71,6 +71,10 @@ class Stop:
     icon: str = DEFAULT_MARKER_ICON
     # 저장된 코스에서 온 경우에만 채워진다 (QUEST.IDX).
     quest_id: int | None = None
+    # 사용자가 방문 완료로 저장했는지 (USER_QUEST.STATUS = 2)
+    completed: bool = False
+    # 읽어 줄 설명(PLACE.TEXT)이 있는지 = 도슨트를 들을 수 있는지
+    has_docent: bool = False
 
     @property
     def hours_unknown(self) -> bool:

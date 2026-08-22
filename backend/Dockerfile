@@ -12,6 +12,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY db ./db
+# DB 마이그레이션. 백엔드가 뜰 때 여기 있는 파일들로 스키마를 최신까지 맞춘다.
+COPY alembic ./alembic
+COPY alembic.ini ./alembic.ini
 COPY sync_tourapi.py ./sync_tourapi.py
 
 RUN mkdir -p /app/uploads \

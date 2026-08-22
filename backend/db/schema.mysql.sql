@@ -1,3 +1,9 @@
+-- ⚠️ 이 파일은 "기준선 스냅샷"입니다. 더 이상 여기서 스키마를 바꾸지 마세요.
+-- 테이블·컬럼을 추가하거나 바꾸려면 alembic 마이그레이션을 새로 만드세요.
+--   cd backend && alembic revision -m "add xxx"
+-- 이 파일을 고쳐도 이미 만들어진 DB 에는 반영되지 않습니다. (CREATE TABLE IF NOT EXISTS)
+-- 자세한 방법은 backend/README.md 의 "DB 마이그레이션" 항목을 참고하세요.
+
 CREATE TABLE IF NOT EXISTS USERS (
     NO BIGINT AUTO_INCREMENT PRIMARY KEY,
     ID VARCHAR(100) NOT NULL,

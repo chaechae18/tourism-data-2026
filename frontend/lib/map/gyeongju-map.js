@@ -6,15 +6,11 @@ export const MAP_VIEWBOX = {
   padding: 24,
 };
 
+// 지도는 경주 관광권 전체 하나만 사용한다. (도심권 범위 전환은 없앰)
 export const MAP_SCOPES = {
-  core: {
-    id: "core",
-    label: "도심권",
-    bounds: { west: 129.19, east: 129.25, north: 35.86, south: 35.805 },
-  },
   all: {
     id: "all",
-    label: "전체 경주",
+    label: "지도",
     bounds: { west: 129.17, east: 129.37, north: 35.9, south: 35.72 },
   },
 };
