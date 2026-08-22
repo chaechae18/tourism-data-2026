@@ -37,4 +37,15 @@ describe("NotificationButton", () => {
     await waitFor(() => expect(api.markNotificationRead).toHaveBeenCalledWith(7));
     expect(screen.queryByText("1")).not.toBeInTheDocument();
   });
+
+  it("shows the operator's own wording for a notice", async () => {
+    api.listNotifications.mockResolvedValue([
+      { ...NOTIFICATION, type: "NOTICE", title: "시스템 점검 안내", message: "새벽 2시 점검" },
+    ]);
+    render(<NotificationButton />);
+    fireEvent.click(await screen.findByRole("button", { name: "알림" }));
+
+    expect(await screen.findByText("시스템 점검 안내")).toBeInTheDocument();
+    expect(screen.getByText("새벽 2시 점검")).toBeInTheDocument();
+  });
 });

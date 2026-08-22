@@ -23,11 +23,12 @@ const userHeaders = (json = false) => ({
   ...(json ? { "Content-Type": "application/json" } : {}),
 });
 
-export function listNotifications({ unreadOnly = false } = {}) {
+export function listNotifications({ unreadOnly = false, lang } = {}) {
   const parameters = new URLSearchParams({
     unreadOnly: String(unreadOnly),
     limit: "30",
   });
+  if (lang) parameters.set("lang", lang);
   return request(`/api/v1/notifications?${parameters}`, {
     headers: userHeaders(),
   });

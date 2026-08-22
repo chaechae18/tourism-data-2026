@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronRight, Globe2, MapPin, Pencil, ShieldCheck } from "lucide-react";
+import { BookOpen, Check, ChevronRight, Globe2, MapPin, Pencil, ShieldCheck } from "lucide-react";
 import { LANGUAGES, PROFILE_MENU, QUESTS } from "../../lib/app-data";
 import { createTranslator } from "../../lib/i18n";
 import { useI18n } from "../i18n/LanguageProvider";
@@ -8,7 +8,7 @@ import SectionHeading from "../ui/SectionHeading";
 import VisitedPlaces from "./VisitedPlaces";
 import PersonalInfoEdit from "./PersonalInfoEdit";
 
-export default function MyPageTab({ completedQuestIds, onLogout, onNotice, user, setUser }) {
+export default function MyPageTab({ completedQuestIds, onLogout, onNotice, onOpenGuide, user, setUser }) {
   const { changeLanguage, language: currentLanguage, saving, t } = useI18n();
   const [nickname, setNickname] = useState(user.nickname);
   const [showPersonalInfo, setShowPersonalInfo] = useState(false);
@@ -127,6 +127,11 @@ export default function MyPageTab({ completedQuestIds, onLogout, onNotice, user,
                     return;
                   }
 
+                  if (item.id === "guide") {
+                    onOpenGuide();
+                    return;
+                  }
+
                   onNotice(
                     t("myPage.unavailable", {
                       name: label,
@@ -136,7 +141,9 @@ export default function MyPageTab({ completedQuestIds, onLogout, onNotice, user,
                 className="flex w-full items-center gap-3 py-4 text-left transition-colors hover:bg-[#faf9f6]"
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f8f3ed] text-[#7c6d61]">
-                  {item.id === "privacy" ? (
+                  {item.id === "guide" ? (
+                    <BookOpen size={16} />
+                  ) : item.id === "privacy" ? (
                     <ShieldCheck size={16} />
                   ) : item.id === "contact" ? (
                     <Globe2 size={16} />
@@ -159,7 +166,7 @@ export default function MyPageTab({ completedQuestIds, onLogout, onNotice, user,
 
         </div>
       </div>
-     
+
     </section>
   );
 }

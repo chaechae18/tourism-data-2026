@@ -6,7 +6,7 @@ from pydantic import Field
 from .common import CamelModel
 
 
-NotificationType = Literal["SPOT_LIKE", "QUEST_COMPLETED"]
+NotificationType = Literal["SPOT_LIKE", "QUEST_COMPLETED", "NOTICE"]
 
 
 class NotificationResponse(CamelModel):

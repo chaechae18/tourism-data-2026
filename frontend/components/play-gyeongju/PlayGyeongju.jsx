@@ -9,6 +9,7 @@ import { completeQuest as saveQuestCompletion, fetchCourse, refreshCourse } from
 import RoleSelect, { ROLES } from "../journey/RoleSelect";
 import AuthModal from "../auth/AuthModal";
 import HomeTab from "../home/HomeTab";
+import AppGuide from "../intro/AppGuide";
 import IntroScreen from "../intro/IntroScreen";
 import BottomNavigation from "../layout/BottomNavigation";
 import GyeongjuMap2D from "../map/GyeongjuMap2D";
@@ -22,6 +23,7 @@ import { useI18n } from "../i18n/LanguageProvider";
 const INITIAL_TAB = "home";
 const INITIAL_SELECTED_QUEST_ID = "bunhwangsa";
 const NOTICE_DURATION = 2800;
+const GUIDE_SEEN_KEY = "playgyeongju.guideSeen";
 
 export default function PlayGyeongju() {
   const { language, t } = useI18n();
@@ -40,6 +42,7 @@ export default function PlayGyeongju() {
   const [courseError, setCourseError] = useState("");
   const [roleKey, setRoleKey] = useState("king");
   const [roleOpen, setRoleOpen] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
 
   const role = ROLES.find((item) => item.key === roleKey) || ROLES[0];
   const roleName = t(`roles.${role.key}.name`);
@@ -106,6 +109,24 @@ export default function PlayGyeongju() {
       });
     return () => controller.abort();
   }, [courseRoleKey, entered, language, t]);
+
+  // 앱 설명은 처음 들어온 사람에게만 한 번 띄운다. 다시 보기는 내 정보 탭에서.
+  useEffect(() => {
+    if (!entered || window.localStorage.getItem(GUIDE_SEEN_KEY)) return;
+    setGuideOpen(true);
+  }, [entered]);
+
+  const finishGuide = () => {
+    window.localStorage.setItem(GUIDE_SEEN_KEY, "1");
+    setGuideOpen(false);
+    setActiveTab(INITIAL_TAB);
+    setRoleOpen(true);
+  };
+
+  const reopenGuide = () => {
+    window.localStorage.removeItem(GUIDE_SEEN_KEY);
+    setGuideOpen(true);
+  };
 
   const rerollCourse = () => {
     if (!role.ready) {
@@ -235,14 +256,15 @@ export default function PlayGyeongju() {
       )}
 
       <main className="w-full px-4 py-6">
-        {activeTab === "home" && <HomeTab language={language} onMapOpen={() => setActiveTab("map")} />}
+        {activeTab === "home" && <HomeTab language={language} onMapOpen={() => setActiveTab("map")} popupHidden={guideOpen} />}
         {activeTab === "my-dg" && <MyDGTab completedQuestIds={completedQuestIds} onMapQuest={openQuestOnMap} onSaveOutfit={() => showNotice(t("play.outfitSaved"))} outfit={outfit} places={places} setOutfit={setOutfit} />}
         {activeTab === "map" && <GyeongjuMap2D completedQuestIds={completedQuestIds} onComplete={completeQuest} onOpenRoles={() => setRoleOpen(true)} onReroll={rerollCourse} onSelect={(quest) => setSelectedQuestId(quest.id)} places={places} roleName={roleName} selectedPlace={selectedQuest} />}
         {activeTab === "spots" && <SpotsTab user={user} />}
-        {activeTab === "my-page" && <MyPageTab completedQuestIds={completedQuestIds} onLogout={logout} onNotice={showNotice} setUser={setUser} user={user} />}
+        {activeTab === "my-page" && <MyPageTab completedQuestIds={completedQuestIds} onLogout={logout} onNotice={showNotice} onOpenGuide={reopenGuide} setUser={setUser} user={user} />}
       </main>
 
       {notice && <div className="fixed bottom-24 left-1/2 z-40 w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 rounded-lg bg-[#343235] px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">{notice}</div>}
+      {guideOpen && <AppGuide onDone={finishGuide} onTabChange={setActiveTab} />}
       <RoleSelect onClose={() => setRoleOpen(false)} onSelect={selectRole} open={roleOpen} selectedKey={roleKey} />
       <BottomNavigation activeTab={activeTab} onChange={setActiveTab} />
       </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarDays, ChevronDown, ChevronRight, MapPin, MapPinned, Ticket } from "lucide-react";
+import { CalendarDays, ChevronRight, MapPin, MapPinned, Ticket, X } from "lucide-react";
 import {
   listBanners,
   listFestivals,
@@ -16,6 +16,7 @@ import SectionHeading from "../ui/SectionHeading";
 
 const ACCENTS = ["#c96d2d", "#287c70", "#405a9d", "#8f4515"];
 const PLACES_PER_PAGE = 2;
+const NOTICE_SEEN_KEY = "gyeongju.noticeSeenOn";
 // 경주 소식 배너는 번역본이 없어 당분간 숨긴다. 되살릴 때는 이 값만 true 로 바꾼다.
 const SHOW_NEWS_BANNERS = false;
 
@@ -95,7 +96,67 @@ function PlaceAddress({ place }) {
   );
 }
 
-export default function HomeTab({ onMapOpen, language: languageProp }) {
+function today() {
+  const now = new Date();
+  return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+}
+
+// 공지는 홈에 계속 띄우지 않고 들어올 때 한 번만 보여준다. "오늘 하루 보지 않기" 를
+// 누르면 그날 날짜가 남아 다음 날 다시 뜬다.
+function NoticePopup({ popups, t }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (popups.length === 0) return;
+    setOpen(window.localStorage.getItem(NOTICE_SEEN_KEY) !== today());
+  }, [popups]);
+
+  const close = (hideToday) => {
+    if (hideToday) window.localStorage.setItem(NOTICE_SEEN_KEY, today());
+    setOpen(false);
+  };
+
+  if (!open || popups.length === 0) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#241b16]/45 px-8">
+      <section aria-label={t("home.notice")} aria-modal="true" className="w-full max-w-[19rem] overflow-hidden rounded-2xl bg-white shadow-xl" role="dialog">
+        <div className="flex items-center justify-between gap-3 border-b border-[#f0e8de] px-5 py-3.5">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a67927]">Notice</p>
+          <button aria-label={t("common.close")} className="text-[#8a7d71] hover:text-[#241b16]" onClick={() => close(false)} type="button">
+            <X size={16} />
+          </button>
+        </div>
+        <div className="max-h-[20rem] space-y-4 overflow-y-auto px-5 py-4">
+          {popups.map((popup, index) => (
+            <div className="flex items-start gap-3" key={`${popup.title}-${index}`}>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#fff1df] text-[#a45118]"><CalendarDays size={18} /></div>
+              <div className="min-w-0">
+                <p className="font-bold text-[#241b16]">{popup.title}</p>
+                {popup.content && <p className="mt-1 text-sm leading-6 text-[#6f6256]">{popup.content}</p>}
+                {popup.img && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img alt="" aria-hidden="true" className="mt-3 w-full rounded-md object-cover" src={popup.img} />
+                )}
+                {safeHref(popup.link) && (
+                  <a className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]" href={safeHref(popup.link)}>
+                    {t("home.detail")} <ChevronRight size={15} />
+                  </a>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <button className="w-full border-t border-[#f0e8de] bg-[#fff8f0] py-3 text-xs font-bold text-[#a45118] hover:bg-[#fff1df]" onClick={() => close(true)} type="button">
+          {t("home.hideToday")}
+        </button>
+      </section>
+    </div>
+  );
+}
+
+
+export default function HomeTab({ onMapOpen, language: languageProp, popupHidden }) {
   const { language: contextLanguage } = useI18n();
   const language = languageProp || contextLanguage;
   const t = useMemo(() => createTranslator(language), [language]);
@@ -105,7 +166,6 @@ export default function HomeTab({ onMapOpen, language: languageProp }) {
   const [places, setPlaces] = useState([]);
   const [placePage, setPlacePage] = useState(0);
   const [notice, setNotice] = useState("");
-  const [noticeOpen, setNoticeOpen] = useState(false);
 
   const loadHome = useCallback(async () => {
     // 한 섹션이 실패해도 나머지는 그대로 보여준다.
@@ -143,42 +203,6 @@ export default function HomeTab({ onMapOpen, language: languageProp }) {
         <p className="mt-2 text-sm leading-6 text-[#f0dcc4]">{t("home.description")}</p>
         <AppButton className="mt-3" icon={MapPinned} onClick={onMapOpen} variant="light">{t("home.nearby")}</AppButton>
         {notice && <p className="mt-3 text-sm font-bold text-[#ffd4a0]">{notice}</p>}
-      </div>
-
-      <div>
-        <div className={`flex items-center justify-between gap-4 ${noticeOpen ? "mb-5" : "mb-0"}`}>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a67927]">Notice</p>
-          {popups.length > 0 && (
-            <button
-              aria-expanded={noticeOpen}
-              className="flex shrink-0 items-center gap-1 rounded-full bg-[#fff1df] px-3 py-1.5 text-xs font-bold text-[#a45118]"
-              onClick={() => setNoticeOpen((open) => !open)}
-              type="button"
-            >
-              {t("home.noticeCount", { count: popups.length })}
-              <ChevronDown className={noticeOpen ? "rotate-180" : ""} size={14} />
-            </button>
-          )}
-        </div>
-        {popups.length === 0 && <p className="mt-2 text-sm text-[#7c6d61]">{t("home.noNotice")}</p>}
-        {noticeOpen && (
-          <div className="space-y-4">
-            {popups.map((popup, index) => (
-              <div className="flex items-start gap-3" key={`${popup.title}-${index}`}>
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#fff1df] text-[#a45118]"><CalendarDays size={18} /></div>
-                <div>
-                  <p className="font-bold text-[#241b16]">{popup.title}</p>
-                  {popup.content && <p className="mt-1 text-sm leading-6 text-[#6f6256]">{popup.content}</p>}
-                  {safeHref(popup.link) && (
-                    <a className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]" href={safeHref(popup.link)}>
-                      {t("home.detail")} <ChevronRight size={15} />
-                    </a>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       <div>
@@ -272,6 +296,8 @@ export default function HomeTab({ onMapOpen, language: languageProp }) {
           {t("home.tourismInfo")} <ChevronRight size={16} />
         </a>
       </div>
+
+      {!popupHidden && <NoticePopup popups={popups} t={t} />}
     </section>
   );
 }

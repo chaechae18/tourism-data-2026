@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 from fastapi.testclient import TestClient
 
-from app.home import RECOMMENDED_PLACES, get_tour_api_client, month_end
+from app.home import RECOMMENDED_PLACES, get_tour_api_client
 from app.main import app
 from app.tourapi import TourApiError
 
@@ -109,8 +109,8 @@ def test_festival_list_comes_from_tourapi_and_keeps_translations(
     now = datetime.now()
     first = now.strftime("%Y%m01")
     today = now.strftime("%Y%m%d")
-    last = month_end(now).strftime("%Y%m%d")
-    next_first = (month_end(now) + timedelta(days=1)).strftime("%Y%m%d")
+    soon = (now + timedelta(days=30)).strftime("%Y%m%d")
+    far = (now + timedelta(days=90)).strftime("%Y%m%d")
     festival_idx = insert(
         "FESTIVAL",
         SOURCE="TOUR_API", CONTENT_ID="1718137", NAME="신라문화제", IS_TRASH=0,
@@ -128,11 +128,11 @@ def test_festival_list_comes_from_tourapi_and_keeps_translations(
     use_tour_api(
         FakeTourApi(
             [
-                festival_item("4087207", "이달 말", last, last),
+                festival_item("4087207", "한 달 뒤", soon, soon),
                 festival_item("1718137", "신라문화제", first, today),
                 festival_item("3509748", "끝남", "20250101", "20250102"),
-                festival_item("4062064", "숨김 처리된 행사", first, last),
-                festival_item("4087208", "다음 달", next_first, next_first),
+                festival_item("4062064", "숨김 처리된 행사", first, today),
+                festival_item("4087208", "창 밖", far, far),
             ]
         )
     )
@@ -141,9 +141,9 @@ def test_festival_list_comes_from_tourapi_and_keeps_translations(
     translated = client.get("/api/v1/main/festivals", params={"lang": "en"}).json()
 
     # 운영자가 IS_TRASH 로 숨긴 행사는 TourAPI 가 내려줘도 언어와 무관하게 빠진다.
-    # 이달을 넘겨 시작하는 행사와 이미 끝난 행사는 홈에 걸리지 않는다.
-    assert [row["name"] for row in body] == ["신라문화제", "이달 말"]
-    assert [row["name"] for row in translated] == ["Silla Cultural Festival", "이달 말"]
+    # 창을 넘겨 시작하는 행사와 이미 끝난 행사는 홈에 걸리지 않고, 진행중이 앞에 온다.
+    assert [row["name"] for row in body] == ["신라문화제", "한 달 뒤"]
+    assert [row["name"] for row in translated] == ["Silla Cultural Festival", "한 달 뒤"]
     assert sorted(body[0]) == [
         "content", "endDate", "img", "location", "name", "startDate", "url",
     ]
@@ -156,7 +156,7 @@ def test_festival_list_comes_from_tourapi_and_keeps_translations(
     assert translated[0]["name"] == "Silla Cultural Festival"
     assert translated[0]["location"] == "Gyeongju"
     assert translated[0]["content"] == "1718137 소개"
-    assert translated[1]["name"] == "이달 말"
+    assert translated[1]["name"] == "한 달 뒤"
 
 
 def test_festival_list_falls_back_to_stored_rows_when_tourapi_fails(
@@ -176,8 +176,8 @@ def test_festival_list_falls_back_to_stored_rows_when_tourapi_fails(
     )
     insert(
         "FESTIVAL",
-        NAME="다음 달", IS_TRASH=0,
-        START_DATE=month_end(now) + timedelta(days=1), END_DATE=None,
+        NAME="창 밖", IS_TRASH=0,
+        START_DATE=now + timedelta(days=90), END_DATE=None,
     )
     insert("FESTIVAL", NAME="삭제됨", IS_TRASH=1)
     use_tour_api(FakeTourApi(error="504 게이트웨이 시간 초과"))
