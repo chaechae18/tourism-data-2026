@@ -9,7 +9,12 @@ from ..config import Settings, get_settings
 from ..course_builder import Course
 from ..docent import DocentNotFoundError, audio_cache_key, find_docent
 from ..home import resolve_language
-from ..journey import QuestNotFoundError, complete_quest, get_or_create_course
+from ..journey import (
+    QuestNotFoundError,
+    complete_quest,
+    find_selected_persona_key,
+    get_or_create_course,
+)
 from ..models.journey import (
     CharacterResponse,
     CourseResponse,
@@ -57,6 +62,8 @@ def to_response(course: Course) -> CourseResponse:
                 icon=stop.icon,
                 menu=stop.menu,
                 rest_date=stop.rest_date,
+                operatingHours=stop.operating_hours,
+                parking=stop.parking,
                 hours_unknown=stop.hours_unknown,
                 distance_km=stop.distance_km,
                 completed=stop.completed,
@@ -113,6 +120,29 @@ def get_characters() -> list[CharacterResponse]:
         CharacterResponse(key=persona.key, name=persona.name)
         for persona in PERSONAS.values()
     ]
+
+
+@router.get(
+    "/characters/selected",
+    response_model=CharacterResponse,
+    response_model_by_alias=True,
+)
+def get_selected_character(
+    user_no: UserNo,
+    database: pymysql.Connection = Depends(get_mysql),
+) -> CharacterResponse:
+    # 앱을 다시 열었을 때 고르던 역할로 돌아가기 위해 쓴다.
+    key = find_selected_persona_key(database, user_no)
+    persona = PERSONAS.get(key or "")
+    if not persona:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail={
+                "code": "SELECTED_PERSONA_NOT_FOUND",
+                "message": "아직 고른 역할이 없습니다.",
+            },
+        )
+    return CharacterResponse(key=persona.key, name=persona.name)
 
 
 @router.get("/course", response_model=CourseResponse, response_model_by_alias=True)

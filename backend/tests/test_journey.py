@@ -4,7 +4,9 @@ from fastapi.testclient import TestClient
 import pymysql
 
 from app.journey import get_or_create_course
-from app.personas import KING
+from app.personas import PERSONAS
+
+KING = PERSONAS["king"]
 
 
 # 왕 코스 6칸을 채울 수 있는 최소한의 장소. course_builder 가 보는 컬럼만 넣는다.
@@ -183,3 +185,74 @@ def test_course_uses_requested_place_translation(
 
     assert response.status_code == 201
     assert all(stop["name"].startswith("EN ") for stop in response.json()["stops"])
+
+
+def test_high_scoring_places_are_preferred_for_the_role(
+    database: pymysql.Connection,
+    insert: Callable[..., int],
+) -> None:
+    add_places(insert)
+    with database.cursor() as cursor:
+        cursor.execute("SELECT IDX, NAME FROM PLACE WHERE TYPE = 'TOUR'")
+        tours = cursor.fetchall()
+        # 한 곳만 스님에게 어울리고 나머지는 어울리지 않는다고 채점해 둔다.
+        cursor.executemany(
+            """INSERT INTO PLACE_PERSONA_SCORE (PLACE_IDX, PERSONA_KEY, SCORE)
+               VALUES (%s, 'monk', %s)""",
+            [
+                (place["IDX"], 5 if place["NAME"] == "운곡서원" else 0)
+                for place in tours
+            ],
+        )
+
+    course = get_or_create_course(database, user_no=1, persona=PERSONAS["monk"])
+
+    # 점수가 있는 곳만 관광 칸에 들어간다. (0점짜리는 자격 미달로 빠진다)
+    tour_names = [stop.name for stop in course.stops if stop.time_slot != "점심" and stop.time_slot != "저녁"]
+    assert tour_names == ["운곡서원"]
+
+
+def test_course_still_works_before_any_scoring(
+    database: pymysql.Connection,
+    insert: Callable[..., int],
+) -> None:
+    add_places(insert)
+
+    # 채점을 한 번도 안 돌린 DB 에서도 코스는 나와야 한다. (팀원이 막 받아 온 상태)
+    course = get_or_create_course(database, user_no=1, persona=PERSONAS["hwarang"])
+
+    assert len(course.stops) == 6
+
+
+def test_selected_role_is_remembered(client: TestClient, insert: Callable[..., int]) -> None:
+    add_places(insert)
+    headers = {"X-User-No": "1"}
+    client.get("/api/v1/journey/course?persona=scholar", headers=headers)
+
+    response = client.get("/api/v1/journey/characters/selected", headers=headers)
+
+    # 앱을 다시 열어도 마지막에 고른 역할이 그대로 나와야 한다.
+    assert response.status_code == 200
+    assert response.json() == {"key": "scholar", "name": "학자"}
+
+
+def test_no_selected_role_before_choosing_one(client: TestClient) -> None:
+    response = client.get("/api/v1/journey/characters/selected", headers={"X-User-No": "1"})
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "SELECTED_PERSONA_NOT_FOUND"
+
+
+def test_course_carries_opening_hours_and_parking(
+    client: TestClient,
+    insert: Callable[..., int],
+    database: pymysql.Connection,
+) -> None:
+    add_places(insert)
+    with database.cursor() as cursor:
+        cursor.execute("UPDATE PLACE SET OPERATING_HOURS = %s, PARKING = %s", ("09:00~18:00", "가능"))
+
+    stops = client.get("/api/v1/journey/course", headers={"X-User-No": "1"}).json()["stops"]
+
+    assert all(stop["operatingHours"] == "09:00~18:00" for stop in stops)
+    assert all(stop["parking"] == "가능" for stop in stops)

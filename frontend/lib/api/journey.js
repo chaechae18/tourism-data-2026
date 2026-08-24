@@ -19,7 +19,12 @@ function toPlace(stop, t) {
     questId: stop.questId,
     completed: Boolean(stop.completed),
     name: stop.name,
-    description: `${details}${stop.menu ? ` — ${stop.menu}` : ""}${notice}`,
+    description: `${details}${notice}`,
+    // 상세 카드에 줄줄이 보여 주는 실용 정보
+    menu: stop.menu,
+    operatingHours: stop.operatingHours,
+    parking: stop.parking,
+    restDate: stop.restDate,
     distance: stop.order === 1 ? t("map.start") : `${stop.distanceKm}km`,
     latitude: stop.latitude,
     longitude: stop.longitude,
@@ -71,6 +76,23 @@ export async function fetchCourse({ persona = "king", date, language, signal, t 
 // 코스를 새로 뽑아 저장한다. 이전 코스는 비활성으로 내려간다.
 export async function refreshCourse({ persona = "king", date, language, signal, t } = {}) {
   return requestCourse({ persona, date, language, method: "POST", signal, t });
+}
+
+// 마지막에 고른 역할. 앱을 다시 열었을 때 그 역할로 돌아가기 위해 쓴다.
+// 아직 고른 적이 없으면 null 을 준다. (처음 들어온 사용자)
+export async function fetchSelectedRole({ signal } = {}) {
+  let response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/v1/journey/characters/selected`, {
+      headers: { "X-User-No": String(LOCAL_USER_NO) },
+      signal,
+    });
+  } catch (error) {
+    if (error.name === "AbortError") throw error;
+    return null;
+  }
+  if (!response.ok) return null;
+  return response.json().catch(() => null);
 }
 
 // 방문 완료를 서버에 저장한다. 저장해 두면 다시 들어와도 완료 상태가 남는다.

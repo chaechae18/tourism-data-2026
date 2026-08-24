@@ -10,43 +10,44 @@ from typing import Any
 import pymysql
 
 from .mysql import fetch_all
-from .personas import (
-    BUDDHA_STATUE,
-    HISTORIC_SITE,
-    KOREAN_RESTAURANT,
-    PALACE,
-    SHRINE,
-    TOMB,
-    Persona,
-    Slot,
-)
+from .personas import Persona, Slot
 from .tourapi import ALWAYS_OPEN, WEEKDAYS
 
 
 EARTH_RADIUS_KM = 6371.0
 
-# 지도 마커 모양
+# 지도 마커 모양. 코스 규칙이 아니라 화면 표현이라 분류코드로 그린다.
 DEFAULT_MARKER_ICON = "temple"
 MARKER_ICONS = {
-    PALACE: "palace",
-    TOMB: "grotto",  # 봉분 언덕 모양
-    SHRINE: DEFAULT_MARKER_ICON,
-    HISTORIC_SITE: "tower",
-    BUDDHA_STATUE: DEFAULT_MARKER_ICON,
-    KOREAN_RESTAURANT: "food",
+    "HS010100": "palace",  # 고궁
+    "HS010800": "grotto",  # 고분·능 (봉분 언덕 모양)
+    "HS010700": "tower",  # 사적지
 }
+# 음식점(FD로 시작하는 분류)은 전부 밥그릇 모양
+FOOD_CATEGORY_PREFIX = "FD"
+FOOD_MARKER_ICON = "food"
+
+
+def marker_icon(category_code: str | None) -> str:
+    if category_code and category_code.startswith(FOOD_CATEGORY_PREFIX):
+        return FOOD_MARKER_ICON
+    return MARKER_ICONS.get(category_code, DEFAULT_MARKER_ICON)
 
 
 def candidate_sql() -> str:
+    # 역할 적합도 점수(PLACE_PERSONA_SCORE)를 같이 가져온다. 점수가 없으면 0으로 본다.
     return """
         SELECT p.IDX,
                COALESCE(NULLIF(t.NAME, ''), NULLIF(k.NAME, ''), p.NAME) AS NAME,
                COALESCE(NULLIF(t.ADDRESS, ''), NULLIF(k.ADDRESS, ''), p.ADDRESS) AS ADDRESS,
-               p.IMG, p.MENU, p.REST_DATE,
-               p.CATEGORY_CODE, p.CATEGORY_SUB, p.LATITUDE, p.LONGITUDE
+               p.IMG, p.MENU, p.REST_DATE, p.TYPE,
+               p.OPERATING_HOURS, p.PARKING,
+               p.CATEGORY_CODE, p.CATEGORY_SUB, p.LATITUDE, p.LONGITUDE,
+               COALESCE(s.SCORE, 0) AS PERSONA_SCORE
         FROM PLACE p
         LEFT JOIN PLACE_I18N t ON t.PLACE_IDX = p.IDX AND t.LANGUAGE_CODE = %s
         LEFT JOIN PLACE_I18N k ON k.PLACE_IDX = p.IDX AND k.LANGUAGE_CODE = 'ko'
+        LEFT JOIN PLACE_PERSONA_SCORE s ON s.PLACE_IDX = p.IDX AND s.PERSONA_KEY = %s
         WHERE p.IS_DISPLAY = 1
           AND p.CATEGORY_CODE IS NOT NULL
           AND p.LATITUDE IS NOT NULL AND p.LATITUDE <> ''
@@ -67,6 +68,9 @@ class Stop:
     menu: str | None
     rest_date: str | None
     distance_km: float
+    # 상세 카드에 보여 주는 실용 정보
+    operating_hours: str | None = None
+    parking: str | None = None
     img: str | None = None
     icon: str = DEFAULT_MARKER_ICON
     # 저장된 코스에서 온 경우에만 채워진다 (QUEST.IDX).
@@ -119,12 +123,8 @@ def is_open_on(rest_date: str | None, weekday: str) -> bool:
 
 
 def matches(row: dict[str, Any], slot: Slot) -> bool:
-    if row["CATEGORY_CODE"] not in slot.category_codes:
-        return False
-    if not slot.menu_keywords:
-        return True
-    menu = row["MENU"] or ""
-    return any(keyword in menu for keyword in slot.menu_keywords)
+    # 시간대에 맞는 종류인지만 본다. 어떤 장소가 이 역할에 어울리는지는 점수가 판단한다.
+    return row["TYPE"] == slot.place_type
 
 
 def _coordinates(row: dict[str, Any]) -> tuple[float, float]:
@@ -148,6 +148,43 @@ def _nearby(
     return ranked
 
 
+def _weighted_choice(
+    candidates: Sequence[dict[str, Any]],
+    rng: random.Random,
+) -> dict[str, Any]:
+    # 점수가 높을수록 자주 뽑히되, 낮은 곳도 가끔 뽑히게 한다.
+    # 제곱을 쓰는 이유: 5점(25)이 3점(9)보다 뚜렷하게 자주 나오면서도 3점이 배제되지 않는다.
+    weights = [max(1, row["PERSONA_SCORE"]) ** 2 for row in candidates]
+    return rng.choices(list(candidates), weights=weights, k=1)[0]
+
+
+def _slot_pool(
+    rows: Sequence[dict[str, Any]],
+    slot: Slot,
+    persona: Persona,
+    weekday: str,
+    used: set[int],
+    scored: bool,
+) -> list[dict[str, Any]]:
+    # 시간대·휴무일이 맞는 곳 중에서 자격 점수를 조금씩 낮춰 가며 찾는다.
+    open_places = [
+        row
+        for row in rows
+        if row["IDX"] not in used
+        and matches(row, slot)
+        and is_open_on(row["REST_DATE"], weekday)
+    ]
+    # 채점된 DB 라면 0점(=이 역할에게 안 어울림)까지 내려가지 않는다.
+    # 칸을 채우자고 엉뚱한 곳을 넣느니 그 칸을 비우는 편이 낫다.
+    # 아직 한 번도 채점하지 않은 DB 에서는 점수를 보지 않고 뽑는다.
+    thresholds = (persona.min_score, 1) if scored else (0,)
+    for minimum in thresholds:
+        pool = [row for row in open_places if row["PERSONA_SCORE"] >= minimum]
+        if pool:
+            return pool
+    return []
+
+
 def _build_once(
     rows: Sequence[dict[str, Any]],
     persona: Persona,
@@ -158,21 +195,18 @@ def _build_once(
     skipped: list[str] = []
     used: set[int] = set()
     position: tuple[float, float] | None = None
+    # 이 역할로 채점된 장소가 하나라도 있는지. 없으면 점수를 보지 않고 뽑는다.
+    scored = any(row["PERSONA_SCORE"] > 0 for row in rows)
 
     for slot in persona.slots:
-        pool = [
-            row
-            for row in rows
-            if row["IDX"] not in used
-            and matches(row, slot)
-            and is_open_on(row["REST_DATE"], weekday)
-        ]
+        pool = _slot_pool(rows, slot, persona, weekday, used, scored)
         candidates = _nearby(pool, position, persona.radius_km)
         if not candidates:
             skipped.append(slot.time_slot)
             continue
 
-        chosen = rng.choice(candidates[: persona.choice_pool])
+        # 가까운 후보 몇 곳을 추린 뒤, 그 안에서 점수에 따라 뽑는다.
+        chosen = _weighted_choice(candidates[: persona.choice_pool], rng)
         point = _coordinates(chosen)
         stops.append(
             Stop(
@@ -186,9 +220,11 @@ def _build_once(
                 longitude=point[1],
                 menu=chosen["MENU"],
                 rest_date=chosen["REST_DATE"],
+                operating_hours=chosen["OPERATING_HOURS"],
+                parking=chosen["PARKING"],
                 distance_km=round(distance_km(position, point), 2),
                 img=chosen["IMG"],
-                icon=MARKER_ICONS.get(chosen["CATEGORY_CODE"], DEFAULT_MARKER_ICON),
+                icon=marker_icon(chosen["CATEGORY_CODE"]),
             )
         )
         used.add(chosen["IDX"])
@@ -210,7 +246,7 @@ def build_course(
     visit_date = visit_date or date.today()
     rng = rng or random.Random()
     weekday = WEEKDAYS[visit_date.weekday()]
-    rows = fetch_all(connection, candidate_sql(), (language,))
+    rows = fetch_all(connection, candidate_sql(), (language, persona.key))
 
     best: tuple[list[Stop], list[str]] | None = None
     for _ in range(max(1, attempts)):

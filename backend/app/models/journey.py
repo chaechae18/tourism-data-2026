@@ -20,6 +20,9 @@ class CourseStopResponse(CamelModel):
     menu: str | None = None
     # '연중무휴' / '월,목' / None(모름)
     rest_date: str | None = Field(default=None, alias="restDate")
+    # 화면 상세 카드에 보여 주는 실용 정보
+    operating_hours: str | None = Field(default=None, alias="operatingHours")
+    parking: str | None = None
     hours_unknown: bool = Field(alias="hoursUnknown")
     distance_km: float = Field(alias="distanceKm")
     # 사용자가 방문 완료로 저장한 퀘스트인지
