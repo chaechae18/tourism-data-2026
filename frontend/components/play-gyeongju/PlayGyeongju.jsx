@@ -158,14 +158,33 @@ export default function PlayGyeongju() {
     setEntered(true);
   };
   
-  const logout = () => {
+  const logout = async () => {
+  try {
+    const response = await fetch(
+      "http://localhost:8001/api/v1/auth/logout",
+      {
+        method: "POST",
+        credentials: "include",
+      }
+    );
+
+    if (!response.ok) {
+      console.error("로그아웃 API 실패:", response.status);
+    }
+  } catch (error) {
+    console.error("로그아웃 요청 실패:", error);
+  } finally {
     setEntered(false);
     setUser(DEFAULT_USER);
     setCompletedQuestIds([]);
     setSelectedQuestId(INITIAL_SELECTED_QUEST_ID);
     setOutfit({});
     setNotificationVersion(0);
-  };
+    setCoursePlaces(null);
+    setCourseError("");
+    setAuthMode(null);
+  }
+};
 
   const completeQuest = async (id) => {
     if (completedQuestIds.includes(id)) return;
@@ -223,7 +242,7 @@ export default function PlayGyeongju() {
           <button type="button" onClick={() => setActiveTab("home")} className="flex items-center gap-2 text-left"><span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#bd8c31] text-white"><PawPrint size={18} /></span><span><span className="block font-semibold text-[#343235]">Play Gyeongju</span><span className="block text-xs text-[#747579]">{user.nickname}</span></span></button>
           <div className="flex items-center gap-2">
             <NotificationButton refreshKey={notificationVersion} />
-            <IconButton icon={LogOut} label={t("play.logout")} onClick={() => setEntered(false)} />
+            <IconButton icon={LogOut} label={t("play.logout")} onClick={logout}/>
           </div>
         </div>
       </header>
