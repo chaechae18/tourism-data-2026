@@ -15,100 +15,8 @@ TEST_DATABASE = os.getenv("TEST_DB_NAME", "play_gyeongju_test")
 # 테스트는 반드시 테스트 DB 만 건드린다. 마이그레이션도 이 DB 에 적용된다.
 os.environ["DB_NAME"] = TEST_DATABASE
 
-# 팀 MySQL DDL 중 홈 API 가 읽는 테이블만 옮겨 적었다. MAIN_BANNER / POPUP /
-# POPUP_I18N 은 아직 팀 DDL 에 없어서 여기가 유일한 정의다.
-TABLES = {
-    "MAIN_BANNER": """
-        IDX INT AUTO_INCREMENT PRIMARY KEY,
-        IMG VARCHAR(800),
-        START_DATE DATETIME,
-        END_DATE DATETIME,
-        IS_DISPLAY TINYINT(1) NOT NULL DEFAULT 0,
-        IS_TRASH TINYINT(1) NOT NULL DEFAULT 0,
-        LINK VARCHAR(800),
-        SORT INT NOT NULL DEFAULT 0,
-        TITLE VARCHAR(300),
-        SUB_TITLE VARCHAR(200)
-    """,
-    "POPUP": """
-        IDX INT AUTO_INCREMENT PRIMARY KEY,
-        TITLE VARCHAR(1000),
-        CONTENT TEXT,
-        IMG VARCHAR(500),
-        LINK VARCHAR(500),
-        START_DATE DATETIME,
-        END_DATE DATETIME,
-        IS_DISPLAY TINYINT(1) NOT NULL DEFAULT 0
-    """,
-    "POPUP_I18N": """
-        IDX INT AUTO_INCREMENT PRIMARY KEY,
-        POPUP_IDX INT NOT NULL,
-        LANGUAGE_CODE VARCHAR(10) NOT NULL,
-        TITLE VARCHAR(300) NOT NULL,
-        CONTENT TEXT,
-        UNIQUE KEY UK_POPUP_I18N (POPUP_IDX, LANGUAGE_CODE)
-    """,
-    "FESTIVAL": """
-        IDX INT AUTO_INCREMENT PRIMARY KEY,
-        SOURCE VARCHAR(20),
-        CONTENT_ID VARCHAR(50),
-        NAME VARCHAR(300),
-        CONTENT VARCHAR(700),
-        LOCATION VARCHAR(500),
-        START_DATE DATETIME,
-        IMG VARCHAR(600),
-        URL VARCHAR(600),
-        IS_TRASH TINYINT(1) NOT NULL DEFAULT 0,
-        END_DATE DATETIME,
-        UNIQUE KEY UK_FESTIVAL_SOURCE_CONTENT (SOURCE, CONTENT_ID)
-    """,
-    "FESTIVAL_I18N": """
-        IDX INT AUTO_INCREMENT PRIMARY KEY,
-        FESTIVAL_IDX INT NOT NULL,
-        LANGUAGE_CODE VARCHAR(10) NOT NULL,
-        NAME VARCHAR(300) NOT NULL,
-        CONTENT TEXT,
-        LOCATION VARCHAR(300),
-        UNIQUE KEY UK_FESTIVAL_I18N (FESTIVAL_IDX, LANGUAGE_CODE)
-    """,
-    "PLACE": """
-        IDX INT AUTO_INCREMENT PRIMARY KEY,
-        SOURCE VARCHAR(20),
-        CONTENT_ID VARCHAR(50),
-        TYPE VARCHAR(20) NOT NULL DEFAULT 'TOUR',
-        NAME VARCHAR(200),
-        TEXT TEXT,
-        CONTENT VARCHAR(600),
-        IMG VARCHAR(600),
-        ADDRESS VARCHAR(500),
-        LATITUDE VARCHAR(50),
-        LONGITUDE VARCHAR(50),
-        OPERATING_HOURS VARCHAR(300),
-        ADMISSION_FEE VARCHAR(300),
-        PARKING VARCHAR(300),
-        REST_DATE VARCHAR(300),
-        MENU VARCHAR(500),
-        CATEGORY_CODE VARCHAR(20),
-        CATEGORY_MAIN VARCHAR(50),
-        CATEGORY_SUB VARCHAR(50),
-        IS_DISPLAY TINYINT(1) NOT NULL DEFAULT 1,
-        IS_RECOMMENDED TINYINT(1) NOT NULL DEFAULT 0,
-        VIEW_COUNT INT NOT NULL DEFAULT 0,
-        REG_DATE DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE KEY UK_PLACE_SOURCE_CONTENT (SOURCE, CONTENT_ID)
-    """,
-    "PLACE_I18N": """
-        IDX INT AUTO_INCREMENT PRIMARY KEY,
-        PLACE_IDX INT NOT NULL,
-        LANGUAGE_CODE VARCHAR(10) NOT NULL,
-        NAME VARCHAR(200) NOT NULL,
-        TEXT TEXT,
-        ADDRESS VARCHAR(500),
-        OPERATING_HOURS VARCHAR(300),
-        ADMISSION_FEE VARCHAR(300),
-        UNIQUE KEY UK_PLACE_I18N (PLACE_IDX, LANGUAGE_CODE)
-    """,
-}
+# 테이블은 전부 마이그레이션(db/schema.mysql.sql + alembic)이 만든다.
+# 여기서 따로 CREATE 하면 실제 스키마와 달라져(컬럼 타입 등) 진짜 버그를 놓친다.
 
 
 @pytest.fixture(scope="session")
@@ -120,9 +28,6 @@ def mysql_database() -> Iterator[pymysql.Connection]:
     server.close()
 
     connection = connect(database=TEST_DATABASE)
-    with connection.cursor() as cursor:
-        for table, columns in TABLES.items():
-            cursor.execute(f"CREATE TABLE {table} ({columns})")
     # 테스트 DB 도 운영과 같은 경로(마이그레이션)로 만든다.
     # 그래야 마이그레이션이 깨지면 테스트가 먼저 알려 준다.
     initialize_database()

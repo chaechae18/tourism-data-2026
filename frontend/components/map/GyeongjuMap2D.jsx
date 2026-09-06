@@ -1,14 +1,16 @@
 "use client"; // 이 컴포넌트는 브라우저에서 동작 (위치·클릭 등 사용)
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 // 버튼/마커에 쓰는 아이콘들 (lucide 아이콘 라이브러리)
-import { Check, ChevronRight, Crown, Footprints, Headphones, List, LocateFixed, Map as MapIcon, MapPin, Navigation, RefreshCw, Route } from "lucide-react";
+import { CalendarDays, Car, Check, ChevronRight, Clock, Crown, Footprints, Headphones, List, LocateFixed, Map as MapIcon, MapPin, Maximize, Minus, Navigation, Plus, RefreshCw, Route, UtensilsCrossed } from "lucide-react";
 // 지도 범례 문구, 장소(퀘스트) 데이터
 import { QUESTS } from "../../lib/app-data";
 // 지도 "계산 엔진"에서 가져오는 함수/데이터들 (lib/map/gyeongju-map.js)
 import {
+  clampMapView,
   coordinatesToPath,
   DEFAULT_CURRENT_LOCATION,
+  DEFAULT_MAP_VIEW,
   formatDistance,
   getDistanceMeters,
   HYEONGSAN_RIVER,
@@ -16,7 +18,9 @@ import {
   isWithinBounds,
   MAP_SCOPES,
   MAP_VIEWBOX,
+  MAP_ZOOM,
   projectCoordinate,
+  scaleMapView,
 } from "../../lib/map/gyeongju-map";
 // 지도 위 경로 그리기는 TMAP, 실제 길찾기 이동은 카카오맵을 쓴다.
 import { requestTmapPedestrianRoute } from "../../lib/tmap/pedestrian-route";
@@ -47,6 +51,122 @@ const LANDMARK_LABEL_OFFSETS = {
   bulguksa: { x: -27, y: 32 },
   seokguram: { x: 27, y: -31 },
 };
+
+// 확대 버튼을 눌렀을 때 기준이 되는 지도 화면 한가운데
+const MAP_CENTER = { x: MAP_VIEWBOX.width / 2, y: MAP_VIEWBOX.height / 2 };
+// 손가락을 이 정도(지도 좌표 기준)보다 많이 움직이면 "끌었다"고 보고 마커 클릭을 취소한다
+const DRAG_THRESHOLD = 3;
+
+// 브라우저 화면 좌표(clientX/Y) → 지도 SVG 안쪽 좌표로 환산
+function toMapPoint(svg, clientX, clientY) {
+  const rect = svg.getBoundingClientRect();
+  return {
+    x: (clientX - rect.left) * MAP_VIEWBOX.width / rect.width,
+    y: (clientY - rect.top) * MAP_VIEWBOX.height / rect.height,
+  };
+}
+
+function getMidpoint(a, b) {
+  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+}
+
+function getSpread(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+// 손가락(핀치·드래그)·마우스(휠·드래그)로 지도를 확대/이동시키는 상태와 이벤트 핸들러 묶음
+function useMapZoom() {
+  const [view, setView] = useState(DEFAULT_MAP_VIEW);
+  const svgRef = useRef(null);
+  const pointersRef = useRef(new Map());  // 지금 지도에 닿아 있는 손가락/마우스들
+  const gestureRef = useRef(null);        // 동작을 시작한 순간의 기준값 (배율·기준점)
+  const draggedRef = useRef(false);       // 끌었는지 여부 (끌었으면 마커가 선택되지 않게 막는다)
+
+  // 손가락이 닿거나 떨어질 때마다, 남아 있는 손가락 기준으로 동작을 새로 시작한다.
+  const restartGesture = (currentView) => {
+    const points = [...pointersRef.current.values()];
+    if (points.length === 0) {
+      gestureRef.current = null;
+      return;
+    }
+    gestureRef.current = points.length >= 2
+      ? { view: currentView, anchor: getMidpoint(points[0], points[1]), spread: getSpread(points[0], points[1]) }
+      : { view: currentView, anchor: points[0], spread: 0 };
+  };
+
+  const handlePointerDown = (event) => {
+    if (!svgRef.current) return;
+    pointersRef.current.set(event.pointerId, toMapPoint(svgRef.current, event.clientX, event.clientY));
+    draggedRef.current = false;
+    restartGesture(view);
+  };
+
+  const handlePointerMove = (event) => {
+    const gesture = gestureRef.current;
+    if (!gesture || !svgRef.current || !pointersRef.current.has(event.pointerId)) return;
+    pointersRef.current.set(event.pointerId, toMapPoint(svgRef.current, event.clientX, event.clientY));
+    const points = [...pointersRef.current.values()];
+
+    // 손가락 두 개 = 핀치 확대/축소 (벌린 비율만큼 배율을 키우고, 중점 이동만큼 같이 끌어 준다)
+    if (points.length >= 2 && gesture.spread > 0) {
+      const focus = getMidpoint(points[0], points[1]);
+      const nextScale = gesture.view.scale * (getSpread(points[0], points[1]) / gesture.spread);
+      draggedRef.current = true;
+      setView(scaleMapView(gesture.view, nextScale, gesture.anchor, focus));
+      return;
+    }
+
+    // 손가락 하나 / 마우스 드래그 = 지도 이동
+    const deltaX = points[0].x - gesture.anchor.x;
+    const deltaY = points[0].y - gesture.anchor.y;
+    if (Math.abs(deltaX) > DRAG_THRESHOLD || Math.abs(deltaY) > DRAG_THRESHOLD) draggedRef.current = true;
+    setView(clampMapView({ scale: gesture.view.scale, x: gesture.view.x + deltaX, y: gesture.view.y + deltaY }));
+  };
+
+  const handlePointerEnd = (event) => {
+    if (!pointersRef.current.delete(event.pointerId)) return;
+    restartGesture(view);
+  };
+
+  // 드래그로 지도를 옮긴 직후에는 손을 뗀 자리의 마커가 선택되지 않도록 클릭을 막는다.
+  const handleClickCapture = (event) => {
+    if (!draggedRef.current) return;
+    draggedRef.current = false;
+    event.stopPropagation();
+    event.preventDefault();
+  };
+
+  // 마우스 휠 확대 (React onWheel은 스크롤을 막을 수 없어서 직접 등록한다)
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return undefined;
+
+    const handleWheel = (event) => {
+      event.preventDefault();
+      const focus = toMapPoint(svg, event.clientX, event.clientY);
+      setView((current) => scaleMapView(current, current.scale * (event.deltaY < 0 ? 1.15 : 1 / 1.15), focus));
+    };
+
+    svg.addEventListener("wheel", handleWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", handleWheel);
+  }, []);
+
+  return {
+    view,
+    svgRef,
+    // 화면 한가운데를 고정한 채 한 단계 확대/축소
+    zoomBy: (factor) => setView((current) => scaleMapView(current, current.scale * factor, MAP_CENTER)),
+    resetView: () => setView(DEFAULT_MAP_VIEW),
+    mapHandlers: {
+      onPointerDown: handlePointerDown,
+      onPointerMove: handlePointerMove,
+      onPointerUp: handlePointerEnd,
+      onPointerCancel: handlePointerEnd,
+      onPointerLeave: handlePointerEnd,
+      onClickCapture: handleClickCapture,
+    },
+  };
+}
 
 // 초 단위 시간을 "35분" / "1시간 20분" 형태로 변환
 function formatDuration(durationSeconds, t) {
@@ -122,7 +242,9 @@ function LandmarkGlyph({ icon }) {
 // 지도 위의 장소 마커 (클릭 가능). 상태에 따라 색/표시가 달라짐
 //  - completed=방문완료(초록) / nearby=가까움(주황) / 그 외=회색
 //  - active=지금 선택된 장소면 테두리 강조 + 펄스 효과
-function PlaceMarker({ active, completed, nearby, onClick, place, point }) {
+//  - markerScale: 지도를 확대해도 마커·이름표는 원래 크기를 유지하기 위한 보정값(1/배율).
+//    이게 없으면 확대할 때 간격과 마커가 똑같이 커져서 뭉친 게 그대로 뭉쳐 있다.
+function PlaceMarker({ active, completed, markerScale = 1, nearby, onClick, place, point }) {
   const { t } = useI18n();
   const markerColor = completed ? "#2d8c86" : nearby ? "#bd8c31" : "#7f8582";
   const labelOffset = LANDMARK_LABEL_OFFSETS[place.id] || { x: 0, y: 30 };
@@ -136,22 +258,24 @@ function PlaceMarker({ active, completed, nearby, onClick, place, point }) {
       tabIndex="0"
       transform={`translate(${point.x} ${point.y})`}  // 계산된 화면 좌표로 이동
     >
-      <ellipse cy="14" fill="#365e40" opacity="0.18" rx="15" ry="5" />  {/* 마커 그림자 */}
-      {active && <circle className="map-marker-pulse" fill="none" r="24" stroke={markerColor} strokeWidth="2" />}  {/* 선택 시 퍼지는 원 */}
-      <circle fill="#fffaf0" filter="url(#landmark-shadow)" r="18" stroke={markerColor} strokeWidth={active ? "3" : "2"} />  {/* 마커 원 */}
-      <LandmarkGlyph icon={place.icon} />  {/* 가운데 아이콘 */}
-      {completed && <circle cx="12" cy="-12" fill="#2d8c86" r="6" stroke="#fff" strokeWidth="2" />}  {/* 완료 배지 */}
-      <g transform={`translate(${labelOffset.x} ${labelOffset.y})`}>  {/* 이름표 */}
-        <rect
-          x="-34"
-          y="-10"
-          width="68"
-          height="20"
-          rx="10"
-          fill={active ? "#343235" : "#fffaf0"}
-          stroke={active ? "#343235" : "#d7d2c5"}
-        />
-        <text dominantBaseline="middle" textAnchor="middle" className={`text-[9px] font-bold ${active ? "fill-white" : "fill-[#4f504f]"}`}>{place.name}</text>
+      <g transform={`scale(${markerScale})`}>
+        <ellipse cy="14" fill="#365e40" opacity="0.18" rx="15" ry="5" />  {/* 마커 그림자 */}
+        {active && <circle className="map-marker-pulse" fill="none" r="24" stroke={markerColor} strokeWidth="2" />}  {/* 선택 시 퍼지는 원 */}
+        <circle fill="#fffaf0" filter="url(#landmark-shadow)" r="18" stroke={markerColor} strokeWidth={active ? "3" : "2"} />  {/* 마커 원 */}
+        <LandmarkGlyph icon={place.icon} />  {/* 가운데 아이콘 */}
+        {completed && <circle cx="12" cy="-12" fill="#2d8c86" r="6" stroke="#fff" strokeWidth="2" />}  {/* 완료 배지 */}
+        <g transform={`translate(${labelOffset.x} ${labelOffset.y})`}>  {/* 이름표 */}
+          <rect
+            x="-34"
+            y="-10"
+            width="68"
+            height="20"
+            rx="10"
+            fill={active ? "#343235" : "#fffaf0"}
+            stroke={active ? "#343235" : "#d7d2c5"}
+          />
+          <text dominantBaseline="middle" textAnchor="middle" className={`text-[9px] font-bold ${active ? "fill-white" : "fill-[#4f504f]"}`}>{place.name}</text>
+        </g>
       </g>
     </g>
   );
@@ -160,124 +284,195 @@ function PlaceMarker({ active, completed, nearby, onClick, place, point }) {
 // 지도 전체를 그리는 SVG. 배경→강→도로→장식→경로→마커→현재위치 순으로 겹쳐 그림
 function IllustratedMap({ bounds, completedQuestIds, currentLocation, onSelect, route, selectedPlace, visiblePlaces }) {
   const { t } = useI18n();
+  const { mapHandlers, resetView, svgRef, view, zoomBy } = useMapZoom();
   const currentPoint = projectCoordinate(currentLocation, bounds);  // 현재위치 화면 좌표
   const routePath = route ? coordinatesToPath(route.coordinates, bounds) : "";  // 경로 선
   const riverPath = coordinatesToPath(HYEONGSAN_RIVER, bounds);  // 형산강 선
+  const markerScale = 1 / view.scale;  // 마커·이름표를 원래 크기로 되돌리는 보정값
+  const zoomed = view.scale > MAP_ZOOM.min;
 
   return (
-    <svg viewBox={`0 0 ${MAP_VIEWBOX.width} ${MAP_VIEWBOX.height}`} className="h-auto w-full" aria-label={t("map.illustrationLabel")} role="img">
-      {/* 그라데이션·종이질감·그림자 등 그림 효과 정의 */}
-      <defs>
-        <linearGradient id="gyeongju-ground" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#e7edc1" />
-          <stop offset="0.55" stopColor="#dce7ad" />
-          <stop offset="1" stopColor="#ccd99d" />
-        </linearGradient>
-        <linearGradient id="gyeongju-forest" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#91ad6c" />
-          <stop offset="1" stopColor="#78975f" />
-        </linearGradient>
-        <filter id="paper-grain" x="-20%" y="-20%" width="140%" height="140%">
-          <feTurbulence baseFrequency="0.7" numOctaves="2" seed="8" type="fractalNoise" />
-          <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 .045 0" />
-        </filter>
-        <filter id="landmark-shadow" x="-50%" y="-50%" width="200%" height="220%">
-          <feDropShadow dx="0" dy="2" floodColor="#3f4b3c" floodOpacity="0.22" stdDeviation="2" />
-        </filter>
-      </defs>
-      {/* 바닥 배경색 */}
-      <rect width={MAP_VIEWBOX.width} height={MAP_VIEWBOX.height} fill="url(#gyeongju-ground)" />
-      {/* 숲/등고선/종이질감 배경 장식 */}
-      <g>
-        <path d="M0 115 Q42 84 86 105 T168 92 L182 0 H0 Z" fill="url(#gyeongju-forest)" opacity="0.72" />
-        <path d="M286 0 L390 0 V212 Q356 185 334 203 T290 170 Z" fill="url(#gyeongju-forest)" opacity="0.78" />
-        <path d="M0 360 Q52 327 105 363 T178 410 L160 500 H0 Z" fill="url(#gyeongju-forest)" opacity="0.62" />
-        <path d="M270 394 Q330 356 390 382 V500 H246 Q276 454 270 394 Z" fill="url(#gyeongju-forest)" opacity="0.72" />
-        <g fill="none" stroke="#7e9867" strokeWidth="1" opacity="0.42">
-          <path d="M8 131 Q54 101 99 124 T181 109" />
-          <path d="M-4 145 Q51 117 100 140 T182 124" />
-          <path d="M284 37 Q337 16 392 42" />
-          <path d="M280 54 Q337 32 395 61" />
-          <path d="M-2 390 Q58 354 122 391 T190 433" />
-          <path d="M260 425 Q324 384 395 411" />
-        </g>
-        <rect width={MAP_VIEWBOX.width} height={MAP_VIEWBOX.height} fill="#69775d" filter="url(#paper-grain)" opacity="0.32" />
-        {/* 형산강 (파란 선) */}
-        <path d={riverPath} fill="none" stroke="#a9dbe2" strokeLinecap="round" strokeWidth="20" />
-        <path d={riverPath} fill="none" stroke="#d9f1f1" strokeDasharray="2 8" strokeLinecap="round" strokeWidth="2" opacity="0.82" />
-        {/* 일러스트 도로들 */}
-        {ILLUSTRATED_ROADS.map((road) => (
-          <g key={road.map((point) => `${point.latitude}-${point.longitude}`).join("_")}>
-            <path d={coordinatesToPath(road, bounds)} fill="none" stroke="#a4a78f" strokeLinecap="round" strokeLinejoin="round" strokeWidth="10" opacity="0.36" />
-            <path d={coordinatesToPath(road, bounds)} fill="none" stroke="#fffaf0" strokeLinecap="round" strokeLinejoin="round" strokeWidth="7" />
+    <div className="relative">
+      <svg
+        viewBox={`0 0 ${MAP_VIEWBOX.width} ${MAP_VIEWBOX.height}`}
+        className="h-auto w-full select-none"
+        aria-label={t("map.illustrationLabel")}
+        role="img"
+        ref={svgRef}
+        // 확대하기 전에는 지도 위에서도 한 손가락 세로 스크롤로 페이지를 넘길 수 있게 두고,
+        // 확대한 뒤에는 지도 이동이 우선이므로 브라우저 기본 동작을 모두 막는다.
+        style={{ touchAction: zoomed ? "none" : "pan-y" }}
+        {...mapHandlers}
+      >
+        {/* 그라데이션·종이질감·그림자 등 그림 효과 정의 */}
+        <defs>
+          <linearGradient id="gyeongju-ground" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#e7edc1" />
+            <stop offset="0.55" stopColor="#dce7ad" />
+            <stop offset="1" stopColor="#ccd99d" />
+          </linearGradient>
+          <linearGradient id="gyeongju-forest" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor="#91ad6c" />
+            <stop offset="1" stopColor="#78975f" />
+          </linearGradient>
+          <filter id="paper-grain" x="-20%" y="-20%" width="140%" height="140%">
+            <feTurbulence baseFrequency="0.7" numOctaves="2" seed="8" type="fractalNoise" />
+            <feColorMatrix values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 .045 0" />
+          </filter>
+          <filter id="landmark-shadow" x="-50%" y="-50%" width="200%" height="220%">
+            <feDropShadow dx="0" dy="2" floodColor="#3f4b3c" floodOpacity="0.22" stdDeviation="2" />
+          </filter>
+        </defs>
+        {/* 여기서부터 마커까지가 "확대·이동하는 지도 본체". 축척 막대와 나침반은 바깥에 두어 고정된다. */}
+        <g transform={`translate(${view.x} ${view.y}) scale(${view.scale})`}>
+          {/* 바닥 배경색 */}
+          <rect width={MAP_VIEWBOX.width} height={MAP_VIEWBOX.height} fill="url(#gyeongju-ground)" />
+          {/* 숲/등고선/종이질감 배경 장식 */}
+          <g>
+            <path d="M0 115 Q42 84 86 105 T168 92 L182 0 H0 Z" fill="url(#gyeongju-forest)" opacity="0.72" />
+            <path d="M286 0 L390 0 V212 Q356 185 334 203 T290 170 Z" fill="url(#gyeongju-forest)" opacity="0.78" />
+            <path d="M0 360 Q52 327 105 363 T178 410 L160 500 H0 Z" fill="url(#gyeongju-forest)" opacity="0.62" />
+            <path d="M270 394 Q330 356 390 382 V500 H246 Q276 454 270 394 Z" fill="url(#gyeongju-forest)" opacity="0.72" />
+            <g fill="none" stroke="#7e9867" strokeWidth="1" opacity="0.42">
+              <path d="M8 131 Q54 101 99 124 T181 109" />
+              <path d="M-4 145 Q51 117 100 140 T182 124" />
+              <path d="M284 37 Q337 16 392 42" />
+              <path d="M280 54 Q337 32 395 61" />
+              <path d="M-2 390 Q58 354 122 391 T190 433" />
+              <path d="M260 425 Q324 384 395 411" />
+            </g>
+            <rect width={MAP_VIEWBOX.width} height={MAP_VIEWBOX.height} fill="#69775d" filter="url(#paper-grain)" opacity="0.32" />
+            {/* 형산강 (파란 선) */}
+            <path d={riverPath} fill="none" stroke="#a9dbe2" strokeLinecap="round" strokeWidth="20" />
+            <path d={riverPath} fill="none" stroke="#d9f1f1" strokeDasharray="2 8" strokeLinecap="round" strokeWidth="2" opacity="0.82" />
+            {/* 일러스트 도로들 */}
+            {ILLUSTRATED_ROADS.map((road) => (
+              <g key={road.map((point) => `${point.latitude}-${point.longitude}`).join("_")}>
+                <path d={coordinatesToPath(road, bounds)} fill="none" stroke="#a4a78f" strokeLinecap="round" strokeLinejoin="round" strokeWidth="10" opacity="0.36" />
+                <path d={coordinatesToPath(road, bounds)} fill="none" stroke="#fffaf0" strokeLinecap="round" strokeLinejoin="round" strokeWidth="7" />
+              </g>
+            ))}
+            {/* 언덕 장식 */}
+            {HILL_POSITIONS.map(([x, y]) => (
+              <g key={`${x}-${y}`} transform={`translate(${x} ${y})`} opacity="0.72">
+                <path d="M-22 12 L-9 -8 L0 3 L9 -13 L24 12 Z" fill="#9fbd78" />
+                <path d="M-9 12 L1 -2 L13 12 Z" fill="#83a467" />
+              </g>
+            ))}
+            {/* 나무 장식 */}
+            {TREE_POSITIONS.map(([x, y]) => (
+              <g key={`${x}-${y}`} transform={`translate(${x} ${y})`} opacity="0.82">
+                <path d="M0 8 V18" stroke="#765f46" strokeWidth="3" />
+                <circle cy="2" fill="#6f9a58" r="9" />
+                <circle cx="-7" cy="7" fill="#7faa61" r="6" />
+                <circle cx="7" cy="7" fill="#5f8b50" r="6" />
+              </g>
+            ))}
           </g>
-        ))}
-        {/* 언덕 장식 */}
-        {HILL_POSITIONS.map(([x, y]) => (
-          <g key={`${x}-${y}`} transform={`translate(${x} ${y})`} opacity="0.72">
-            <path d="M-22 12 L-9 -8 L0 3 L9 -13 L24 12 Z" fill="#9fbd78" />
-            <path d="M-9 12 L1 -2 L13 12 Z" fill="#83a467" />
-          </g>
-        ))}
-        {/* 나무 장식 */}
-        {TREE_POSITIONS.map(([x, y]) => (
-          <g key={`${x}-${y}`} transform={`translate(${x} ${y})`} opacity="0.82">
-            <path d="M0 8 V18" stroke="#765f46" strokeWidth="3" />
-            <circle cy="2" fill="#6f9a58" r="9" />
-            <circle cx="-7" cy="7" fill="#7faa61" r="6" />
-            <circle cx="7" cy="7" fill="#5f8b50" r="6" />
-          </g>
-        ))}
-      </g>
 
-      {/* 길찾기 경로 선 (경로가 있을 때만) */}
-      {routePath && (
-        <g>
-          <path d={routePath} fill="none" stroke="#fff" strokeLinecap="round" strokeLinejoin="round" strokeWidth="8" opacity="0.9" />
-          <path className="map-route-line" d={routePath} fill="none" stroke="#356b98" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
-        </g>
-      )}
+          {/* 길찾기 경로 선 (경로가 있을 때만). 선 굵기는 확대해도 그대로 보이도록 배율만큼 나눈다. */}
+          {routePath && (
+            <g>
+              <path d={routePath} fill="none" stroke="#fff" strokeLinecap="round" strokeLinejoin="round" strokeWidth={8 * markerScale} opacity="0.9" />
+              <path className="map-route-line" d={routePath} fill="none" stroke="#356b98" strokeLinecap="round" strokeLinejoin="round" strokeWidth={4 * markerScale} />
+            </g>
+          )}
 
-      {/* 현재 지도 범위에 들어오는 장소들을 마커로 그림 */}
-      {visiblePlaces.map((place) => {
-        const distance = getDistanceMeters(currentLocation, place);  // 현재위치와의 거리
-        return (
-          <PlaceMarker
-            key={place.id}
-            active={place.id === selectedPlace.id}  // 선택된 장소인지
-            completed={completedQuestIds.includes(place.id)}  // 방문 완료했는지
-            nearby={distance <= NEARBY_DISTANCE_METERS}  // 가까운지
-            onClick={() => onSelect(place)}
-            place={place}
-            point={projectCoordinate(place, bounds)}  // 실제 좌표 → 화면 좌표
+          {/* 현재 지도 범위에 들어오는 장소들을 마커로 그림 */}
+          {visiblePlaces.map((place) => {
+            const distance = getDistanceMeters(currentLocation, place);  // 현재위치와의 거리
+            return (
+              <PlaceMarker
+                key={place.id}
+                active={place.id === selectedPlace.id}  // 선택된 장소인지
+                completed={completedQuestIds.includes(place.id)}  // 방문 완료했는지
+                markerScale={markerScale}  // 확대해도 마커 크기는 그대로 (간격만 벌어진다)
+                nearby={distance <= NEARBY_DISTANCE_METERS}  // 가까운지
+                onClick={() => onSelect(place)}
+                place={place}
+                point={projectCoordinate(place, bounds)}  // 실제 좌표 → 화면 좌표
+              />
+            );
+          })}
+
+          {/* 현재 위치 표시 (범위 안에 있을 때만) - 파란 점 + 펄스 */}
+          {isWithinBounds(currentLocation, bounds) && (
+            <g transform={`translate(${currentPoint.x} ${currentPoint.y}) scale(${markerScale})`}>
+              <circle className="map-location-pulse" fill="#356b98" opacity="0.16" r="16" />
+              <circle fill="#356b98" r="6" stroke="#fff" strokeWidth="3" />
+              <path d="M0 -17 L4 -10 L0 -12 L-4 -10 Z" fill="#356b98" />
+            </g>
+          )}
+        </g>
+
+        {/* 좌하단 1km 축척 막대 (확대한 만큼 막대도 길어진다) */}
+        <g transform={`translate(26 ${MAP_VIEWBOX.height - 28})`}>
+          <path d={`M0 0 H${getScaleBarWidth(bounds) * view.scale}`} stroke="#555b57" strokeWidth="2" />
+          <path d="M0 -4 V4" stroke="#555b57" strokeWidth="2" />
+          <path d={`M${getScaleBarWidth(bounds) * view.scale} -4 V4`} stroke="#555b57" strokeWidth="2" />
+          <text x={getScaleBarWidth(bounds) * view.scale / 2} y="14" textAnchor="middle" className="fill-[#555b57] text-[8px] font-bold">1km</text>
+        </g>
+        {/* 우하단 나침반(N) 표시 */}
+        <g transform={`translate(356 ${MAP_VIEWBOX.height - 30})`} aria-hidden="true">
+          <circle r="18" fill="#fffaf0" opacity="0.9" />
+          <path d="M0 -11 L4 1 L0 -1 L-4 1 Z" fill="#bd4f3a" />
+          <path d="M0 11 L4 -1 L0 1 L-4 -1 Z" fill="#5d665c" />
+          <text y="-7" textAnchor="middle" className="fill-[#4f504f] text-[7px] font-bold">N</text>
+        </g>
+      </svg>
+
+      {/* 확대/축소 버튼 (마우스·손가락 조작이 어려운 경우와 PC용) */}
+      <div className="absolute right-3 top-1/2 z-10 flex -translate-y-1/2 flex-col gap-1.5">
+        <IconButton
+          className="h-9 w-9 border-white/70 bg-white/90 shadow-sm backdrop-blur"
+          disabled={view.scale >= MAP_ZOOM.max}
+          icon={Plus}
+          label={t("map.zoomIn")}
+          onClick={() => zoomBy(MAP_ZOOM.step)}
+        />
+        <IconButton
+          className="h-9 w-9 border-white/70 bg-white/90 shadow-sm backdrop-blur"
+          disabled={!zoomed}
+          icon={Minus}
+          label={t("map.zoomOut")}
+          onClick={() => zoomBy(1 / MAP_ZOOM.step)}
+        />
+        {zoomed && (
+          <IconButton
+            className="h-9 w-9 border-white/70 bg-white/90 shadow-sm backdrop-blur"
+            icon={Maximize}
+            label={t("map.zoomReset")}
+            onClick={resetView}
           />
-        );
-      })}
+        )}
+    </div>
+    </div>
+  );
+}
 
-      {/* 현재 위치 표시 (범위 안에 있을 때만) - 파란 점 + 펄스 */}
-      {isWithinBounds(currentLocation, bounds) && (
-        <g transform={`translate(${currentPoint.x} ${currentPoint.y})`}>
-          <circle className="map-location-pulse" fill="#356b98" opacity="0.16" r="16" />
-          <circle fill="#356b98" r="6" stroke="#fff" strokeWidth="3" />
-          <path d="M0 -17 L4 -10 L0 -12 L-4 -10 Z" fill="#356b98" />
-        </g>
-      )}
+// 장소 상세에 붙는 실용 정보 (운영시간·주차·휴무일·메뉴).
+// 서버에 값이 없는 항목은 줄 자체를 그리지 않는다. "정보 없음"을 늘어놓으면 지저분해진다.
+function PlaceFacts({ place, t }) {
+  const facts = [
+    { icon: Clock, label: t("map.operatingHours"), value: place.operatingHours },
+    { icon: Car, label: t("map.parking"), value: place.parking },
+    { icon: CalendarDays, label: t("map.restDate"), value: place.restDate },
+    { icon: UtensilsCrossed, label: t("map.menu"), value: place.menu },
+  ].filter((fact) => fact.value);
 
-      {/* 좌하단 1km 축척 막대 */}
-      <g transform={`translate(26 ${MAP_VIEWBOX.height - 28})`}>
-        <path d={`M0 0 H${getScaleBarWidth(bounds)}`} stroke="#555b57" strokeWidth="2" />
-        <path d="M0 -4 V4" stroke="#555b57" strokeWidth="2" />
-        <path d={`M${getScaleBarWidth(bounds)} -4 V4`} stroke="#555b57" strokeWidth="2" />
-        <text x={getScaleBarWidth(bounds) / 2} y="14" textAnchor="middle" className="fill-[#555b57] text-[8px] font-bold">1km</text>
-      </g>
-      {/* 우하단 나침반(N) 표시 */}
-      <g transform={`translate(356 ${MAP_VIEWBOX.height - 30})`} aria-hidden="true">
-        <circle r="18" fill="#fffaf0" opacity="0.9" />
-        <path d="M0 -11 L4 1 L0 -1 L-4 1 Z" fill="#bd4f3a" />
-        <path d="M0 11 L4 -1 L0 1 L-4 -1 Z" fill="#5d665c" />
-        <text y="-7" textAnchor="middle" className="fill-[#4f504f] text-[7px] font-bold">N</text>
-      </g>
-    </svg>
+  if (!facts.length) return null;
+
+  return (
+    <dl className="mt-3 space-y-1.5 rounded-xl bg-[#f7f8f6] px-3 py-2.5">
+      {facts.map(({ icon: Icon, label, value }) => (
+        <div key={label} className="flex gap-2 text-xs leading-5">
+          <dt className="flex w-[4.5rem] shrink-0 items-center gap-1.5 font-bold text-[#8a8d89]">
+            <Icon size={13} className="shrink-0" />{label}
+          </dt>
+          <dd className="min-w-0 flex-1 text-[#4f504f]">{value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -570,9 +765,11 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
                 <h2 className="font-bold text-[#343235]">{selectedPlace.name}</h2>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${selectedNearby ? "bg-[#f8f0de] text-[#8a641f]" : "bg-[#eef0ee] text-[#686d69]"}`}>{selectedNearby ? t("map.near") : formatDistance(selectedDistance)}</span>
               </div>
-              <p className="mt-1 text-sm leading-6 text-[#626367]">{selectedPlace.description}</p>
             </div>
           </div>
+
+          {/* 시간대·분류 대신 가서 실제로 쓰이는 정보만 보여 준다. 없는 줄은 그리지 않는다. */}
+          <PlaceFacts place={selectedPlace} t={t} />
 
           {/* 경로가 있으면 도보 거리/예상 시간 표시 */}
           {route && (

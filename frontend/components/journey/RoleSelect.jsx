@@ -3,7 +3,7 @@ import AppModal from "../ui/AppModal";
 import { useI18n } from "../i18n/LanguageProvider";
 
 // 신라 시대 역할. key 는 백엔드 personas.py 의 페르소나 key 와 맞춘다.
-// ready=false 는 아직 코스 규칙이 없는 역할 (화면만 먼저 보여 주는 중).
+// ready 는 백엔드에 그 역할의 코스가 준비됐는지. 여섯 역할 모두 코스가 나온다.
 export const ROLES = [
   {
     key: "king",
@@ -21,16 +21,16 @@ export const ROLES = [
     description: "옛 글이 남은 서원과 비석을 따라 걷는 하루.",
     accent: "#2d6a8c",
     tint: "#e8f1f6",
-    ready: false,
+    ready: true,
   },
   {
     key: "monk",
-    name: "학승",
+    name: "스님",
     tagline: "절과 불상을 찾아",
     description: "산사와 마애불을 돌며 마음을 다스리는 하루.",
     accent: "#4f7a5c",
     tint: "#e9f2eb",
-    ready: false,
+    ready: true,
   },
   {
     key: "hwarang",
@@ -39,7 +39,7 @@ export const ROLES = [
     description: "산길과 물길에서 몸과 마음을 닦는 하루.",
     accent: "#8c3d3d",
     tint: "#f7e9e8",
-    ready: false,
+    ready: true,
   },
   {
     key: "court_lady",
@@ -48,7 +48,7 @@ export const ROLES = [
     description: "궁궐 뒤편에 남은 자취와 소소한 이야기를 찾아서.",
     accent: "#a8557f",
     tint: "#f8eaf1",
-    ready: false,
+    ready: true,
   },
   {
     key: "merchant",
@@ -57,7 +57,7 @@ export const ROLES = [
     description: "시장과 상가를 돌며 경주의 물건을 살피는 하루.",
     accent: "#a8763d",
     tint: "#f8efe2",
-    ready: false,
+    ready: true,
   },
 ];
 

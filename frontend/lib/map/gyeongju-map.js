@@ -15,6 +15,40 @@ export const MAP_SCOPES = {
   },
 };
 
+// 지도 확대 배율 범위와 +/- 버튼 한 번에 움직이는 크기
+export const MAP_ZOOM = { min: 1, max: 4, step: 1.6 };
+
+// 확대하지 않은 기본 상태 (1배, 이동 없음)
+export const DEFAULT_MAP_VIEW = { scale: 1, x: 0, y: 0 };
+
+export function clampMapScale(scale) {
+  return Math.min(MAP_ZOOM.max, Math.max(MAP_ZOOM.min, scale));
+}
+
+// 확대 상태를 지도 밖 여백이 보이지 않는 범위 안에 가둔다.
+// 배율 s로 키운 지도의 이동값은 (지도크기 × (1 - s)) ~ 0 사이여야 화면이 지도로 꽉 찬다.
+export function clampMapView(view, viewbox = MAP_VIEWBOX) {
+  const scale = clampMapScale(view.scale);
+  return {
+    scale,
+    x: Math.min(0, Math.max(viewbox.width * (1 - scale), view.x)),
+    y: Math.min(0, Math.max(viewbox.height * (1 - scale), view.y)),
+  };
+}
+
+// 배율을 nextScale로 바꾸되, 화면의 anchor 지점에 있던 곳이 focus 자리로 오도록 이동값을 다시 계산한다.
+//  - 휠/버튼 확대: anchor와 focus가 같다 (커서·화면 중앙이 제자리에 고정)
+//  - 손가락 핀치: anchor=두 손가락 시작 중점, focus=지금 중점 (확대하면서 같이 끌리는 효과)
+export function scaleMapView(view, nextScale, anchor, focus = anchor, viewbox = MAP_VIEWBOX) {
+  const scale = clampMapScale(nextScale);
+  const ratio = scale / view.scale;
+  return clampMapView({
+    scale,
+    x: focus.x - (anchor.x - view.x) * ratio,
+    y: focus.y - (anchor.y - view.y) * ratio,
+  }, viewbox);
+}
+
 export const DEFAULT_CURRENT_LOCATION = {
   name: "대릉원 인근",
   latitude: 35.8351,

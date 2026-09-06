@@ -29,6 +29,9 @@ class Settings:
     # 만든 음성은 파일로 남기지 않고 메모리에만 잠깐 들고 있는다.
     tts_cache_entries: int = 32
     tts_cache_ttl_seconds: int = 86400
+    # 장소별 역할 적합도 채점(OpenAI). 채점 배치를 돌릴 때만 쓰고 평소에는 호출하지 않는다.
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
 
 
 @lru_cache
@@ -66,4 +69,6 @@ def get_settings() -> Settings:
         tts_speaking_rate=float(os.getenv("TTS_SPEAKING_RATE", "0.95")),
         tts_cache_entries=int(os.getenv("TTS_CACHE_ENTRIES", "32")),
         tts_cache_ttl_seconds=int(os.getenv("TTS_CACHE_TTL_SECONDS", "86400")),
+        openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
+        openai_model=os.getenv("OPENAI_MODEL", "").strip() or "gpt-4o-mini",
     )

@@ -16,6 +16,7 @@ COPY db ./db
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 COPY sync_tourapi.py ./sync_tourapi.py
+COPY sync_persona_scores.py ./sync_persona_scores.py
 
 RUN mkdir -p /app/uploads \
     && chown -R app:app /app

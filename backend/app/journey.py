@@ -18,14 +18,14 @@ def course_stops_sql() -> str:
                p.IDX AS PLACE_IDX,
                COALESCE(NULLIF(t.NAME, ''), NULLIF(k.NAME, ''), p.NAME) AS NAME,
                COALESCE(NULLIF(t.ADDRESS, ''), NULLIF(k.ADDRESS, ''), p.ADDRESS) AS ADDRESS,
-               p.IMG, p.MENU, p.REST_DATE,
+               p.IMG, p.MENU, p.REST_DATE, p.OPERATING_HOURS, p.PARKING,
                p.CATEGORY_SUB, p.LATITUDE, p.LONGITUDE, mp.MARKER_ICON_TYPE,
                uq.STATUS AS QUEST_STATUS,
                (p.TEXT IS NOT NULL AND p.TEXT <> '') AS HAS_DOCENT
         FROM QUEST q
         JOIN COURSE c ON c.IDX = q.COURSE_IDX
-        JOIN MAP_PLACE mp ON mp.IDX = q.MAP_PLACE_IDX
-        JOIN PLACE p ON p.IDX = mp.PLACE_IDX
+        JOIN PLACE p ON p.IDX = q.PLACE_IDX
+        JOIN MAP_PLACE mp ON mp.PLACE_IDX = p.IDX
         LEFT JOIN PLACE_I18N t ON t.PLACE_IDX = p.IDX AND t.LANGUAGE_CODE = %s
         LEFT JOIN PLACE_I18N k ON k.PLACE_IDX = p.IDX AND k.LANGUAGE_CODE = 'ko'
         LEFT JOIN USER_QUEST uq
@@ -42,6 +42,21 @@ QUEST_OWNER_SQL = """
     JOIN USER_CHARACTER uc ON uc.IDX = c.USER_CHARACTER_IDX
     WHERE q.IDX = %s AND uc.USER_NO = %s
 """
+
+
+# 사용자가 마지막으로 고른 역할. 역할을 고르면 ensure_user_character 가 여기 표시해 둔다.
+SELECTED_PERSONA_SQL = """
+    SELECT cm.CHARACTER_TYPE
+    FROM USER_CHARACTER uc
+    JOIN CHARACTER_MASTER cm ON cm.IDX = uc.CHARACTER_IDX
+    WHERE uc.USER_NO = %s AND uc.IS_SELECTED = 1
+    ORDER BY uc.IDX DESC LIMIT 1
+"""
+
+
+def find_selected_persona_key(connection: pymysql.Connection, user_no: int) -> str | None:
+    # 앱을 다시 열었을 때 고르던 역할을 그대로 보여 주기 위해 쓴다.
+    return _scalar(connection, SELECTED_PERSONA_SQL, (user_no,))
 
 
 class QuestNotFoundError(Exception):
@@ -158,6 +173,8 @@ def load_course(
                 longitude=point[1],
                 menu=row["MENU"],
                 rest_date=row["REST_DATE"],
+                operating_hours=row["OPERATING_HOURS"],
+                parking=row["PARKING"],
                 # 이전 장소가 있으면 거리 계산, 없으면 0
                 distance_km=round(distance_km(position, point), 2),
                 img=row["IMG"],
@@ -208,11 +225,12 @@ def save_course(
             _execute(
                 connection,
                 """INSERT INTO QUEST
-                   (COURSE_IDX, MAP_PLACE_IDX, QUEST_ORDER, TIME_SLOT, QUEST_TYPE, TITLE, CONTENT)
-                   VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+                   (COURSE_IDX, MAP_PLACE_IDX, PLACE_IDX, QUEST_ORDER, TIME_SLOT, QUEST_TYPE, TITLE, CONTENT)
+                   VALUES (%s, %s, %s, %s, %s, %s, %s, %s)""",
                 (
                     course_idx,
                     map_place_idx,
+                    stop.place_idx,
                     stop.order,
                     stop.time_slot,
                     QUEST_TYPE_VISIT,

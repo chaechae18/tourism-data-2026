@@ -5,7 +5,12 @@ import { LogOut, PawPrint } from "lucide-react";
 import { DEFAULT_USER, QUESTS } from "../../lib/app-data";
 import { localizeQuest, translateError } from "../../lib/i18n";
 import { notifyQuestCompleted } from "../../lib/api/notifications";
-import { completeQuest as saveQuestCompletion, fetchCourse, refreshCourse } from "../../lib/api/journey";
+import {
+  completeQuest as saveQuestCompletion,
+  fetchCourse,
+  fetchSelectedRole,
+  refreshCourse,
+} from "../../lib/api/journey";
 import RoleSelect, { ROLES } from "../journey/RoleSelect";
 import AuthModal from "../auth/AuthModal";
 import HomeTab from "../home/HomeTab";
@@ -37,18 +42,37 @@ export default function PlayGyeongju() {
   const [outfit, setOutfit] = useState({});
   const [notice, setNotice] = useState("");
   const [notificationVersion, setNotificationVersion] = useState(0);
-  // 캐릭터 코스는 백엔드가 뽑아 준다. 아직 저장하지 않아서 새로고침하면 달라진다.
+  // 캐릭터 코스는 백엔드가 뽑아서 저장해 둔다. 다시 들어와도 같은 코스가 나온다.
   const [coursePlaces, setCoursePlaces] = useState(null);
   const [courseError, setCourseError] = useState("");
-  const [roleKey, setRoleKey] = useState("king");
+  // null = 서버에 저장된 역할을 아직 읽는 중. 다 읽기 전에는 코스를 부르지 않는다.
+  // (먼저 부르면 기본값인 왕이 '고른 역할'로 저장돼 버린다)
+  const [roleKey, setRoleKey] = useState(null);
   const [roleOpen, setRoleOpen] = useState(false);
   const [guideOpen, setGuideOpen] = useState(false);
 
   const role = ROLES.find((item) => item.key === roleKey) || ROLES[0];
   const roleName = t(`roles.${role.key}.name`);
 
-  // 코스 규칙이 아직 없는 역할은 왕 코스를 그대로 둔다.
-  const courseRoleKey = role.ready ? role.key : null;
+  // 역할을 아직 못 읽었으면 코스도 부르지 않는다.
+  const courseRoleKey = roleKey && role.ready ? role.key : null;
+
+  // 지난번에 고른 역할로 돌아간다. 처음 들어온 사용자면 기본값(왕)으로 시작한다.
+  useEffect(() => {
+    if (!entered) return undefined;
+
+    const controller = new AbortController();
+    fetchSelectedRole({ signal: controller.signal })
+      .then((saved) => {
+        const known = saved?.key && ROLES.some((item) => item.key === saved.key);
+        setRoleKey(known ? saved.key : ROLES[0].key);
+      })
+      .catch((error) => {
+        if (error.name === "AbortError") return;
+        setRoleKey(ROLES[0].key);
+      });
+    return () => controller.abort();
+  }, [entered]);
 
   useEffect(() => {
   const checkLogin = async () => {
