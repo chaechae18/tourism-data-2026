@@ -1,5 +1,4 @@
-import calendar
-from datetime import datetime
+from datetime import datetime, timedelta
 from functools import lru_cache
 import logging
 import os
@@ -28,6 +27,7 @@ OVERRIDE_COLUMNS = ("URL", "IMG")
 # 상세 조회가 행사 1건당 2회라, 홈 화면에 걸리는 시간을 건수로 막는다.
 FESTIVAL_LIMIT = int(os.getenv("FESTIVAL_LIMIT", "12"))
 FESTIVAL_CACHE_TTL_SECONDS = int(os.getenv("FESTIVAL_CACHE_TTL_SECONDS", "60"))
+FESTIVAL_WINDOW_DAYS = int(os.getenv("FESTIVAL_WINDOW_DAYS", "60"))
 
 festival_cache = TTLCache(max_entries=8)
 
@@ -217,22 +217,16 @@ def _festival_response(fields: dict) -> FestivalResponse:
     )
 
 
-def month_end(now: datetime) -> datetime:
-    last_day = calendar.monthrange(now.year, now.month)[1]
-    return now.replace(
-        day=last_day, hour=23, minute=59, second=59, microsecond=999999
-    )
-
-
-# 오늘부터 이달 말까지 걸치는 행사만 남긴다. 캐시 키가 오늘 날짜라 자정과 월말이
-# 지나면 다음 요청에서 저절로 새 구간을 잡는다.
-def _live_festivals(client: TourApiClient, now: datetime) -> list[dict] | None:
+# 오늘부터 FESTIVAL_WINDOW_DAYS 일 사이에 걸치는 행사를 진행중인 것부터 보여준다.
+# 경주 행사는 한 달 넘게 비는 구간이 있어, 창이 짧으면 홈이 통째로 비어 보인다.
+# 캐시 키가 오늘 날짜라 자정이 지나면 다음 요청에서 저절로 새 구간을 잡는다.
+def _festival_window(client: TourApiClient, now: datetime) -> list[dict] | None:
     today = now.strftime("%Y%m%d")
     cached = festival_cache.get(today)
     if cached is not None:
         return cached
 
-    last = month_end(now)
+    last = now + timedelta(days=FESTIVAL_WINDOW_DAYS)
     try:
         festivals = fetch_festivals(
             client, today, limit=FESTIVAL_LIMIT, event_end_date=last.strftime("%Y%m%d")
@@ -241,16 +235,17 @@ def _live_festivals(client: TourApiClient, now: datetime) -> list[dict] | None:
         logger.warning("TourAPI 행사 조회 실패, FESTIVAL 테이블로 대체합니다: %s", exc)
         return None
 
-    # 종료일은 자정으로 파싱되므로 날짜끼리 비교해야 오늘 끝나는 행사가 남는다.
-    ongoing = [
+    # 날짜는 자정으로 파싱되므로 날짜끼리 비교해야 오늘 끝나는 행사가 남는다.
+    upcoming = [
         fields
         for fields in festivals
         if (fields["END_DATE"] is None or fields["END_DATE"].date() >= now.date())
-        and (fields["START_DATE"] is None or fields["START_DATE"] <= last)
+        and (fields["START_DATE"] is None or fields["START_DATE"].date() <= last.date())
     ]
-    ongoing.sort(key=lambda fields: fields["START_DATE"] or datetime.max)
-    festival_cache.set(today, ongoing, FESTIVAL_CACHE_TTL_SECONDS)
-    return ongoing
+    # 시작일 오름차순이라 이미 시작한 행사가 앞에 온다.
+    upcoming.sort(key=lambda fields: fields["START_DATE"] or datetime.max)
+    festival_cache.set(today, upcoming, FESTIVAL_CACHE_TTL_SECONDS)
+    return upcoming
 
 
 # 숨김 여부와 링크·사진은 항상, 번역은 한국어가 아닐 때만 읽는다. 왕복을 늘리지 않으려고
@@ -297,7 +292,7 @@ def list_festivals(
     language: str,
 ) -> list[FestivalResponse]:
     now = datetime.now()
-    festivals = _live_festivals(client, now) if client else None
+    festivals = _festival_window(client, now) if client else None
     if festivals is None:
         return list_stored_festivals(connection, language=language)
 
@@ -346,7 +341,7 @@ def list_stored_festivals(
           AND (f.START_DATE IS NULL OR f.START_DATE <= %s)
         ORDER BY f.START_DATE, f.IDX
         """,
-        (language, DEFAULT_LANGUAGE, now, month_end(now)),
+        (language, DEFAULT_LANGUAGE, now, now + timedelta(days=FESTIVAL_WINDOW_DAYS)),
     )
     return [_festival_response(row) for row in rows]
 

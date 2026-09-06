@@ -12,19 +12,19 @@ import { useI18n } from "../i18n/LanguageProvider";
 
 
 export default function NotificationButton({ refreshKey = 0 }) {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     try {
-      setNotifications(await listNotifications());
+      setNotifications(await listNotifications({ lang: language }));
       setError("");
     } catch (loadError) {
       setError(translateError(loadError, t));
     }
-  }, [t]);
+  }, [language, t]);
 
   useEffect(() => {
     load();
@@ -61,13 +61,14 @@ export default function NotificationButton({ refreshKey = 0 }) {
       </div>
 
       {open && (
-        <div className="absolute right-0 top-12 z-50 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#e2e4e0] bg-white shadow-xl">
+        // 벨이 아니라 헤더 여백에 맞춘다. -right-12 는 옆에 붙은 로그아웃 버튼(40px)과 간격(8px)만큼.
+        <div className="absolute -right-12 top-12 z-50 w-[min(398px,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#e2e4e0] bg-white shadow-xl">
           <div className="border-b border-[#e2e4e0] px-4 py-3">
             <p className="font-bold text-[#343235]">{t("notifications.label")}</p>
-            <p className="mt-0.5 text-xs text-[#747579]">{t("notifications.description")}</p>
           </div>
           <div className="max-h-80 overflow-y-auto">
             {notifications.map((notification) => (
+              // 공지는 운영자가 쓴 문구가 그대로 들어와 있어 고정 번역 대신 서버 문구를 쓴다.
               <button
                 key={notification.id}
                 type="button"
@@ -78,8 +79,8 @@ export default function NotificationButton({ refreshKey = 0 }) {
                   {notification.isRead ? <Check size={14} /> : <Bell size={14} />}
                 </span>
                 <span className="min-w-0">
-                  <span className="block text-sm font-bold text-[#343235]">{t(`notifications.${notification.type}.title`)}</span>
-                  <span className="mt-1 block text-xs leading-5 text-[#747579]">{t(`notifications.${notification.type}.message`)}</span>
+                  <span className="block text-sm font-bold text-[#343235]">{notification.type === "NOTICE" ? notification.title : t(`notifications.${notification.type}.title`)}</span>
+                  <span className="mt-1 block text-xs leading-5 text-[#747579]">{notification.type === "NOTICE" ? notification.message : t(`notifications.${notification.type}.message`)}</span>
                 </span>
               </button>
             ))}

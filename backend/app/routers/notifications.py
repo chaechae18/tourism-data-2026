@@ -3,6 +3,8 @@ from typing import Annotated
 import pymysql
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
 
+from ..home import resolve_language
+
 from ..models.notifications import (
     NotificationResponse,
     QuestCompletedNotificationRequest,
@@ -14,6 +16,7 @@ from ..notifications import (
     get_notification,
     list_notifications,
     mark_notification_read,
+    sync_popup_notifications,
 )
 
 
@@ -25,13 +28,17 @@ def get_notifications(
     user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
     unread_only: Annotated[bool, Query(alias="unreadOnly")] = False,
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
+    lang: Annotated[str | None, Query(alias="lang", max_length=20)] = None,
+    accept_language: Annotated[str | None, Header(alias="Accept-Language")] = None,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> list[NotificationResponse]:
+    sync_popup_notifications(database, user_no=user_no)
     return list_notifications(
         database,
         user_no=user_no,
         unread_only=unread_only,
         limit=limit,
+        language=resolve_language(lang, accept_language),
     )
 
 

@@ -3,7 +3,11 @@ import pymysql
 from app.interactions import set_reaction
 from app.models.common import ReactionType
 from app.models.spots import SpotCreateRequest
-from app.notifications import list_notifications, mark_notification_read
+from app.notifications import (
+    list_notifications,
+    mark_notification_read,
+    sync_popup_notifications,
+)
 from app.spots import create_spot
 
 
@@ -63,3 +67,48 @@ def test_like_creates_notification_for_spot_owner(
         unread_only=True,
         limit=10,
     ) == []
+
+
+def test_popup_becomes_notification_once(database: pymysql.Connection) -> None:
+    with database.cursor() as cursor:
+        cursor.execute(
+            """
+            INSERT INTO POPUP (TITLE, CONTENT, IS_DISPLAY)
+            VALUES ('시스템 점검 안내', '새벽 2시 점검', 1), ('지난 공지', NULL, 0)
+            """
+        )
+
+    sync_popup_notifications(database, user_no=1)
+    sync_popup_notifications(database, user_no=1)
+
+    notifications = list_notifications(
+        database,
+        user_no=1,
+        unread_only=False,
+        limit=10,
+    )
+    assert [(item.type, item.title) for item in notifications] == [
+        ("NOTICE", "시스템 점검 안내")
+    ]
+    assert notifications[0].target_type == "POPUP"
+
+    with database.cursor() as cursor:
+        cursor.execute("UPDATE POPUP SET CONTENT = '새벽 3시 점검' WHERE IS_DISPLAY = 1")
+        cursor.execute(
+            """
+            INSERT INTO POPUP_I18N (POPUP_IDX, LANGUAGE_CODE, TITLE, CONTENT)
+            SELECT IDX, 'en', 'Scheduled maintenance', 'Starting at 3 AM'
+            FROM POPUP WHERE IS_DISPLAY = 1
+            """
+        )
+
+    korean = list_notifications(database, user_no=1, unread_only=False, limit=10)
+    english = list_notifications(
+        database,
+        user_no=1,
+        unread_only=False,
+        limit=10,
+        language="en",
+    )
+    assert korean[0].message == "새벽 3시 점검"
+    assert english[0].title == "Scheduled maintenance"

@@ -47,6 +47,7 @@ const PLACE = {
 
 describe("HomeTab", () => {
   beforeEach(() => {
+    window.localStorage.clear();
     api.listBanners.mockResolvedValue([BANNER]);
     api.listPopups.mockResolvedValue([POPUP]);
     api.listFestivals.mockResolvedValue([FESTIVAL]);
@@ -55,9 +56,8 @@ describe("HomeTab", () => {
 
   it("renders every section from the API", async () => {
     render(<HomeTab onMapOpen={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "1건" }));
+    expect(await screen.findByText("시스템 점검 안내")).toBeInTheDocument();
 
-    expect(screen.getByText("시스템 점검 안내")).toBeInTheDocument();
     expect(screen.getByText("신라문화제")).toBeInTheDocument();
     expect(screen.getByText("8. 4 - 8. 8")).toBeInTheDocument();
     expect(screen.getByText("불국사")).toBeInTheDocument();
@@ -81,16 +81,17 @@ describe("HomeTab", () => {
     expect(api.listBanners).not.toHaveBeenCalled();
   });
 
-  it("keeps the notice section folded until it is opened", async () => {
-    render(<HomeTab onMapOpen={vi.fn()} />);
-    const toggle = await screen.findByRole("button", { name: "1건" });
+  it("shows notices in a popup that stays hidden for the rest of the day", async () => {
+    const { unmount } = render(<HomeTab onMapOpen={vi.fn()} />);
+    await screen.findByText("시스템 점검 안내");
 
+    fireEvent.click(screen.getByRole("button", { name: "오늘 하루 보지 않기" }));
     expect(screen.queryByText("시스템 점검 안내")).not.toBeInTheDocument();
 
-    fireEvent.click(toggle);
-    expect(screen.getByText("시스템 점검 안내")).toBeInTheDocument();
+    unmount();
+    render(<HomeTab onMapOpen={vi.fn()} />);
+    await screen.findByText("신라문화제");
 
-    fireEvent.click(toggle);
     expect(screen.queryByText("시스템 점검 안내")).not.toBeInTheDocument();
   });
 
@@ -136,7 +137,6 @@ describe("HomeTab", () => {
     render(<HomeTab onMapOpen={vi.fn()} />);
 
     expect(await screen.findByText("요청을 처리하지 못했습니다.")).toBeInTheDocument();
-    expect(screen.getByText("새로운 공지가 없어요.")).toBeInTheDocument();
     expect(screen.getByText("신라문화제")).toBeInTheDocument();
     expect(screen.getByText("불국사")).toBeInTheDocument();
   });
@@ -144,9 +144,8 @@ describe("HomeTab", () => {
   it("drops links that are not http(s)", async () => {
     api.listPopups.mockResolvedValue([{ ...POPUP, link: "javascript:alert(1)" }]);
     render(<HomeTab onMapOpen={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "1건" }));
 
-    expect(screen.getByText("시스템 점검 안내")).toBeInTheDocument();
+    expect(await screen.findByText("시스템 점검 안내")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "자세히 보기" })).not.toBeInTheDocument();
   });
 
@@ -156,8 +155,8 @@ describe("HomeTab", () => {
     api.listRecommendedPlaces.mockResolvedValue([{ ...PLACE, admissionFee: null }]);
     render(<HomeTab onMapOpen={vi.fn()} />);
 
-    await waitFor(() => expect(screen.getByText("새로운 공지가 없어요.")).toBeInTheDocument());
-    expect(screen.getByText("8. 4 시작")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("8. 4 시작")).toBeInTheDocument());
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     const place = screen.getByText("불국사").closest("article");
     expect(within(place).queryByText(/원/)).not.toBeInTheDocument();
   });
