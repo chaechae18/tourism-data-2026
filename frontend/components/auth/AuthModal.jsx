@@ -434,6 +434,131 @@ export default function AuthModal({ mode, onClose, onComplete, onAuth }) {
             {t("auth.signup")}
           </AppButton>
         )}
+
+      {/* 간편 로그인 */}
+      {!isSignup && (
+        <div className="mt-6">
+          {/* Divider */}
+          <div className="mb-4 flex items-center gap-3">
+            <div className="h-px flex-1 bg-[#e7e8e4]" />
+
+            <span className="whitespace-nowrap text-[11px] font-medium tracking-wide text-[#9a9b97]">
+              간편 로그인
+            </span>
+
+            <div className="h-px flex-1 bg-[#e7e8e4]" />
+          </div>
+
+          <div className="space-y-2.5">
+            {/* 카카오 */}
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href =
+                  "http://localhost:8001/api/v1/auth/kakao/login";
+              }}
+              className="
+                relative flex h-12 w-full items-center justify-center
+                rounded-xl
+                bg-[#FEE500]
+                text-[14px] font-semibold text-[#191919]
+              "
+            >
+              <span className="absolute left-4 flex h-7 w-7 items-center justify-center">
+                <svg
+                  width="25"
+                  height="23"
+                  viewBox="0 0 25 23"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M12.5 0C5.596 0 0 4.314 0 9.637C0 13.04 2.293 16.02 5.757 17.7L4.51 22.15C4.43 22.435 4.758 22.664 5.005 22.494L10.25 18.91C10.976 19.006 11.725 19.274 12.5 19.274C19.404 19.274 25 14.96 25 9.637C25 4.314 19.404 0 12.5 0Z"
+                    fill="#191919"
+                  />
+                </svg>
+              </span>
+
+              <span>카카오로 로그인</span>
+            </button>
+
+            {/* 네이버 */}
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href =
+                  "http://localhost:8001/api/v1/auth/naver/login";
+              }}
+              className="
+                relative flex h-12 w-full items-center justify-center
+                rounded-xl
+                bg-[#03C75A]
+                text-[14px] font-semibold text-white
+              "
+            >
+              <span
+                className="
+                  absolute left-4
+                  flex h-7 w-7 items-center justify-center
+                  rounded-md
+                  bg-white
+                  text-[17px] font-black leading-none
+                  text-[#03C75A]
+                "
+              >
+                N
+              </span>
+
+              <span>네이버로 로그인</span>
+            </button>
+
+            {/* Google */}
+            <button
+              type="button"
+              onClick={() => {
+                window.location.href =
+                  "http://localhost:8001/api/v1/auth/google/login";
+              }}
+              className="
+                relative flex h-12 w-full items-center justify-center
+                rounded-xl
+                border border-[#dadce0]
+                bg-white
+                text-[14px] font-semibold text-[#3c4043]
+              "
+            >
+              <span className="absolute left-4 flex h-7 w-7 items-center justify-center">
+                <svg
+                  width="21"
+                  height="21"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M21.805 12.23c0-.638-.057-1.252-.164-1.841H12v3.481h5.489a4.69 4.69 0 0 1-2.037 3.077v2.558h3.295c1.93-1.777 3.058-4.395 3.058-7.275Z"
+                    fill="#4285F4"
+                  />
+                  <path
+                    d="M12 22c2.754 0 5.064-.912 6.752-2.495l-3.295-2.558c-.913.612-2.077.973-3.457.973-2.658 0-4.91-1.796-5.719-4.209H2.875v2.641A10.2 10.2 0 0 0 12 22Z"
+                    fill="#34A853"
+                  />
+                  <path
+                    d="M6.281 13.711A6.13 6.13 0 0 1 5.96 12c0-.594.102-1.17.321-1.711V7.648H2.875A10 10 0 0 0 1.8 12c0 1.402.336 2.726.975 3.896l3.506-2.185Z"
+                    fill="#FBBC05"
+                  />
+                  <path
+                    d="M12 6.08c1.498 0 2.844.515 3.904 1.526l2.928-2.928C17.06 2.96 14.75 2 12 2a10.2 10.2 0 0 0-9.125 5.648l3.506 2.641C7.09 7.876 9.342 6.08 12 6.08Z"
+                    fill="#EA4335"
+                  />
+                </svg>
+              </span>
+
+              <span>Google로 로그인</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       </div>
     </AppModal>
   );
