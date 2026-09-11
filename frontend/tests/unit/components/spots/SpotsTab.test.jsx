@@ -87,15 +87,16 @@ describe("SpotsTab", () => {
     });
   });
 
-  it("searches for a place and registers the selected result", async () => {
+  it("searches from one character and registers the selected result", async () => {
     const setTimeoutSpy = vi.spyOn(window, "setTimeout");
     render(<SpotsTab />);
     fireEvent.click(screen.getByRole("button", { name: "나의 스팟 등록" }));
 
     fireEvent.change(screen.getByPlaceholderText("어디에서 발견했나요?"), {
-      target: { value: "첨성대" },
+      target: { value: "첨" },
     });
     fireEvent.click(await screen.findByRole("button", { name: /첨성대/ }));
+    expect(api.searchPlaces).toHaveBeenCalledWith("첨", expect.objectContaining({ signal: expect.any(AbortSignal) }));
     fireEvent.change(
       screen.getByPlaceholderText("경주에서 발견한 순간을 350자 이내로 남겨 보세요."),
       { target: { value: "고즈넉한 오후였습니다." } },
@@ -227,8 +228,7 @@ describe("SpotsTab", () => {
       "aria-pressed",
       "true",
     );
-    expect(await screen.findByText("오늘 00:00 기준")).toBeInTheDocument();
-    expect(await screen.findByText("1")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("1")).toBeInTheDocument());
   });
 
   it("reloads the list with the selected order", async () => {

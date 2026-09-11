@@ -1,9 +1,9 @@
 const VARIANT_CLASS = {
-  primary: "bg-[#bd8c31] text-white hover:bg-[#a67927]",
-  secondary: "bg-[#2d8c86] text-white hover:bg-[#24746f]",
-  outline: "border border-[#e2e4e0] bg-white text-[#343235] hover:bg-[#f1f4f2]",
-  ghost: "bg-transparent text-[#747579] hover:bg-[#eef2f0]",
-  danger: "bg-[#a8463d] text-white hover:bg-[#87352e]",
+  primary: "bg-brand text-white",
+  secondary: "bg-brand text-white",
+  outline: "border border-[#e2e4e0] bg-white text-[#343235]",
+  ghost: "bg-transparent text-[#747579]",
+  danger: "bg-[#a8463d] text-white",
 };
 
 const SIZE_CLASS = {
@@ -39,7 +39,7 @@ export function IconButton({ icon: Icon, label, className = "", ...props }) {
       type="button"
       aria-label={label}
       title={label}
-      className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2e4e0] bg-white text-[#343235] transition-colors hover:bg-[#f1f4f2] ${className}`}
+      className={`inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#e2e4e0] bg-white text-[#343235] transition-colors ${className}`}
       {...props}
     >
       <Icon size={18} />

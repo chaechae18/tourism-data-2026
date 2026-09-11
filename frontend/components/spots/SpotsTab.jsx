@@ -86,7 +86,7 @@ function SpotPhoto({
     );
   }
   return (
-    <div className={`flex items-center justify-center bg-[#fff1df] text-[#b8661c] ${className}`}>
+    <div className={`flex items-center justify-center bg-brand-soft text-[#b8661c] ${className}`}>
       <MapPin size={iconSize} />
     </div>
   );
@@ -103,7 +103,7 @@ function SpotCard({
   onReaction,
   spot,
   submittingComment,
-  className = "rounded-lg border border-[#e6ddd2] bg-white p-4",
+  className = "rounded-lg bg-white p-4",
   hidePhoto = false,
 }) {
   const { t } = useI18n();
@@ -116,9 +116,6 @@ function SpotCard({
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-[#8a7d71]">
               @{spot.authorNickname}
-            </span>
-            <span className="rounded-full bg-[#f2eee8] px-2 py-0.5 text-[10px] font-bold text-[#7c6d61]">
-              {spot.place.provider}
             </span>
           </div>
           <h2 className="mt-1 font-bold text-[#241b16]">{spot.place.name}</h2>
@@ -143,7 +140,7 @@ function SpotCard({
         <IconButton
           icon={Bookmark}
           label={t(spot.isBookmarked ? "spots.unbookmark" : "spots.bookmark")}
-          className={`h-9 w-9 border-0 ${spot.isBookmarked ? "bg-[#fff1df] text-[#a45118]" : "bg-transparent"}`}
+          className={`h-9 w-9 border-0 ${spot.isBookmarked ? "bg-brand-soft text-brand-ink" : "bg-transparent"}`}
           onClick={() => onReaction(spot, "bookmark")}
         />
         {spot.isOwner && (
@@ -165,7 +162,7 @@ function SpotCard({
                   @{item.authorNickname}
                 </span>
                 {item.moderationStatus === 0 && (
-                  <span className="text-[10px] font-bold text-[#a45118]">{t("spots.pending")}</span>
+                  <span className="text-[10px] font-bold text-brand-ink">{t("spots.pending")}</span>
                 )}
               </div>
               <p className="mt-1 text-sm text-[#5f5044]">{item.content}</p>
@@ -289,7 +286,7 @@ function DummyRankingCard({ rank }) {
       data-testid="ranking-placeholder"
       className="flex min-h-28 items-center gap-3 rounded-xl bg-white p-3 shadow-[0_3px_12px_rgba(52,50,53,0.06)]"
     >
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#bd8c31] text-sm font-black text-white">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-black text-white">
         {rank}
       </span>
       <div className="h-20 w-20 shrink-0 rounded-lg bg-[#f1eee9]" />
@@ -367,7 +364,7 @@ export default function SpotsTab() {
 
   useEffect(() => {
     const keyword = query.trim();
-    if (selectedPlace?.name === keyword || keyword.length < 2) {
+    if (selectedPlace?.name === keyword || !keyword) {
       setSearchResults([]);
       setSearching(false);
       setErrors((current) => ({ ...current, search: "" }));
@@ -587,9 +584,9 @@ export default function SpotsTab() {
   };
 
   return (
-    <section>
-      <SectionHeading className="mb-2" eyebrow="Spot sharing" title={t("spots.title")} />
-      <nav className="sticky top-0 z-20 -mx-4 bg-[#f7f7f5]/95 px-4 py-1 backdrop-blur" aria-label={t("spots.navLabel")}>
+    <section className={activeView === "ranking" ? "flex min-h-0 flex-1 flex-col" : "min-h-0 flex-1 overflow-y-auto pb-6"}>
+      <h1 className="mb-3 shrink-0 text-lg font-semibold text-[#343235]">{t("spots.title")}</h1>
+      <nav className="sticky top-0 z-20 -mx-4 shrink-0 bg-[#f7f7f5]/95 px-4 py-1 backdrop-blur" aria-label={t("spots.navLabel")}>
         <div className="grid grid-cols-3 gap-2">
           {[
             { id: "ranking", label: t("spots.ranking"), icon: Trophy },
@@ -614,19 +611,14 @@ export default function SpotsTab() {
         </div>
       </nav>
 
-      <div data-testid="ranking-section" className={`mt-5 ${activeView === "ranking" ? "" : "hidden"}`}>
-        <SectionHeading
-          className={errors.ranking ? "mb-2" : "mb-4"}
-          title={t("spots.rankingTitle")}
-          action={<span className="text-xs font-bold text-[#8a7d71]">{t("spots.resetLabel")}</span>}
-        />
+      <div data-testid="ranking-section" className={`mt-5 ${activeView === "ranking" ? "flex min-h-0 flex-1 flex-col" : "hidden"}`}>
         {errors.ranking && (
-          <p className="mb-3 text-sm font-bold text-[#a45118]">{errors.ranking}</p>
+          <p className="mb-3 shrink-0 text-sm font-bold text-brand-ink">{errors.ranking}</p>
         )}
-        <div className="max-h-[520px] space-y-3 overflow-y-auto pr-1">
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-2 pb-4 pt-2">
           {rankingSpots.length > 0 ? rankingSpots.map((spot) => (
             <div key={spot.id} className="relative">
-              <span className="absolute -left-2 -top-2 z-10 flex h-8 min-w-8 items-center justify-center rounded-full bg-[#bd8c31] px-2 text-sm font-black text-white shadow-md">
+              <span className="absolute -left-2 -top-2 z-10 flex h-8 min-w-8 items-center justify-center rounded-full bg-brand px-2 text-sm font-black text-white shadow-md">
                 {spot.rank}
               </span>
               <SpotCard
@@ -654,7 +646,7 @@ export default function SpotsTab() {
             {t("spots.searchLabel")}
           </label>
           {errors.search && (
-            <p className="mb-2 text-sm font-bold text-[#a45118]">{errors.search}</p>
+            <p className="mb-2 text-sm font-bold text-brand-ink">{errors.search}</p>
           )}
           <div className="relative">
             <Search size={17} className="absolute left-3 top-3 text-[#8a7d71]" />
@@ -666,7 +658,7 @@ export default function SpotsTab() {
                 setSelectedPlace(null);
                 setNearbyResults([]);
               }}
-              className="h-11 w-full rounded-lg border border-[#d9cfc2] pl-10 pr-9 text-sm outline-none focus:border-[#b8661c]"
+              className="h-11 w-full rounded-lg border-0 bg-white pl-10 pr-9 text-sm outline-none focus:bg-brand-soft"
               placeholder={t("spots.locationPlaceholder")}
             />
             {searching && (
@@ -678,6 +670,7 @@ export default function SpotsTab() {
         <div className="mt-2 flex items-center gap-3">
           <AppButton
             icon={LocateFixed}
+            className="!border-0"
             size="sm"
             variant="outline"
             disabled={locating}
@@ -696,13 +689,13 @@ export default function SpotsTab() {
         )}
 
         {placeResults.length > 0 && (
-          <div className="mt-2 max-h-64 overflow-y-auto rounded-lg border border-[#e6ddd2] bg-white shadow-lg">
+          <div className="mt-2 max-h-64 overflow-y-auto rounded-lg bg-white shadow-lg">
             {placeResults.map((place) => (
               <button
                 key={`${place.provider}-${place.id}`}
                 type="button"
                 onClick={() => selectPlace(place)}
-                className="flex w-full items-start gap-3 border-b border-[#f0e8de] px-3 py-3 text-left last:border-0 hover:bg-[#fffaf4]"
+                className="flex w-full items-start gap-3 px-3 py-3 text-left"
               >
                 <MapPin size={17} className="mt-0.5 shrink-0 text-[#b8661c]" />
                 <span className="min-w-0">
@@ -711,21 +704,18 @@ export default function SpotsTab() {
                     {place.roadAddress || place.address}
                   </span>
                 </span>
-                <span className="ml-auto shrink-0 text-right text-[10px] font-bold text-[#8a7d71]">
-                  {formatDistance(place.distance) && (
-                    <span className="block text-[#b8661c]">
-                      {formatDistance(place.distance)}
-                    </span>
-                  )}
-                  {place.provider}
-                </span>
+                {formatDistance(place.distance) && (
+                  <span className="ml-auto shrink-0 text-right text-[10px] font-bold text-brand-ink">
+                    {formatDistance(place.distance)}
+                  </span>
+                )}
               </button>
             ))}
           </div>
         )}
 
         {selectedPlace && (
-          <div className="mt-3 flex items-start gap-2 rounded-lg bg-[#fff1df] p-3">
+          <div className="mt-3 flex items-start gap-2 rounded-lg bg-brand-soft p-3">
             <MapPin size={17} className="mt-0.5 shrink-0 text-[#b8661c]" />
             <div className="min-w-0">
               <p className="font-bold text-[#241b16]">{selectedPlace.name}</p>
@@ -738,7 +728,7 @@ export default function SpotsTab() {
 
         <div className="mt-3">
           <span className="mb-1.5 block text-sm font-bold text-[#241b16]">{t("spots.photo")}</span>
-          <label className="flex h-11 cursor-pointer items-center gap-2 rounded-lg border border-[#d9cfc2] px-3 text-sm text-[#6f6256]">
+          <label className="flex h-11 cursor-pointer items-center gap-2 rounded-lg bg-white px-3 text-sm text-[#6f6256]">
             <ImagePlus size={17} />
             <span className="truncate">{photoFile?.name || t("spots.choosePhoto")}</span>
             <input
@@ -750,28 +740,34 @@ export default function SpotsTab() {
           </label>
         </div>
 
-        <label className="mt-3 block">
-          <span className="mb-1.5 block text-sm font-bold text-[#241b16]">{t("spots.review")}</span>
-          <textarea
-            value={review}
-            maxLength={SPOT_REVIEW_LIMIT}
-            onChange={(event) => setReview(event.target.value)}
-            className="min-h-28 w-full resize-none rounded-lg border border-[#d9cfc2] p-3 text-sm leading-6 outline-none focus:border-[#b8661c]"
-            placeholder={t("spots.reviewPlaceholder")}
-          />
-          <span className="mt-1 block text-right text-xs text-[#8a7d71]">
-            {review.length} / {SPOT_REVIEW_LIMIT}
-          </span>
-        </label>
-        <AppButton
-          className="mt-3"
-          icon={Send}
-          disabled={submitting}
-          onClick={shareSpot}
-        >
-          {t(submitting ? "spots.submitting" : "spots.share")}
-        </AppButton>
-        {notice && <p className="mt-3 text-sm font-bold text-[#a45118]">{notice}</p>}
+        <div className="mt-3">
+          <label htmlFor="spot-review" className="mb-1.5 block text-sm font-bold text-[#241b16]">{t("spots.review")}</label>
+          <div className="overflow-hidden rounded-lg bg-white focus-within:bg-brand-soft">
+            <textarea
+              id="spot-review"
+              aria-describedby="spot-review-count"
+              value={review}
+              maxLength={SPOT_REVIEW_LIMIT}
+              onChange={(event) => setReview(event.target.value)}
+              className="block min-h-28 w-full resize-none border-0 bg-transparent p-3 text-sm leading-6 outline-none"
+              placeholder={t("spots.reviewPlaceholder")}
+            />
+            <div className="flex items-center justify-between gap-3 px-3 pb-3">
+              <span id="spot-review-count" className="text-xs text-[#8a7d71]">
+                {review.length}/{SPOT_REVIEW_LIMIT}
+              </span>
+              <AppButton
+                size="sm"
+                icon={Send}
+                disabled={submitting}
+                onClick={shareSpot}
+              >
+                {t(submitting ? "spots.submitting" : "spots.share")}
+              </AppButton>
+            </div>
+          </div>
+        </div>
+        {notice && <p className="mt-3 text-sm font-bold text-brand-ink">{notice}</p>}
       </div>
 
       <div data-testid="spot-section" className={`mt-5 ${activeView === "list" ? "" : "hidden"}`}>
@@ -794,7 +790,7 @@ export default function SpotsTab() {
           )}
         />
         {errors.list && (
-          <p className="mb-3 text-sm font-bold text-[#a45118]">{errors.list}</p>
+          <p className="mb-3 text-sm font-bold text-brand-ink">{errors.list}</p>
         )}
         {publicSpots.length > 0 ? (
           <div
@@ -820,7 +816,7 @@ export default function SpotsTab() {
 
       <div className={`mt-7 ${activeView === "create" ? "" : "hidden"}`}>
         <SectionHeading className={errors.my ? "mb-2" : "mb-4"} title={t("spots.mineTitle")} />
-        {errors.my && <p className="mb-3 text-sm font-bold text-[#a45118]">{errors.my}</p>}
+        {errors.my && <p className="mb-3 text-sm font-bold text-brand-ink">{errors.my}</p>}
         <div className="space-y-2">
           {mySpots.map((spot) => (
             <div key={spot.id} className="flex items-center gap-3 rounded-lg border border-[#e6ddd2] bg-white p-3">
@@ -828,7 +824,7 @@ export default function SpotsTab() {
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <p className="truncate font-bold text-[#241b16]">{spot.place.name}</p>
-                  <span className="shrink-0 text-[10px] font-bold text-[#a45118]">
+                  <span className="shrink-0 text-[10px] font-bold text-brand-ink">
                     {t(`spots.${MODERATION_KEY[spot.moderationStatus]}`)}
                   </span>
                 </div>
