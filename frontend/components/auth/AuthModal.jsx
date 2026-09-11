@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Calendar, Check, LockKeyhole, Mail, UserRound } from "lucide-react";
+import { Calendar, Check, LockKeyhole, LogIn, Mail, UserRound } from "lucide-react";
 import Select from "react-select";
 import countryList from "react-select-country-list";
 import { LANGUAGE_LOCALES } from "../../lib/i18n";
@@ -201,7 +201,7 @@ export default function AuthModal({ mode, onClose, onComplete, onAuth }) {
               <button
                 type="button"
                 onClick={checkId}
-                className="shrink-0 whitespace-nowrap rounded-md bg-[#343235] px-3 py-2 text-xs font-semibold text-white hover:opacity-90"
+                className="shrink-0 whitespace-nowrap rounded-md bg-[#343235] px-3 py-2 text-xs font-semibold text-white"
               >
                 중복확인
               </button>
@@ -404,7 +404,7 @@ export default function AuthModal({ mode, onClose, onComplete, onAuth }) {
                 onChange={(event) =>
                   setConsented(event.target.checked)
                 }
-                className="mt-0.5 h-4 w-4 accent-[#bd8c31]"
+                className="mt-0.5 h-4 w-4 accent-brand"
               />
 
               <span>{t("auth.consent")}</span>
@@ -417,7 +417,7 @@ export default function AuthModal({ mode, onClose, onComplete, onAuth }) {
           type="button"
           className="w-full"
           disabled={isSignup && !consented}
-          icon={Check}
+          icon={isSignup ? Check : LogIn}
           onClick={complete}
         >
           {submitLabel}

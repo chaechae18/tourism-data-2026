@@ -1,10 +1,8 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { useState } from "react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { vi } from "vitest";
+import { DONGGYEONG_ITEMS, getRoleOutfit } from "../../../../lib/donggyeong/role-outfit";
 import { QUESTS } from "../../../../lib/app-data";
-
-const api = vi.hoisted(() => ({
-  listDonggyeongItems: vi.fn(),
-}));
 
 vi.mock("../../../../components/donggyeong/Donggyeong3D", () => ({
   default: ({ items }) => (
@@ -15,7 +13,6 @@ vi.mock("../../../../components/donggyeong/Donggyeong3D", () => ({
   ),
 }));
 
-vi.mock("../../../../lib/api/donggyeong", () => api);
 
 import MyDGTab from "../../../../components/my-dg/MyDGTab";
 
@@ -28,23 +25,10 @@ const PROPS = {
 };
 
 describe("MyDGTab", () => {
-  beforeEach(() => {
-    api.listDonggyeongItems.mockResolvedValue([]);
-  });
-
   it("shows the correct Donggyeong number", () => {
     render(<MyDGTab {...PROPS} />);
 
     expect(screen.getByText("540 · 내 동경이")).toBeInTheDocument();
-  });
-
-  it("equips the selected inventory item", () => {
-    const setOutfit = vi.fn();
-    render(<MyDGTab {...PROPS} setOutfit={setOutfit} />);
-
-    fireEvent.click(screen.getByRole("button", { name: "금관" }));
-
-    expect(setOutfit).toHaveBeenCalledOnce();
   });
 
   it("renders item graphics without font-dependent symbol glyphs", () => {
@@ -54,29 +38,46 @@ describe("MyDGTab", () => {
     expect(screen.queryByText("✿")).not.toBeInTheDocument();
   });
 
-  it("repairs and deduplicates legacy mojibake item names", async () => {
-    api.listDonggyeongItems.mockResolvedValue([
-      { id: 1, name: "ê¸ˆê´€", slot: "hat", modelUrl: null },
-      { id: 6, name: "금관", slot: "hat", modelUrl: "/models/donggyeong/items/crown.glb" },
-    ]);
-
-    render(<MyDGTab {...PROPS} />);
-
-    expect(await screen.findByRole("button", { name: "금관" })).toHaveAttribute(
-      "data-model-url",
-      "/models/donggyeong/items/crown.glb",
-    );
-    expect(screen.getAllByRole("button", { name: "금관" })).toHaveLength(1);
-    expect(screen.queryByText("ê¸ˆê´€")).not.toBeInTheDocument();
+  it("passes a complete five-slot role outfit to the viewer", () => {
+    render(<MyDGTab {...PROPS} outfit={getRoleOutfit("hwarang")} />);
+    const urls = screen.getByTestId("donggyeong-stub").getAttribute("data-model-urls").split(",");
+    expect(urls).toHaveLength(5);
+    expect(urls.every((url) => url.includes("/warrior/") && url.includes("?v="))).toBe(true);
   });
 
-  it("passes equipped item models to the 3D viewer", () => {
-    render(<MyDGTab {...PROPS} outfit={{ hat: "crown", hand: "camera" }} />);
+  it("equips and removes an owned item without changing the other slots", () => {
+    function Wardrobe() {
+      const [outfit, setOutfit] = useState(getRoleOutfit("king"));
+      return <MyDGTab {...PROPS} availableItems={DONGGYEONG_ITEMS} outfit={outfit} setOutfit={setOutfit} />;
+    }
+    render(<Wardrobe />);
+    const hat = DONGGYEONG_ITEMS.find((item) => item.id === "warrior_hat");
+    const hand = DONGGYEONG_ITEMS.find((item) => item.id === "king_hand");
 
-    expect(screen.getByTestId("donggyeong-stub")).toHaveAttribute(
-      "data-model-urls",
-      "/models/donggyeong/items/crown.glb,/models/donggyeong/items/camera.glb",
-    );
+    fireEvent.click(screen.getByRole("button", { name: "머리" }));
+    const dialog = screen.getByRole("dialog", { name: "머리" });
+    expect(within(dialog).queryByText(hand.name)).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: hat.name }));
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("donggyeong-stub")).toHaveAttribute("data-model-urls", expect.stringContaining(hat.modelUrl));
+    expect(screen.getByTestId("donggyeong-stub")).toHaveAttribute("data-model-urls", expect.stringContaining(hand.modelUrl));
+
+    fireEvent.click(screen.getByRole("button", { name: "머리" }));
+    expect(screen.getByRole("button", { name: hat.name })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "착용 해제" }));
+    expect(screen.getByTestId("donggyeong-stub").getAttribute("data-model-urls")).not.toContain(hat.modelUrl);
+    expect(screen.getByTestId("donggyeong-stub")).toHaveAttribute("data-model-urls", expect.stringContaining(hand.modelUrl));
+  });
+
+  it("does not offer unowned items and leaves the outfit unchanged when closed", () => {
+    const setOutfit = vi.fn();
+    render(<MyDGTab {...PROPS} setOutfit={setOutfit} />);
+    fireEvent.click(screen.getByRole("button", { name: "머리" }));
+    expect(screen.getByText("획득한 아이템이 없어요")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "신라 금관" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "닫기" }));
+    expect(setOutfit).not.toHaveBeenCalled();
   });
 
   it("opens the selected quest on the map", () => {

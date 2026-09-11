@@ -112,7 +112,7 @@ export default function DocentPlayer({ onClose, place }) {
               aria-label={`${SKIP_SECONDS}초 뒤로`}
               onClick={() => skip(-SKIP_SECONDS)}
               disabled={!ready}
-              className="flex h-11 w-11 items-center justify-center rounded-full text-[#626762] transition-colors hover:bg-[#f1f4f2] disabled:opacity-40"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-[#626762] transition-colors disabled:opacity-40"
             >
               <RotateCcw size={20} />
             </button>
@@ -121,7 +121,7 @@ export default function DocentPlayer({ onClose, place }) {
               aria-label={playing ? "일시정지" : "도슨트 재생"}
               onClick={togglePlay}
               disabled={!ready}
-              className="flex h-16 w-16 items-center justify-center rounded-full bg-[#bd8c31] text-white shadow-[0_8px_20px_rgba(189,140,49,0.35)] transition-colors hover:bg-[#a67927] disabled:opacity-45"
+              className="flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white shadow-[0_8px_20px_rgb(var(--color-brand)/0.35)] transition-colors disabled:opacity-45"
             >
               {playing ? <Pause size={26} /> : <Play size={26} className="ml-0.5" />}
             </button>
@@ -130,7 +130,7 @@ export default function DocentPlayer({ onClose, place }) {
               aria-label={`${SKIP_SECONDS}초 앞으로`}
               onClick={() => skip(SKIP_SECONDS)}
               disabled={!ready}
-              className="flex h-11 w-11 items-center justify-center rounded-full text-[#626762] transition-colors hover:bg-[#f1f4f2] disabled:opacity-40"
+              className="flex h-11 w-11 items-center justify-center rounded-full text-[#626762] transition-colors disabled:opacity-40"
             >
               <RotateCw size={20} />
             </button>
@@ -148,7 +148,7 @@ export default function DocentPlayer({ onClose, place }) {
               value={currentTime}
               onChange={seek}
               disabled={!ready}
-              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-[#e5e2d7] accent-[#bd8c31] disabled:opacity-50"
+              className="h-1.5 flex-1 cursor-pointer appearance-none rounded-full bg-[#e5e2d7] accent-brand disabled:opacity-50"
             />
             <span className="w-9 text-[11px] font-semibold tabular-nums text-[#8a8d89]">{formatTime(duration)}</span>
           </div>

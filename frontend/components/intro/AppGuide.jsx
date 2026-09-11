@@ -5,8 +5,8 @@ import AppButton from "../ui/AppButton";
 
 // tab 은 BottomNavigation 의 NAV_ITEMS id, key 는 i18n 의 guide 키. 안내가 진행되면 실제 탭이 같이 넘어간다.
 const GUIDE_STEPS = [
-  { key: "home", tab: "home", icon: Home, accent: "#2d8c86", tint: "#e4f1ef" },
-  { key: "donggyeong", tab: "my-dg", icon: PawPrint, accent: "#bd8c31", tint: "#faf1de" },
+  { key: "home", tab: "home", icon: Home, accent: "rgb(var(--color-brand))", tint: "rgb(var(--color-brand-soft))" },
+  { key: "donggyeong", tab: "my-dg", icon: PawPrint, accent: "rgb(var(--color-brand))", tint: "rgb(var(--color-brand-soft))" },
   { key: "map", tab: "map", icon: Map, accent: "#2d6a8c", tint: "#e8f1f6" },
   { key: "spots", tab: "spots", icon: Sparkles, accent: "#a8557f", tint: "#f8eaf1" },
   { key: "my", tab: "my-page", icon: UserRound, accent: "#4f7a5c", tint: "#e9f2eb" },
@@ -39,7 +39,7 @@ export default function AppGuide({ onDone, onTabChange }) {
 
           {index === 0 && (
             <p className="mt-3 flex items-start gap-2 rounded-xl bg-[#f4f6f3] px-3 py-2 text-[11px] leading-[17px] text-[#5f6560]">
-              <Bell size={13} className="mt-0.5 shrink-0 text-[#bd8c31]" />
+              <Bell size={13} className="mt-0.5 shrink-0 text-brand" />
               <span>{t("guide.notification")}</span>
             </p>
           )}
