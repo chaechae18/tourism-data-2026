@@ -14,3 +14,6 @@ backend/data/*.db-*
 backend/uploads/*
 __pycache__/
 .pytest_cache/
+
+# Generated from the installed MapLibre package
+/frontend/public/maplibre/
