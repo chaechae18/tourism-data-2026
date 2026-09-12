@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BookOpen, Check, ChevronRight, Globe2, MapPin, Pencil, ShieldCheck } from "lucide-react";
 import { LANGUAGES, PROFILE_MENU, QUESTS } from "../../lib/app-data";
 import { createTranslator } from "../../lib/i18n";
@@ -8,7 +8,7 @@ import SectionHeading from "../ui/SectionHeading";
 import VisitedPlaces from "./VisitedPlaces";
 import PersonalInfoEdit from "./PersonalInfoEdit";
 
-export default function MyPageTab({ completedQuestIds, onLogout, onNotice, onOpenGuide, user, setUser }) {
+export default function MyPageTab({ completedQuestIds, onLogout, onNotice, onOpenGuide, user, setUser, onWithdraw }) {
   const { changeLanguage, language: currentLanguage, saving, t } = useI18n();
   const [nickname, setNickname] = useState(user.nickname);
   const [showPersonalInfo, setShowPersonalInfo] = useState(false);
@@ -52,31 +52,31 @@ export default function MyPageTab({ completedQuestIds, onLogout, onNotice, onOpe
     <section className="space-y-8">
       <SectionHeading eyebrow="My page" title={t("myPage.title")} />
 
-      <button 
-        type="button" 
-        onClick={() => setShowVisitedPlaces(true)} 
-        className="flex w-full items-center justify-between rounded-2xl border border-[#e2e4e0] bg-white p-4 text-left shadow-sm transition-colors duration-200 hover:bg-[#faf9f6]" 
+      <button
+        type="button"
+        onClick={() => setShowVisitedPlaces(true)}
+        className="flex w-full items-center justify-between rounded-2xl border border-[#e2e4e0] bg-white p-4 text-left shadow-sm transition-colors duration-200 hover:bg-[#faf9f6]}"
       >
-        <div className="flex items-center gap-3"> 
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f4f1e9] text-[#bd8c31]"> 
-            <MapPin size={20} /> 
-          </div> 
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f4f1e9] text-[#bd8c31]">
+            <MapPin size={20} />
+          </div>
 
-          <div> 
-            <p className="text-sm font-bold text-[#343235]"> 
-              내가 다녀간 장소 
-            </p> 
+          <div>
+            <p className="text-sm font-bold text-[#343235]">
+              {t("myPage.visited")}
+            </p>
 
-            <p className="mt-1 text-xs text-[#747579]"> 
-              방문한 경주 명소를 확인해보세요. 
-            </p> 
-          </div> 
-        </div> 
+            <p className="mt-1 text-xs text-[#747579]">
+              {t("myPage.visitedDescription")}
+            </p>
+          </div>
+        </div>
 
-        <ChevronRight 
-          size={19} 
-          className="text-[#a0a1a3]" 
-        /> 
+        <ChevronRight
+          size={19}
+          className="text-[#a0a1a3]"
+        />
       </button>
       <div>
         <p className="mb-3 text-sm font-bold text-[#241b16]">
@@ -123,7 +123,7 @@ export default function MyPageTab({ completedQuestIds, onLogout, onNotice, onOpe
                   }
 
                   if (item.id === "withdraw") {
-                    onLogout();
+                    onWithdraw?.();
                     return;
                   }
 

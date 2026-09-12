@@ -1,6 +1,12 @@
-import { ChevronLeft, Mail, User, Globe2, CalendarDays, Camera } from "lucide-react";
+import {
+  ChevronLeft,
+  Mail,
+  User,
+  Globe2,
+  CalendarDays,
+} from "lucide-react";
 import { useState } from "react";
-
+import { useI18n } from "../i18n/LanguageProvider";
 import AppButton from "../ui/AppButton";
 
 export default function PersonalInfoEdit({
@@ -9,247 +15,385 @@ export default function PersonalInfoEdit({
   onClose,
   onNotice,
 }) {
+  const { t } = useI18n();
   const [nickname, setNickname] = useState(user?.nickname ?? "");
   const [country, setCountry] = useState(user?.country ?? "");
   const [birthDate, setBirthDate] = useState(user?.birthDate ?? "");
   const [email, setEmail] = useState(user?.email ?? "");
-  const [profileImage, setProfileImage] = useState(
-    user?.profileImage ?? ""
-  );
 
-  const handleSave = () => {
-    setUser((current) => ({
-      ...current,
-      nickname: nickname.trim() || current.nickname,
-      country: country.trim(),
-      birthDate: birthDate || null,
-      email: email.trim() || current.email,
-      profileImage,
-    }));
+  const handleSave = async () => {
+    try {
+      const updateData = {
+        nickname: nickname.trim(),
+        country: country.trim(),
+        birthDate: birthDate || null,
+        email: email.trim(),
+      };
 
-    onNotice?.("개인정보가 수정되었습니다.");
+      const response = await fetch(
+        "http://localhost:8001/api/v1/auth/update-user",
+        {
+          method: "PUT",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updateData),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("개인정보 수정에 실패했습니다.");
+      }
+
+      const data = await response.json();
+
+      setUser((current) => ({
+        ...current,
+        ...(data?.user ?? updateData),
+      }));
+
+      onNotice?.(t("myPage.personalInfo.updated"));
+      onClose?.();
+    } catch (error) {
+      console.error("개인정보 수정 실패:", error);
+      onNotice?.(
+        error.message || t("myPage.personalInfo.updateFailed")
+      );
+    }
   };
 
   return (
-    <section className="space-y-7 pb-6">
-
+    <section className="space-y-6 pb-8">
       {/* 헤더 */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center border-b border-[#eee9e1] pb-5">
+        {/* 뒤로가기 */}
         <button
           type="button"
           onClick={onClose}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e2e4e0] bg-white text-[#55565a] transition-colors hover:bg-[#faf9f6]"
+          className="
+            flex h-10 w-10 shrink-0
+            items-center justify-center
+            rounded-xl
+            border border-[#e8e2d8]
+            bg-white
+            text-[#66615b]
+            shadow-[0_2px_8px_rgba(70,55,35,0.04)]
+            transition-all
+            hover:bg-[#faf7f2]
+            hover:shadow-[0_3px_10px_rgba(70,55,35,0.07)]
+          "
           aria-label="뒤로가기"
         >
           <ChevronLeft size={19} />
         </button>
 
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#bd8c31]">
+        {/* 제목 */}
+        <div className="ml-4">
+          <p
+            className="
+              text-[10px]
+              font-bold
+              uppercase
+              tracking-[0.2em]
+              text-[#bd8c31]
+            "
+          >
             PROFILE
           </p>
 
-          <h2 className="mt-0.5 text-xl font-bold text-[#343235]">
-            개인정보 수정
+          <h2
+            className="
+              mt-1
+              text-[20px]
+              font-bold
+              tracking-[-0.02em]
+              text-[#343235]
+            "
+          >
+             {t("myPage.personalInfo.title")}
           </h2>
+
+          <p className="mt-1 text-[11px] text-[#969087]">
+            {t("myPage.personalInfo.places")}
+          </p>
         </div>
       </div>
 
+      {/* 기본 정보 카드 */}
+      <div
+        className="
+          overflow-hidden
+          rounded-2xl
+          border border-[#ebe5dc]
+          bg-white
+          shadow-[0_5px_20px_rgba(70,55,35,0.05)]
+        "
+      >
+        {/* 카드 제목 */}
+        <div className="border-b border-[#f0ece6] px-5 py-4">
+          <div className="flex items-center gap-2">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#bd8c31]" />
 
-      {/* 프로필 이미지 */}
-      <div className="rounded-2xl border border-[#e2e4e0] bg-white p-5 shadow-sm">
-        <div className="flex items-center gap-4">
+            <h3 className="text-[13px] font-bold text-[#45413d]">
+              {t("myPage.personalInfo.basicInfo")}
+            </h3>
+          </div>
+        </div>
 
-          <div className="relative shrink-0">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-[#fff1df] text-[#a45118]">
-              {profileImage ? (
-                <img
-                  src={profileImage}
-                  alt="프로필 이미지"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <User size={30} />
-              )}
-            </div>
-
+        {/* 입력 영역 */}
+        <div className="space-y-5 px-5 py-5">
+          {/* 닉네임 */}
+          <div>
             <label
-              htmlFor="profile-image"
-              className="absolute bottom-0 right-0 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-[#bd8c31] text-white shadow-sm"
+              className="
+                mb-2
+                flex
+                items-center
+                gap-1.5
+                text-[12px]
+                font-semibold
+                text-[#55514c]
+              "
             >
-              <Camera size={13} />
+              <User
+                size={14}
+                className="text-[#bd8c31]"
+              />
+              {t("myPage.personalInfo.nickname")}
             </label>
 
             <input
-              id="profile-image"
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-
-                if (!file) return;
-
-                const imageUrl = URL.createObjectURL(file);
-                setProfileImage(imageUrl);
-              }}
-            />
-          </div>
-
-          <div className="min-w-0">
-            <p className="text-sm font-bold text-[#343235]">
-              프로필 사진
-            </p>
-
-            <p className="mt-1 text-xs leading-5 text-[#8a8b8d]">
-              여행 기록에 표시되는 프로필 사진을
-              <br />
-              변경할 수 있어요.
-            </p>
-          </div>
-
-        </div>
-      </div>
-
-
-      {/* 기본 정보 */}
-      <div className="space-y-5">
-
-        {/* 닉네임 */}
-        <div>
-          <label
-            htmlFor="nickname"
-            className="mb-2 block text-sm font-bold text-[#343235]"
-          >
-            닉네임
-          </label>
-
-          <div className="relative">
-            <User
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a0a1a3]"
-            />
-
-            <input
-              id="nickname"
               type="text"
               value={nickname}
-              onChange={(event) => setNickname(event.target.value)}
-              className="h-12 w-full rounded-xl border border-[#d9d1c7] bg-white pl-10 pr-3 text-sm text-[#343235] outline-none transition-colors focus:border-[#bd8c31]"
-              placeholder="닉네임을 입력해주세요"
+              onChange={(e) => setNickname(e.target.value)}
+              className="
+                h-[50px]
+                w-full
+                rounded-xl
+                border border-[#e6e1d9]
+                bg-[#fcfbf9]
+                px-4
+                text-[13px]
+                text-[#393633]
+                outline-none
+                transition-all
+                placeholder:text-[#b5afa7]
+                hover:border-[#d8d0c4]
+                focus:border-[#c9a15a]
+                focus:bg-white
+                focus:ring-4
+                focus:ring-[#bd8c31]/10
+              "
+              placeholder={t("myPage.personalInfo.emailPlaceholder")}
             />
           </div>
-        </div>
 
-
-        {/* 이메일 */}
-        <div>
-          <label
-            htmlFor="email"
-            className="mb-2 block text-sm font-bold text-[#343235]"
-          >
-            이메일
-          </label>
-
-          <div className="relative">
-            <Mail
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a0a1a3]"
-            />
+          {/* 이메일 */}
+          <div>
+            <label
+              className="
+                mb-2
+                flex
+                items-center
+                gap-1.5
+                text-[12px]
+                font-semibold
+                text-[#55514c]
+              "
+            >
+              <Mail
+                size={14}
+                className="text-[#bd8c31]"
+              />
+              {t("myPage.personalInfo.email")}
+            </label>
 
             <input
-              id="email"
               type="email"
               value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              className="h-12 w-full rounded-xl border border-[#d9d1c7] bg-white pl-10 pr-3 text-sm text-[#343235] outline-none transition-colors focus:border-[#bd8c31]"
-              placeholder="이메일을 입력해주세요"
+              onChange={(e) => setEmail(e.target.value)}
+              className="
+                h-[50px]
+                w-full
+                rounded-xl
+                border border-[#e6e1d9]
+                bg-[#fcfbf9]
+                px-4
+                text-[13px]
+                text-[#393633]
+                outline-none
+                transition-all
+                placeholder:text-[#b5afa7]
+                hover:border-[#d8d0c4]
+                focus:border-[#c9a15a]
+                focus:bg-white
+                focus:ring-4
+                focus:ring-[#bd8c31]/10
+              "
+              placeholder={t('myPage.personalInfo.emailPlaceholder')}
             />
           </div>
-        </div>
 
-
-        {/* 국가 */}
-        <div>
-          <label
-            htmlFor="country"
-            className="mb-2 block text-sm font-bold text-[#343235]"
-          >
-            국가
-          </label>
-
-          <div className="relative">
-            <Globe2
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a0a1a3]"
-            />
+          {/* 국가 */}
+          <div>
+            <label
+              className="
+                mb-2
+                flex
+                items-center
+                gap-1.5
+                text-[12px]
+                font-semibold
+                text-[#55514c]
+              "
+            >
+              <Globe2
+                size={14}
+                className="text-[#bd8c31]"
+              />
+              {t("myPage.personalInfo.country")}
+            </label>
 
             <input
-              id="country"
               type="text"
               value={country}
-              onChange={(event) => setCountry(event.target.value)}
-              className="h-12 w-full rounded-xl border border-[#d9d1c7] bg-white pl-10 pr-3 text-sm text-[#343235] outline-none transition-colors focus:border-[#bd8c31]"
-              placeholder="예: KR"
-              maxLength={10}
+              onChange={(e) => setCountry(e.target.value)}
+              className="
+                h-[50px]
+                w-full
+                rounded-xl
+                border border-[#e6e1d9]
+                bg-[#fcfbf9]
+                px-4
+                text-[13px]
+                text-[#393633]
+                outline-none
+                transition-all
+                placeholder:text-[#b5afa7]
+                hover:border-[#d8d0c4]
+                focus:border-[#c9a15a]
+                focus:bg-white
+                focus:ring-4
+                focus:ring-[#bd8c31]/10
+              "
+              placeholder={t('myPage.personalInfo.countryPlaceholder')}
             />
           </div>
 
-          <p className="mt-1.5 text-[11px] text-[#9a9b9d]">
-            국가 코드를 입력해주세요. 예: KR, JP, US
-          </p>
-        </div>
-
-
-        {/* 생년월일 */}
-        <div>
-          <label
-            htmlFor="birth-date"
-            className="mb-2 block text-sm font-bold text-[#343235]"
-          >
-            생년월일
-          </label>
-
-          <div className="relative">
-            <CalendarDays
-              size={18}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[#a0a1a3]"
-            />
+          {/* 생년월일 */}
+          <div>
+            <label
+              className="
+                mb-2
+                flex
+                items-center
+                gap-1.5
+                text-[12px]
+                font-semibold
+                text-[#55514c]
+              "
+            >
+              <CalendarDays
+                size={14}
+                className="text-[#bd8c31]"
+              />
+              {t("myPage.personalInfo.birthDate")}
+            </label>
 
             <input
-              id="birth-date"
               type="date"
               value={birthDate}
-              onChange={(event) => setBirthDate(event.target.value)}
-              className="h-12 w-full rounded-xl border border-[#d9d1c7] bg-white pl-10 pr-3 text-sm text-[#343235] outline-none transition-colors focus:border-[#bd8c31]"
+              onChange={(e) => setBirthDate(e.target.value)}
+              className="
+                h-[50px]
+                w-full
+                rounded-xl
+                border border-[#e6e1d9]
+                bg-[#fcfbf9]
+                px-4
+                text-[13px]
+                text-[#393633]
+                outline-none
+                transition-all
+                hover:border-[#d8d0c4]
+                focus:border-[#c9a15a]
+                focus:bg-white
+                focus:ring-4
+                focus:ring-[#bd8c31]/10
+              "
             />
           </div>
-
-          <p className="mt-1.5 text-[11px] text-[#9a9b9d]">
-            선택 입력 항목입니다.
-          </p>
         </div>
-
       </div>
-
 
       {/* 안내 */}
-      <div className="rounded-xl border border-[#e8dfd3] bg-[#fffaf4] px-4 py-3">
-        <p className="text-[11px] leading-5 text-[#8a8178]">
-          입력한 정보는 프로필과 여행 기록을 표시하는 데
-          사용됩니다.
-        </p>
+      <div
+        className="
+          rounded-2xl
+          border border-[#eadfce]
+          bg-gradient-to-r
+          from-[#fffaf3]
+          to-[#fdf8ef]
+          px-5
+          py-4
+        "
+      >
+        <div className="flex gap-3">
+          <div
+            className="
+              flex h-7 w-7
+              shrink-0
+              items-center
+              justify-center
+              rounded-full
+              bg-[#f3e4c9]
+              text-[11px]
+              font-bold
+              text-[#a87927]
+            "
+          >
+            i
+          </div>
+
+          <div>
+            <p className="text-[12px] font-semibold text-[#625b53]">
+              {t("myPage.personalInfo.noticeTitle")}
+            </p>
+
+            <p
+              className="
+                mt-1
+                text-[11px]
+                leading-5
+                text-[#958c82]
+              "
+            >
+              {t("myPage.personalInfo.noticeDescription")}
+            </p>
+          </div>
+        </div>
       </div>
 
-
-      {/* 저장 */}
+      {/* 저장 버튼 */}
       <AppButton
-        className="w-full"
+        className="
+          !h-[52px]
+          w-full
+          rounded-xl
+          !bg-[#bd8c31]
+          !text-white
+          font-semibold
+          shadow-[0_5px_14px_rgba(189,140,49,0.22)]
+          transition-all
+          hover:!bg-[#ad7d25]
+          hover:shadow-[0_7px_18px_rgba(189,140,49,0.28)]
+          active:scale-[0.98]
+        "
         onClick={handleSave}
       >
-        저장하기
+         {t("myPage.personalInfo.save")}
       </AppButton>
-
     </section>
   );
 }

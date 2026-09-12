@@ -5,7 +5,7 @@ import httpx
 from fastapi.responses import RedirectResponse
 import secrets
 from urllib.parse import urlencode
-from ..models.auth import SignupRequest, SignupResponse
+from ..models.auth import SignupRequest, SignupResponse, UpdateUserRequest
 from ..auth import (
     signup,
     login,
@@ -740,3 +740,193 @@ async def google_callback(
         url=frontend_url,
         status_code=302,
     )
+    
+
+# 회원정보 수정
+@router.put("/update-user")
+def update_user(
+    request: UpdateUserRequest,
+    http_request: Request,
+    database: pymysql.Connection = Depends(get_mysql),
+):
+    # 현재 로그인 사용자 확인
+    session_user = http_request.session.get("user")
+    user_no = session_user.get("user_no") if session_user else None
+
+    if not user_no:
+        raise HTTPException(
+            status_code=401,
+            detail="로그인이 필요합니다.",
+        )
+
+    # 회원정보 수정
+    with database.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE USERS
+            SET
+                NICKNAME = %s,
+                COUNTRY = %s,
+                BIRTH_DATE = %s,
+                EMAIL = %s
+            WHERE NO = %s
+              AND STATUS = 1
+              AND DELETED_AT IS NULL
+            """,
+            (
+                request.nickname,
+                request.country,
+                request.birth_date,
+                request.email,
+                user_no,
+            ),
+        )
+
+    database.commit()
+
+    # 수정된 사용자 정보 다시 조회
+    with database.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT
+                NO AS user_no,
+                ID AS user_id,
+                NICKNAME AS nickname,
+                EMAIL AS email,
+                COUNTRY AS country,
+                BIRTH_DATE AS birth_date,
+                PROFILE_IMAGE AS profile_image,
+                LANGUAGE_CODE AS language_code
+            FROM USERS
+            WHERE NO = %s
+              AND STATUS = 1
+              AND DELETED_AT IS NULL
+            LIMIT 1
+            """,
+            (user_no,),
+        )
+
+        user = cursor.fetchone()
+
+    if not user:
+        raise HTTPException(
+            status_code=404,
+            detail="사용자를 찾을 수 없습니다.",
+        )
+
+    # 세션 정보도 최신 정보로 변경
+    http_request.session["user"] = {
+        "user_no": user["user_no"],
+        "user_id": user["user_id"],
+        "nickname": user["nickname"],
+        "email": user["email"],
+        "country": user["country"],
+        "profile_image": user["profile_image"],
+        "language_code": user["language_code"],
+    }
+
+    return {
+        "message": "회원정보 수정 성공",
+        "user": user,
+    }
+    
+    
+    
+# 내가 방문한 장소 조회
+@router.get("/visit-place")
+def get_visit_places(
+    request: Request,
+    database: pymysql.Connection = Depends(get_mysql),
+):
+    # 현재 로그인 사용자 확인
+    session_user = request.session.get("user")
+    user_no = session_user.get("user_no") if session_user else None
+
+    if not user_no:
+        raise HTTPException(
+            status_code=401,
+            detail="로그인이 필요합니다.",
+        )
+
+    with database.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT DISTINCT
+                p.IDX AS place_idx,
+                p.NAME AS name,
+                p.TEXT AS text,
+                p.CONTENT AS content,
+                p.IMG AS img,
+                p.ADDRESS AS address,
+                p.LATITUDE AS latitude,
+                p.LONGITUDE AS longitude,
+                p.OPERATING_HOURS AS operating_hours,
+                p.ADMISSION_FEE AS admission_fee,
+                p.PARKING AS parking,
+                p.REST_DATE AS rest_date,
+                p.MENU AS menu,
+                p.CATEGORY_CODE AS category_code,
+                p.CATEGORY_MAIN AS category_main,
+                p.CATEGORY_SUB AS category_sub
+            FROM USER_CHARACTER uc
+            JOIN USER_QUEST uq
+                ON uq.USER_CHARACTER_IDX = uc.IDX
+            JOIN QUEST q
+                ON q.IDX = uq.QUEST_IDX
+            JOIN PLACE p
+                ON p.IDX = q.MAP_PLACE_IDX
+            WHERE uc.USER_NO = %s
+              AND uq.STATUS = 2
+            ORDER BY p.NAME
+            """,
+            (user_no,),
+        )
+
+        places = cursor.fetchall()
+
+    return {
+        "places": places,
+    }
+    
+@router.delete("/withdraw")
+def withdraw(
+    request: Request,
+    database: pymysql.Connection = Depends(get_mysql),
+):
+    session_user = request.session.get("user")
+    user_no = session_user.get("user_no") if session_user else None
+
+    if not user_no:
+        raise HTTPException(
+            status_code=401,
+            detail="로그인이 필요합니다.",
+        )
+
+    with database.cursor() as cursor:
+        cursor.execute(
+            """
+            UPDATE USERS
+            SET
+                STATUS = 0,
+                DELETED_AT = NOW(),
+                UPDATED_AT = NOW()
+            WHERE NO = %s
+              AND DELETED_AT IS NULL
+            """,
+            (user_no,),
+        )
+
+        if cursor.rowcount == 0:
+            raise HTTPException(
+                status_code=404,
+                detail="탈퇴할 사용자를 찾을 수 없습니다.",
+            )
+
+    database.commit()
+
+    # 세션 제거
+    request.session.clear()
+
+    return {
+        "message": "회원탈퇴가 완료되었습니다."
+    }
