@@ -230,7 +230,46 @@ export default function PlayGyeongju() {
     setAuthMode(null);
   }
 };
+  const handleWithdraw = async () => {
+  const confirmed = window.confirm(
+    "정말 회원탈퇴하시겠습니까?\n탈퇴한 계정은 복구할 수 없습니다."
+  );
 
+  if (!confirmed) return;
+
+  try {
+    const response = await fetch(
+      "http://localhost:8001/api/v1/auth/withdraw",
+      {
+        method: "DELETE",
+        credentials: "include",
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.detail || "회원탈퇴에 실패했습니다.");
+    }
+
+    alert("회원탈퇴가 완료되었습니다.");
+
+    // 로그아웃과 동일하게 프론트 상태 초기화
+    setEntered(false);
+    setUser(DEFAULT_USER);
+    setCompletedQuestIds([]);
+    setSelectedQuestId(INITIAL_SELECTED_QUEST_ID);
+    setOutfit({});
+    setNotificationVersion(0);
+    setCoursePlaces(null);
+    setCourseError("");
+    setAuthMode(null);
+
+  } catch (error) {
+    console.error("회원탈퇴 실패:", error);
+    alert(error.message || "회원탈퇴에 실패했습니다.");
+  }
+};
   const completeQuest = async (id) => {
     if (completedQuestIds.includes(id)) return;
     // 지금 지도에 그린 장소들 중에서 찾는다. (샘플 장소든 서버 코스든 여기 들어 있다)
@@ -303,7 +342,7 @@ export default function PlayGyeongju() {
         {activeTab === "my-dg" && <MyDGTab completedQuestIds={completedQuestIds} onMapQuest={openQuestOnMap} onSaveOutfit={() => showNotice(t("play.outfitSaved"))} outfit={outfit} places={places} setOutfit={setOutfit} />}
         {activeTab === "map" && <GyeongjuMap2D completedQuestIds={completedQuestIds} onComplete={completeQuest} onOpenRoles={() => setRoleOpen(true)} onReroll={rerollCourse} onSelect={(quest) => setSelectedQuestId(quest.id)} places={places} roleName={roleName} selectedPlace={selectedQuest} />}
         {activeTab === "spots" && <SpotsTab user={user} />}
-        {activeTab === "my-page" && <MyPageTab completedQuestIds={completedQuestIds} onLogout={logout} onNotice={showNotice} onOpenGuide={reopenGuide} setUser={setUser} user={user} />}
+        {activeTab === "my-page" && <MyPageTab completedQuestIds={completedQuestIds} onLogout={logout} onNotice={showNotice} onOpenGuide={reopenGuide} setUser={setUser} user={user} onWithdraw={handleWithdraw} />}
       </main>
 
       {notice && <div className="fixed bottom-24 left-1/2 z-40 w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 rounded-lg bg-[#343235] px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">{notice}</div>}
