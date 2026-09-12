@@ -6,7 +6,7 @@ import {
   CalendarDays,
 } from "lucide-react";
 import { useState } from "react";
-
+import { useI18n } from "../i18n/LanguageProvider";
 import AppButton from "../ui/AppButton";
 
 export default function PersonalInfoEdit({
@@ -15,6 +15,7 @@ export default function PersonalInfoEdit({
   onClose,
   onNotice,
 }) {
+  const { t } = useI18n();
   const [nickname, setNickname] = useState(user?.nickname ?? "");
   const [country, setCountry] = useState(user?.country ?? "");
   const [birthDate, setBirthDate] = useState(user?.birthDate ?? "");
@@ -52,12 +53,12 @@ export default function PersonalInfoEdit({
         ...(data?.user ?? updateData),
       }));
 
-      onNotice?.("개인정보가 수정되었습니다.");
+      onNotice?.(t("myPage.personalInfo.updated"));
       onClose?.();
     } catch (error) {
       console.error("개인정보 수정 실패:", error);
       onNotice?.(
-        error.message || "개인정보 수정에 실패했습니다."
+        error.message || t("myPage.personalInfo.updateFailed")
       );
     }
   };
@@ -110,11 +111,11 @@ export default function PersonalInfoEdit({
               text-[#343235]
             "
           >
-            개인정보 수정
+             {t("myPage.personalInfo.title")}
           </h2>
 
           <p className="mt-1 text-[11px] text-[#969087]">
-            나의 프로필 정보를 관리해보세요
+            {t("myPage.personalInfo.places")}
           </p>
         </div>
       </div>
@@ -135,7 +136,7 @@ export default function PersonalInfoEdit({
             <span className="h-1.5 w-1.5 rounded-full bg-[#bd8c31]" />
 
             <h3 className="text-[13px] font-bold text-[#45413d]">
-              기본 정보
+              {t("myPage.personalInfo.basicInfo")}
             </h3>
           </div>
         </div>
@@ -159,7 +160,7 @@ export default function PersonalInfoEdit({
                 size={14}
                 className="text-[#bd8c31]"
               />
-              닉네임
+              {t("myPage.personalInfo.nickname")}
             </label>
 
             <input
@@ -184,7 +185,7 @@ export default function PersonalInfoEdit({
                 focus:ring-4
                 focus:ring-[#bd8c31]/10
               "
-              placeholder="닉네임을 입력해주세요"
+              placeholder={t("myPage.personalInfo.emailPlaceholder")}
             />
           </div>
 
@@ -205,7 +206,7 @@ export default function PersonalInfoEdit({
                 size={14}
                 className="text-[#bd8c31]"
               />
-              이메일
+              {t("myPage.personalInfo.email")}
             </label>
 
             <input
@@ -230,7 +231,7 @@ export default function PersonalInfoEdit({
                 focus:ring-4
                 focus:ring-[#bd8c31]/10
               "
-              placeholder="이메일을 입력해주세요"
+              placeholder={t('myPage.personalInfo.emailPlaceholder')}
             />
           </div>
 
@@ -251,7 +252,7 @@ export default function PersonalInfoEdit({
                 size={14}
                 className="text-[#bd8c31]"
               />
-              국가
+              {t("myPage.personalInfo.country")}
             </label>
 
             <input
@@ -276,7 +277,7 @@ export default function PersonalInfoEdit({
                 focus:ring-4
                 focus:ring-[#bd8c31]/10
               "
-              placeholder="국가를 입력해주세요"
+              placeholder={t('myPage.personalInfo.countryPlaceholder')}
             />
           </div>
 
@@ -297,7 +298,7 @@ export default function PersonalInfoEdit({
                 size={14}
                 className="text-[#bd8c31]"
               />
-              생년월일
+              {t("myPage.personalInfo.birthDate")}
             </label>
 
             <input
@@ -357,7 +358,7 @@ export default function PersonalInfoEdit({
 
           <div>
             <p className="text-[12px] font-semibold text-[#625b53]">
-              프로필 안내
+              {t("myPage.personalInfo.noticeTitle")}
             </p>
 
             <p
@@ -368,8 +369,7 @@ export default function PersonalInfoEdit({
                 text-[#958c82]
               "
             >
-              입력한 정보는 프로필과 여행 기록을
-              표시하는 데 사용됩니다.
+              {t("myPage.personalInfo.noticeDescription")}
             </p>
           </div>
         </div>
@@ -392,7 +392,7 @@ export default function PersonalInfoEdit({
         "
         onClick={handleSave}
       >
-        저장하기
+         {t("myPage.personalInfo.save")}
       </AppButton>
     </section>
   );
