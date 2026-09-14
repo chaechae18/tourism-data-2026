@@ -3,9 +3,6 @@ import { createTranslator } from "../i18n";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
-// 로그인이 붙기 전까지는 테스트 사용자(USERS.NO = 1)로 저장한다.
-// 로그인이 생기면 이 값만 로그인한 사용자 번호로 바꾸면 된다.
-const LOCAL_USER_NO = 1;
 
 // 코스 API 응답을 지도 컴포넌트가 쓰는 장소 모양으로 바꾼다.
 // (id / name / description / distance / latitude / longitude / icon / docent)
@@ -48,7 +45,7 @@ async function requestCourse({ persona, date, language = "ko", method, signal, t
   try {
     response = await fetch(`${API_BASE_URL}${path}?${parameters}`, {
       method,
-      headers: { "X-User-No": String(LOCAL_USER_NO) },
+      credentials: "include",
       signal,
     });
   } catch (error) {
@@ -84,7 +81,7 @@ export async function fetchSelectedRole({ signal } = {}) {
   let response;
   try {
     response = await fetch(`${API_BASE_URL}/api/v1/journey/characters/selected`, {
-      headers: { "X-User-No": String(LOCAL_USER_NO) },
+      credentials: "include",
       signal,
     });
   } catch (error) {
@@ -103,7 +100,7 @@ export async function completeQuest({ questId, signal } = {}) {
   try {
     response = await fetch(`${API_BASE_URL}/api/v1/journey/quests/${questId}/complete`, {
       method: "POST",
-      headers: { "X-User-No": String(LOCAL_USER_NO) },
+      credentials: "include",
       signal,
     });
   } catch (error) {

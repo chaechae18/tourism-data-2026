@@ -28,7 +28,7 @@ const NOTICE_DURATION = 2800;
 const GUIDE_SEEN_KEY = "playgyeongju.guideSeen";
 
 export default function PlayGyeongju() {
-  const { language, t } = useI18n();
+  const { language, reloadLanguage, resetLanguage, t } = useI18n();
   const [entered, setEntered] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [authMode, setAuthMode] = useState(null);
@@ -61,11 +61,12 @@ export default function PlayGyeongju() {
     const controller = new AbortController();
     fetchSelectedRole({ signal: controller.signal })
       .then((saved) => {
+        if (controller.signal.aborted) return;
         const known = saved?.key && ROLES.some((item) => item.key === saved.key);
         setRoleKey(known ? saved.key : ROLES[0].key);
       })
       .catch((error) => {
-        if (error.name === "AbortError") return;
+        if (controller.signal.aborted || error.name === "AbortError") return;
         setRoleKey(ROLES[0].key);
       });
     return () => controller.abort();
@@ -96,6 +97,7 @@ export default function PlayGyeongju() {
           ...data.user,
         }));
 
+        await reloadLanguage().catch(() => undefined);
         setEntered(true);
       }
     } catch (error) {
@@ -107,7 +109,7 @@ export default function PlayGyeongju() {
   };
 
   checkLogin();
-}, []);
+}, [reloadLanguage]);
 
   useEffect(() => {
     if (!entered || !courseRoleKey) return undefined;
@@ -116,6 +118,7 @@ export default function PlayGyeongju() {
     setCourseError("");
     fetchCourse({ language, persona: courseRoleKey, signal: controller.signal, t })
       .then((course) => {
+        if (controller.signal.aborted) return;
         if (!course.places.length) return;
         setCoursePlaces(course.places);
         setSelectedQuestId(course.places[0].id);
@@ -124,7 +127,7 @@ export default function PlayGyeongju() {
       })
       // 코스를 못 받아오면 기존 샘플 장소로 지도를 그린다. 왜 실패했는지는 알려 준다.
       .catch((error) => {
-        if (error.name === "AbortError") return;
+        if (controller.signal.aborted || error.name === "AbortError") return;
         console.error("[코스 불러오기 실패]", error);
         setCourseError(translateError(error, t, "play.courseLoadError"));
       });
@@ -168,15 +171,21 @@ export default function PlayGyeongju() {
     window.setTimeout(() => setNotice(""), NOTICE_DURATION);
   };
 
-  const enterApp = (data = {}) => {
+  const enterApp = async (data = {}) => {
     const profile = data?.user ?? data;
 
+    resetLanguage();
+    setRoleKey(null);
+    setCoursePlaces(null);
+    setCompletedQuestIds([]);
+    setSelectedQuestId(INITIAL_SELECTED_QUEST_ID);
     setUser({
       ...DEFAULT_USER,
       ...profile,
     });
 
     setAuthMode(null);
+    await reloadLanguage().catch(() => undefined);
     setEntered(true);
   };
   
@@ -204,6 +213,8 @@ export default function PlayGyeongju() {
     setNotificationVersion(0);
     setCoursePlaces(null);
     setCourseError("");
+    setRoleKey(null);
+    resetLanguage();
     setAuthMode(null);
   }
 };
@@ -259,7 +270,7 @@ export default function PlayGyeongju() {
   return (
     <div className="min-h-[100svh] bg-[#edf0ed]">
       <div className={`mx-auto w-full max-w-[430px] bg-[#f7f7f5] shadow-[0_0_32px_rgba(52,50,53,0.08)] ${activeTab === "spots" ? "flex h-[100dvh] flex-col overflow-hidden pb-[var(--bottom-nav-height)]" : "min-h-[100svh] pb-24"}`}>
-      <header className="shrink-0 bg-white/90 px-4 py-3 backdrop-blur">
+      <header className="relative z-30 shrink-0 bg-white/90 px-4 py-3 backdrop-blur">
         <div className="flex items-center justify-between gap-4">
           <button type="button" onClick={() => setActiveTab("home")} className="text-left font-semibold text-[#343235]">Play Gyeongju</button>
           <NotificationButton refreshKey={notificationVersion} />

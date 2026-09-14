@@ -10,7 +10,7 @@ const userApi = vi.hoisted(() => ({
 vi.mock("../../../../lib/api/users", () => userApi);
 
 function LanguageProbe() {
-  const { changeLanguage, language, t } = useI18n();
+  const { changeLanguage, language, reloadLanguage, resetLanguage, t } = useI18n();
   return (
     <div>
       <p>{language}</p>
@@ -18,6 +18,8 @@ function LanguageProbe() {
       <button type="button" onClick={() => changeLanguage("en").catch(() => undefined)}>
         English
       </button>
+      <button type="button" onClick={() => reloadLanguage().catch(() => undefined)}>Reload</button>
+      <button type="button" onClick={resetLanguage}>Reset</button>
     </div>
   );
 }
@@ -49,5 +51,17 @@ describe("LanguageProvider", () => {
 
     rejectUpdate(new Error("save failed"));
     expect(await screen.findByText("홈")).toBeInTheDocument();
+  });
+
+  it("loads the next account's language and clears it on logout", async () => {
+    render(<LanguageProvider><LanguageProbe /></LanguageProvider>);
+    await waitFor(() => expect(userApi.getUserPreferences).toHaveBeenCalledOnce());
+
+    userApi.getUserPreferences.mockResolvedValue({ language: "zh" });
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    expect(await screen.findByText("zh")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(screen.getByText("ko")).toBeInTheDocument();
   });
 });

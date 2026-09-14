@@ -2,7 +2,7 @@ from datetime import date
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 import pymysql
 
 from ..config import Settings, get_settings
@@ -31,6 +31,7 @@ from ..tts import (
     TtsUpstreamError,
     voice_for,
 )
+from .auth import get_current_user
 
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,11 @@ router = APIRouter(prefix="/api/v1/journey", tags=["journey"])
 # 음성 하나가 수백 KB라 개수를 넉넉하지 않게 잡는다. (TTS_CACHE_ENTRIES 로 조절)
 docent_audio_cache = TTLCache(max_entries=get_settings().tts_cache_entries)
 
-UserNo = Annotated[int, Header(alias="X-User-No", ge=1)]
+def session_user_no(current: Annotated[dict, Depends(get_current_user)]) -> int:
+    return current["user"]["user_no"]
+
+
+UserNo = Annotated[int, Depends(session_user_no)]
 PersonaQuery = Annotated[str, Query(max_length=30)]
 VisitDate = Annotated[date | None, Query(alias="date")]
 LanguageQuery = Annotated[str | None, Query(alias="lang", max_length=20)]

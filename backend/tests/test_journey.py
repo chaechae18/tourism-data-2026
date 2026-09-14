@@ -1,12 +1,33 @@
 from collections.abc import Callable
+from base64 import b64encode
+import json
 
 from fastapi.testclient import TestClient
+from itsdangerous import TimestampSigner
 import pymysql
+import pytest
 
 from app.journey import get_or_create_course
 from app.personas import PERSONAS
 
 KING = PERSONAS["king"]
+
+
+def set_session(client: TestClient, user_no: int | None) -> None:
+    if user_no is None:
+        client.cookies.delete("session")
+        return
+    payload = b64encode(json.dumps({"user": {"user_no": user_no}}).encode())
+    client.cookies.set(
+        "session",
+        TimestampSigner("dev-session-secret-key-change-this").sign(payload).decode(),
+    )
+
+
+@pytest.fixture(autouse=True)
+def signed_in_journey_client(request: pytest.FixtureRequest) -> None:
+    if "client" in request.fixturenames:
+        set_session(request.getfixturevalue("client"), 1)
 
 
 # 왕 코스 6칸을 채울 수 있는 최소한의 장소. course_builder 가 보는 컬럼만 넣는다.
@@ -89,6 +110,27 @@ def test_course_endpoint_keeps_the_same_course(client: TestClient, insert: Calla
     assert all(slot == "오전" for slot in slots[: slots.index("점심")])
 
 
+def test_course_requires_session_even_with_user_header(client: TestClient) -> None:
+    set_session(client, None)
+    response = client.get("/api/v1/journey/course", headers={"X-User-No": "1"})
+    assert response.status_code == 401
+
+
+def test_course_follows_session_when_header_names_another_user(
+    client: TestClient, insert: Callable[..., int]
+) -> None:
+    add_places(insert)
+    insert("USERS", NO=2, ID="second-user", NICKNAME="second", COUNTRY="KR", EMAIL="second@example.com")
+
+    first = client.get("/api/v1/journey/course").json()
+    set_session(client, 2)
+    second = client.get("/api/v1/journey/course", headers={"X-User-No": "1"}).json()
+    assert second["courseId"] != first["courseId"]
+
+    set_session(client, 1)
+    assert client.get("/api/v1/journey/course").json()["courseId"] == first["courseId"]
+
+
 def test_completed_quest_is_saved_and_comes_back_with_the_course(
     client: TestClient,
     insert: Callable[..., int],
@@ -135,7 +177,9 @@ def test_completing_a_quest_outside_my_course_is_rejected(
     headers = {"X-User-No": "1"}
     quest_id = client.get("/api/v1/journey/course", headers=headers).json()["stops"][0]["questId"]
 
-    response = client.post(f"/api/v1/journey/quests/{quest_id}/complete", headers={"X-User-No": "2"})
+    insert("USERS", NO=2, ID="second-user", NICKNAME="second", COUNTRY="KR", EMAIL="second@example.com")
+    set_session(client, 2)
+    response = client.post(f"/api/v1/journey/quests/{quest_id}/complete")
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "QUEST_NOT_FOUND"

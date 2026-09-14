@@ -1,15 +1,22 @@
 from typing import Annotated
 
 import pymysql
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
 from ..models.users import UserPreferencesResponse, UserPreferencesUpdate
 from ..mysql import get_mysql
 from ..users import UserNotFoundError, get_user_preferences, update_user_language
+from .auth import get_current_user
 
 
 router = APIRouter(prefix="/api/v1/users/me", tags=["users"])
-UserNo = Annotated[int, Header(alias="X-User-No", ge=1)]
+
+
+def session_user_no(current: Annotated[dict, Depends(get_current_user)]) -> int:
+    return current["user"]["user_no"]
+
+
+UserNo = Annotated[int, Depends(session_user_no)]
 
 
 def user_not_found() -> HTTPException:
