@@ -55,14 +55,14 @@ export default function VisitedPlaces({
         <button
           type="button"
           onClick={onClose}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e2e4e0] bg-white text-[#55565a] transition-colors hover:bg-[#f5f5f2]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e2e4e0] bg-white text-[#55565a] transition-colors"
           aria-label="뒤로가기"
         >
           <ChevronLeft size={19} />
         </button>
 
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#bd8c31]">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">
             MY TRAVEL TICKETS
           </p>
 
@@ -84,7 +84,7 @@ export default function VisitedPlaces({
 
           <div className="flex items-center gap-3">
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#343235] text-[#bd8c31]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#343235] text-brand">
               <MapPin size={20} />
             </div>
 
@@ -102,7 +102,7 @@ export default function VisitedPlaces({
 
           <Navigation
             size={21}
-            className="rotate-45 text-[#bd8c31]"
+            className="rotate-45 text-brand"
           />
 
         </div>
@@ -242,7 +242,7 @@ export default function VisitedPlaces({
 
                     {/* 지도 아이콘 */}
 
-                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f4eee5] text-[#bd8c31]">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand">
                       <MapPin size={19} />
                     </div>
 
@@ -268,9 +268,9 @@ export default function VisitedPlaces({
                         사용 완료 스탬프
                     ================================== */}
 
-                    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[#bd8c31]/70 text-[#bd8c31]">
+                    <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-brand/70 text-brand">
 
-                      <div className="absolute inset-1 rounded-full border border-dashed border-[#bd8c31]/50" />
+                      <div className="absolute inset-1 rounded-full border border-dashed border-brand/50" />
 
                       <div className="relative text-center">
 

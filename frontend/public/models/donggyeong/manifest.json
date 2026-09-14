@@ -1,0 +1,1018 @@
+{
+  "schemaVersion": 1,
+  "assetVersion": "3.9.3",
+  "name": "동경이",
+  "canonicalReference": "Photo 1; user-supplied Sunny Shiba sculpt",
+  "sourceModelSha256": "e45843af031f5d328cc8771e894f1d018a4505cac3667b2f3210d9ec10f7d806",
+  "units": "meter",
+  "upAxis": "Y",
+  "forwardAxis": "+Z",
+  "origin": "ground between feet",
+  "pose": "rigged",
+  "assembly": "shared-root-shared-skeleton",
+  "rigVersion": "donggyeong-1",
+  "animations": {
+    "idle": "Idle",
+    "select": "Select"
+  },
+  "animationPolicy": "base owns animation; rebind wearable skins to base bones by name",
+  "slotPolicy": "one item per slot; mixed roles supported",
+  "slots": [
+    "hat",
+    "hand",
+    "top",
+    "bottom",
+    "effect"
+  ],
+  "base": {
+    "url": "/models/donggyeong/base.glb",
+    "bytes": 24831084,
+    "sha256": "d927ea0645c09fb99ef7575db932754bba914c8d42f0cd7d8eb8580b9dd5d2db"
+  },
+  "roles": [
+    {
+      "id": "king",
+      "name": "왕",
+      "appRoleKey": "king",
+      "items": [
+        "king_hat",
+        "king_hand",
+        "king_top",
+        "king_bottom",
+        "king_effect"
+      ]
+    },
+    {
+      "id": "court_lady",
+      "name": "궁녀",
+      "appRoleKey": "court_lady",
+      "items": [
+        "court_lady_hat",
+        "court_lady_hand",
+        "court_lady_top",
+        "court_lady_bottom",
+        "court_lady_effect"
+      ]
+    },
+    {
+      "id": "warrior",
+      "name": "무사",
+      "appRoleKey": "hwarang",
+      "items": [
+        "warrior_hat",
+        "warrior_hand",
+        "warrior_top",
+        "warrior_bottom",
+        "warrior_effect"
+      ]
+    },
+    {
+      "id": "monk",
+      "name": "승려",
+      "appRoleKey": "monk",
+      "items": [
+        "monk_hat",
+        "monk_hand",
+        "monk_top",
+        "monk_bottom",
+        "monk_effect"
+      ]
+    },
+    {
+      "id": "scholar",
+      "name": "학자",
+      "appRoleKey": "scholar",
+      "items": [
+        "scholar_hat",
+        "scholar_hand",
+        "scholar_top",
+        "scholar_bottom",
+        "scholar_effect"
+      ]
+    },
+    {
+      "id": "merchant",
+      "name": "상인",
+      "appRoleKey": "merchant",
+      "items": [
+        "merchant_hat",
+        "merchant_hand",
+        "merchant_top",
+        "merchant_bottom",
+        "merchant_effect"
+      ]
+    }
+  ],
+  "items": [
+    {
+      "id": "king_hat",
+      "role": "king",
+      "slot": "hat",
+      "name": "신라 금관",
+      "url": "/models/donggyeong/items/king/hat.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 4405908,
+      "sha256": "32958f11110eb4f88470977013027102aa5ebf9961d4b9da82c0eac21b9d8ae0"
+    },
+    {
+      "id": "king_hand",
+      "role": "king",
+      "slot": "hand",
+      "name": "옥 여의",
+      "url": "/models/donggyeong/items/king/hand.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 741652,
+      "sha256": "628def3e75ab2430c15bec9249ad43aed1c0a67c42e9f1b9fd5a21764acb525c"
+    },
+    {
+      "id": "king_top",
+      "role": "king",
+      "slot": "top",
+      "name": "홍색 왕의 예복",
+      "url": "/models/donggyeong/items/king/top.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [
+        "base_body",
+        "base_upper_arm_left",
+        "base_upper_arm_right",
+        "base_under_top_collar",
+        "base_under_top_arm_left",
+        "base_under_top_arm_right",
+        "base_under_top_paw_left",
+        "base_under_top_paw_right"
+      ],
+      "bytes": 2921152,
+      "sha256": "5133fb61a962a5d155b654b8d1287245a9f5cf7c97c5374106657fabc61ea1ae"
+    },
+    {
+      "id": "king_bottom",
+      "role": "king",
+      "slot": "bottom",
+      "name": "홍색 금수 하상",
+      "url": "/models/donggyeong/items/king/bottom.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [
+        "base_hip"
+      ],
+      "bytes": 2333152,
+      "sha256": "c496b9638b88972610a557aa6298556448804fed5b8de35145dcd3373146e092"
+    },
+    {
+      "id": "king_effect",
+      "role": "king",
+      "slot": "effect",
+      "name": "동궁과 월지",
+      "url": "/models/donggyeong/items/king/effect.glb",
+      "attachTo": "screen-background",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 699032,
+      "sha256": "40305b529cb6bb40f3504983b104d87c5f2d65e6458c13ba4efa50e5a1e4da0e"
+    },
+    {
+      "id": "court_lady_hat",
+      "role": "court_lady",
+      "slot": "hat",
+      "name": "꽃비녀 쪽머리",
+      "url": "/models/donggyeong/items/court_lady/hat.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 2554780,
+      "sha256": "f01d7a394fd1c6ed5b353e200c998529554a35524383a62409d1f2868664c017"
+    },
+    {
+      "id": "court_lady_hand",
+      "role": "court_lady",
+      "slot": "hand",
+      "name": "매화 비단 부채",
+      "url": "/models/donggyeong/items/court_lady/hand.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 1200876,
+      "sha256": "8b96f9a8934856e418bbb42dac2d8421ff9e4fa744bfb932bcee6b263bd9f8e2"
+    },
+    {
+      "id": "court_lady_top",
+      "role": "court_lady",
+      "slot": "top",
+      "name": "자색 저고리",
+      "url": "/models/donggyeong/items/court_lady/top.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [
+        "base_body",
+        "base_upper_arm_left",
+        "base_upper_arm_right",
+        "base_under_top_collar",
+        "base_under_top_arm_left",
+        "base_under_top_arm_right",
+        "base_under_top_paw_left",
+        "base_under_top_paw_right"
+      ],
+      "bytes": 1083596,
+      "sha256": "64059a79a4ed7f3e1beaf649b8784d0f701fd8492cab12887fec43876b6a34eb"
+    },
+    {
+      "id": "court_lady_bottom",
+      "role": "court_lady",
+      "slot": "bottom",
+      "name": "홍색 치마",
+      "url": "/models/donggyeong/items/court_lady/bottom.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [
+        "base_hip"
+      ],
+      "bytes": 980588,
+      "sha256": "359c534e9c010aaba9bdc74f5e82237b9f03b2ff241b53c548d48b62088f97ce"
+    },
+    {
+      "id": "court_lady_effect",
+      "role": "court_lady",
+      "slot": "effect",
+      "name": "월정교",
+      "url": "/models/donggyeong/items/court_lady/effect.glb",
+      "attachTo": "screen-background",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 630192,
+      "sha256": "8f705a5694f431c36e4a52a50299e614b031761a26fb78e277eec61596a16672"
+    },
+    {
+      "id": "warrior_hat",
+      "role": "warrior",
+      "slot": "hat",
+      "name": "붉은 깃 투구",
+      "url": "/models/donggyeong/items/warrior/hat.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 1566908,
+      "sha256": "3c2fa67d44141e8fac72c026e94343bfe70d0074770829a1c5e8691be4a749d0"
+    },
+    {
+      "id": "warrior_hand",
+      "role": "warrior",
+      "slot": "hand",
+      "name": "장식 환두검",
+      "url": "/models/donggyeong/items/warrior/hand.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 379860,
+      "sha256": "d08b2cf7e7ba75ed6846628ebfca7b24ae069b4a6ccfd36f7b2b768013104f4a"
+    },
+    {
+      "id": "warrior_top",
+      "role": "warrior",
+      "slot": "top",
+      "name": "찰갑 상의",
+      "url": "/models/donggyeong/items/warrior/top.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [
+        "base_body",
+        "base_upper_arm_left",
+        "base_upper_arm_right",
+        "base_under_top_collar",
+        "base_under_top_arm_left",
+        "base_under_top_arm_right",
+        "base_under_top_paw_left",
+        "base_under_top_paw_right"
+      ],
+      "bytes": 5048664,
+      "sha256": "cbeb2bcd268b39b5692efa1a1ddb03f8ee971582fdc13860441265e78e22e2bd"
+    },
+    {
+      "id": "warrior_bottom",
+      "role": "warrior",
+      "slot": "bottom",
+      "name": "갑상과 장화",
+      "url": "/models/donggyeong/items/warrior/bottom.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [
+        "base_hip",
+        "base_foot_left",
+        "base_foot_right"
+      ],
+      "bytes": 3968824,
+      "sha256": "96d9dac9df3575ae0f8509e2862dce2f8040721120904665052807837a7786b9"
+    },
+    {
+      "id": "warrior_effect",
+      "role": "warrior",
+      "slot": "effect",
+      "name": "김유신묘",
+      "url": "/models/donggyeong/items/warrior/effect.glb",
+      "attachTo": "screen-background",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 690956,
+      "sha256": "4011edbb0463857b95dbcf5fe0c4a1be7f41afb9a9866ce889766644c4ca856f"
+    },
+    {
+      "id": "monk_hat",
+      "role": "monk",
+      "slot": "hat",
+      "name": "접이식 승모",
+      "url": "/models/donggyeong/items/monk/hat.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 293904,
+      "sha256": "fc98b7e6585eacfba132001bf66ee0f5fdd8f49871d4f03c0a40f1f27d34bec8"
+    },
+    {
+      "id": "monk_hand",
+      "role": "monk",
+      "slot": "hand",
+      "name": "금환 석장",
+      "url": "/models/donggyeong/items/monk/hand.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 670384,
+      "sha256": "de6b6e60ef535868c9a39a90c6633e1133f146f875de41982364446080ece7f8"
+    },
+    {
+      "id": "monk_top",
+      "role": "monk",
+      "slot": "top",
+      "name": "가사와 염주",
+      "url": "/models/donggyeong/items/monk/top.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [
+        "base_body",
+        "base_upper_arm_left",
+        "base_upper_arm_right",
+        "base_under_top_collar",
+        "base_under_top_arm_left",
+        "base_under_top_arm_right",
+        "base_under_top_paw_left",
+        "base_under_top_paw_right"
+      ],
+      "bytes": 913084,
+      "sha256": "4c2d4a5c08839d88abf1781948af24c78f86c116d37e6c2788b92f8c1991903b"
+    },
+    {
+      "id": "monk_bottom",
+      "role": "monk",
+      "slot": "bottom",
+      "name": "승복 하의",
+      "url": "/models/donggyeong/items/monk/bottom.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [
+        "base_hip"
+      ],
+      "bytes": 278700,
+      "sha256": "a59f55128962325d265c88d4cd92ea195a757016fdbaa7f53b7b81559265379c"
+    },
+    {
+      "id": "monk_effect",
+      "role": "monk",
+      "slot": "effect",
+      "name": "불국사",
+      "url": "/models/donggyeong/items/monk/effect.glb",
+      "attachTo": "screen-background",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 670624,
+      "sha256": "0ab901ab2995a0db7cbfeebbca896c62a9f02971212c610214e2412427b28562"
+    },
+    {
+      "id": "scholar_hat",
+      "role": "scholar",
+      "slot": "hat",
+      "name": "검은 갓",
+      "url": "/models/donggyeong/items/scholar/hat.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 4574528,
+      "sha256": "0c2c50f84840a2287365a92835582b712d28e00f99d5f4df534086fa23fe2c22"
+    },
+    {
+      "id": "scholar_hand",
+      "role": "scholar",
+      "slot": "hand",
+      "name": "펼친 서책",
+      "url": "/models/donggyeong/items/scholar/hand.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 1190384,
+      "sha256": "0af600ac880025e00bc138d2ed0af115d51164dade3f9cc55106966f341f8cca"
+    },
+    {
+      "id": "scholar_top",
+      "role": "scholar",
+      "slot": "top",
+      "name": "남색 도포 상의",
+      "url": "/models/donggyeong/items/scholar/top.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [
+        "base_body",
+        "base_upper_arm_left",
+        "base_upper_arm_right",
+        "base_under_top_collar",
+        "base_under_top_arm_left",
+        "base_under_top_arm_right",
+        "base_under_top_paw_left",
+        "base_under_top_paw_right"
+      ],
+      "bytes": 680284,
+      "sha256": "391e65239bc1ed147dc68030091ec5cc1229e8ad8d7e6ba8e5d84cade94bb71d"
+    },
+    {
+      "id": "scholar_bottom",
+      "role": "scholar",
+      "slot": "bottom",
+      "name": "도포 하의",
+      "url": "/models/donggyeong/items/scholar/bottom.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [
+        "base_hip"
+      ],
+      "bytes": 308580,
+      "sha256": "48f8cc2751c20324162cb322ec7bbfd44942cd59d28a72ee5223a5eb0900b6e7"
+    },
+    {
+      "id": "scholar_effect",
+      "role": "scholar",
+      "slot": "effect",
+      "name": "첨성대",
+      "url": "/models/donggyeong/items/scholar/effect.glb",
+      "attachTo": "screen-background",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 607280,
+      "sha256": "df9edf9ccaed8e4e1004b42cd914f71ddef3c6bf81efa1e53a86c6a531c96c5e"
+    },
+    {
+      "id": "merchant_hat",
+      "role": "merchant",
+      "slot": "hat",
+      "name": "상인 두건",
+      "url": "/models/donggyeong/items/merchant/hat.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 1100608,
+      "sha256": "34781400e515b2b3613ee84f848c98f5d578caa883731e3b62189d6a622868f5"
+    },
+    {
+      "id": "merchant_hand",
+      "role": "merchant",
+      "slot": "hand",
+      "name": "목제 주판",
+      "url": "/models/donggyeong/items/merchant/hand.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 1020652,
+      "sha256": "4dc78d63c66ab5847bb645de2ea36fd75ff0ae07df6601fdac4a409de8ba7786"
+    },
+    {
+      "id": "merchant_top",
+      "role": "merchant",
+      "slot": "top",
+      "name": "저고리와 앞치마",
+      "url": "/models/donggyeong/items/merchant/top.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [
+        "base_body",
+        "base_upper_arm_left",
+        "base_upper_arm_right",
+        "base_under_top_collar",
+        "base_under_top_arm_left",
+        "base_under_top_arm_right",
+        "base_under_top_paw_left",
+        "base_under_top_paw_right"
+      ],
+      "bytes": 627892,
+      "sha256": "4c3ae226cb8404b29904788f1adf0218cf5388b212a72779f2b747496b51a2af"
+    },
+    {
+      "id": "merchant_bottom",
+      "role": "merchant",
+      "slot": "bottom",
+      "name": "바지와 전대",
+      "url": "/models/donggyeong/items/merchant/bottom.glb",
+      "attachTo": "character-root",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [
+        "base_hip",
+        "base_foot_left",
+        "base_foot_right"
+      ],
+      "bytes": 1173360,
+      "sha256": "f59cbb48b10255328aff9d2649cfeef88748ad42d12da6af8e6e78ebc6f60c2a"
+    },
+    {
+      "id": "merchant_effect",
+      "role": "merchant",
+      "slot": "effect",
+      "name": "교촌마을",
+      "url": "/models/donggyeong/items/merchant/effect.glb",
+      "attachTo": "screen-background",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "hideBaseNodes": [],
+      "bytes": 641256,
+      "sha256": "16a4d40a0ca5a22990fa56d7a061cad63cf82d9aa98e50370d0a5a636de0f422"
+    }
+  ]
+}

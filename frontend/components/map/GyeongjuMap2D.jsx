@@ -491,11 +491,11 @@ function PlaceListItem({ active, completed, distance, nearby, onClick, order, pl
         className={`relative flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-colors ${
           active
             ? "border-[#343235] bg-[#fdfaf3] shadow-[0_8px_20px_rgba(52,50,53,0.13)]"
-            : "border-[#ece7da] bg-white hover:bg-[#fdfaf3]"
+            : "border-[#ece7da] bg-white"
         }`}
       >
         {/* 아이콘 + 방문 순서 번호 */}
-        <span className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border ${completed ? "border-[#bfe0da] bg-[#e9f4f1]" : nearby ? "border-[#ecdcb6] bg-[#faf3e3]" : "border-[#e5e7e3] bg-[#f3f5f2]"}`}>
+        <span className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border ${completed ? "border-[#bfe0da] bg-[#e9f4f1]" : nearby ? "border-brand-border bg-brand-soft" : "border-[#e5e7e3] bg-[#f3f5f2]"}`}>
           <svg viewBox="-14 -14 28 28" className="h-7 w-7" aria-hidden="true"><LandmarkGlyph icon={place.icon} /></svg>
           <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#343235] text-[10px] font-bold text-white shadow-sm">{order}</span>
         </span>
@@ -508,7 +508,7 @@ function PlaceListItem({ active, completed, distance, nearby, onClick, order, pl
           </span>
           <span className="mt-0.5 block truncate text-xs leading-5 text-[#7c7d81]">{place.description}</span>
           <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
-            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${nearby ? "bg-[#f8f0de] text-[#8a641f]" : "bg-[#eef0ee] text-[#686d69]"}`}>
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${nearby ? "bg-brand-soft text-[#8a641f]" : "bg-[#eef0ee] text-[#686d69]"}`}>
               <MapPin size={10} />{nearby ? "가까워요" : formatDistance(distance)}
             </span>
             {place.docent && (
@@ -576,7 +576,7 @@ function PlaceList({ completedQuestIds, currentLocation, onSelect, places, selec
 // 지도 화면 전체 컴포넌트 - 상태 관리 + 버튼 동작 + 화면 조립
 // props: 완료한 퀘스트 목록, 완료/도슨트/선택 콜백, 현재 선택된 장소
 // ===================================================================
-export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRoles, onReroll, onSelect, places = QUESTS, roleName, selectedPlace }) {
+export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRoles, onSelect, places = QUESTS, roleName, selectedPlace }) {
   const { t } = useI18n();
   const currentRoleName = roleName || t("roles.king.name");
 
@@ -681,16 +681,12 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
     <section className="-mx-4 -mt-6 pb-2">
       {/* 지도 영역 (둥근 하단 카드) */}
       <div className="relative overflow-hidden rounded-b-[2rem] bg-[#dceab2] shadow-[0_12px_28px_rgba(69,76,59,0.14)]">
-        {/* 상단: 앱 타이틀 배지 + 현재위치 버튼 */}
-        <div className="absolute inset-x-4 top-3 z-10 flex items-center justify-between gap-3">
-          <div className="rounded-full bg-[#343235]/90 px-3.5 py-2 text-white shadow-sm backdrop-blur">
-            <p className="text-[10px] font-semibold tracking-[0.12em] text-white/70">SILLA WALK</p>
-            <p className="text-sm font-bold">{viewId === "map" ? t("map.title") : "오늘의 코스"}</p>
-          </div>
+        {/* 현재위치 버튼 */}
+        <div className="absolute inset-x-4 top-[4.25rem] z-10 flex justify-end">
           <IconButton className="border-white/70 bg-white/90 shadow-sm" icon={LocateFixed} label={t("map.findLocation")} onClick={findCurrentLocation} />
         </div>
         {/* 보기 전환 버튼 (지도 / 리스트) */}
-        <div className="absolute inset-x-4 top-[4.25rem] z-10 grid grid-cols-2 rounded-full bg-white/80 p-1 shadow-sm backdrop-blur" aria-label="지도 보기 방식">
+        <div className="absolute inset-x-4 top-3 z-10 grid grid-cols-2 rounded-full bg-white/80 p-1 shadow-sm backdrop-blur" aria-label="지도 보기 방식">
             {MAP_VIEWS.map((item) => (
               <button
                 key={item.id}
@@ -704,14 +700,6 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
               </button>
             ))}
         </div>
-        {/* 범례 (가까움/멀리/현재위치 색 설명) - 지도 보기에서만 */}
-        {viewId === "map" && (
-          <div className="absolute bottom-[3.25rem] left-4 z-10 flex flex-wrap items-center gap-3 rounded-full bg-white/80 px-3 py-1.5 text-[10px] font-semibold text-[#626762] shadow-sm backdrop-blur">
-            <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#bd8c31]" />{t("map.within1km")}</span>
-            <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-full bg-[#7f8582]" />{t("map.beyond1km")}</span>
-            <span className="inline-flex items-center gap-1"><Navigation size={13} className="text-[#356b98]" />{t("map.currentLocation")}</span>
-          </div>
-        )}
         {/* 실제 지도 그림 / 코스 리스트 */}
         {viewId === "map" ? (
           <IllustratedMap
@@ -740,30 +728,23 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
         <button
           type="button"
           onClick={onOpenRoles}
-          className="flex w-full items-center gap-3 rounded-2xl border border-[#e7e0cf] bg-white px-4 py-3 text-left shadow-[0_10px_24px_rgba(52,50,53,0.10)] transition-colors hover:bg-[#fdfaf3]"
+          className="flex w-full items-center gap-3 rounded-2xl bg-white px-4 py-3 text-left shadow-[0_10px_24px_rgba(52,50,53,0.10)] transition-colors"
         >
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#faf1de] text-[#a67927]"><Crown size={18} /></span>
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-ink"><Crown size={18} /></span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[10px] font-bold tracking-[0.12em] text-[#a09a8c]">{t("map.currentRole")}</span>
-            <span className="block truncate font-bold text-[#343235]">{currentRoleName}</span>
+            <span className="block text-sm font-bold text-[#343235]">{t("map.followingRole", { name: currentRoleName })}</span>
           </span>
           <span className="shrink-0 rounded-full bg-[#f2f4f1] px-2.5 py-1 text-[11px] font-bold text-[#626762]">{t("common.change")}</span>
-          <ChevronRight size={16} className="shrink-0 text-[#a5a8a4]" />
         </button>
 
-        {/* 저장된 코스를 버리고 새로 뽑는다 */}
-        <AppButton className="w-full" icon={RefreshCw} variant="outline" onClick={onReroll}>
-          {t("map.reroll")}
-        </AppButton>
-
-        <article className="rounded-2xl border border-[#e2e4e0] bg-white p-4 shadow-[0_12px_30px_rgba(52,50,53,0.12)]">
+        <article className="rounded-2xl bg-white p-4 shadow-[0_12px_30px_rgba(52,50,53,0.12)]">
           {/* 장소 이름 + 거리/상태 뱃지 + 설명 */}
           <div className="flex items-start gap-3">
-            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${completed ? "bg-[#e4f1ed] text-[#24746f]" : selectedNearby ? "bg-[#f8f0de] text-[#a67927]" : "bg-[#eef0ee] text-[#747579]"}`}>{completed ? <Check size={19} /> : <MapPin size={19} />}</div>
+            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${completed ? "bg-[#e4f1ed] text-[#24746f]" : selectedNearby ? "bg-brand-soft text-brand-ink" : "bg-[#eef0ee] text-[#747579]"}`}>{completed ? <Check size={19} /> : <MapPin size={19} />}</div>
             <div className="min-w-0 flex-1">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="font-bold text-[#343235]">{selectedPlace.name}</h2>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${selectedNearby ? "bg-[#f8f0de] text-[#8a641f]" : "bg-[#eef0ee] text-[#686d69]"}`}>{selectedNearby ? t("map.near") : formatDistance(selectedDistance)}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${selectedNearby ? "bg-brand-soft text-[#8a641f]" : "bg-[#eef0ee] text-[#686d69]"}`}>{selectedNearby ? t("map.near") : formatDistance(selectedDistance)}</span>
               </div>
             </div>
           </div>
@@ -782,8 +763,8 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
           {/* 하단 액션 버튼들: 카카오맵 길찾기 / 퀘스트 완료 / 도슨트 듣기 */}
           <div className="mt-4 grid grid-cols-2 gap-2">
             <AppButton className="col-span-2" icon={Navigation} onClick={openKakaoRoute}>카카오맵으로 길찾기</AppButton>
-            <AppButton icon={completed ? Check : MapPin} variant={completed ? "outline" : "secondary"} onClick={() => onComplete(selectedPlace.id)}>{completed ? t("map.visited") : t("map.complete")}</AppButton>
-            <AppButton disabled={!docentReady} icon={Headphones} variant="outline" onClick={() => setDocentPlace(selectedPlace)}>{docentReady ? t("map.docent") : t("map.pending")}</AppButton>
+            <AppButton className="!border-0" icon={completed ? Check : MapPin} variant={completed ? "outline" : "secondary"} onClick={() => onComplete(selectedPlace.id)}>{completed ? t("map.visited") : t("map.complete")}</AppButton>
+            <AppButton className="!border-0" disabled={!docentReady} icon={Headphones} variant="outline" onClick={() => setDocentPlace(selectedPlace)}>{docentReady ? t("map.docent") : t("map.pending")}</AppButton>
           </div>
 
           {/* 앱을 벗어나지 않고 지도 위에 도보 경로만 그려 보는 보조 버튼 (지도 보기에서만) */}
@@ -792,7 +773,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
               type="button"
               disabled={routeLoading}
               onClick={previewRoute}
-              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-[#626762] transition-colors hover:bg-[#f1f4f2] disabled:cursor-not-allowed disabled:opacity-45"
+              className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-[#626762] transition-colors disabled:cursor-not-allowed disabled:opacity-45"
             >
               <span className="text-[#8a8d89]">{route ? <Route size={14} /> : <Footprints size={14} />}</span>
               {routeLoading ? "경로 불러오는 중" : route ? "지도 경로 다시 계산" : "지도에 도보 경로 표시"}

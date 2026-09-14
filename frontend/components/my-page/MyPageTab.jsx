@@ -55,10 +55,10 @@ export default function MyPageTab({ completedQuestIds, onLogout, onNotice, onOpe
       <button 
         type="button" 
         onClick={() => setShowVisitedPlaces(true)} 
-        className="flex w-full items-center justify-between rounded-2xl border border-[#e2e4e0] bg-white p-4 text-left shadow-sm transition-colors duration-200 hover:bg-[#faf9f6]" 
+        className="flex w-full items-center justify-between rounded-2xl border border-[#e2e4e0] bg-white p-4 text-left shadow-sm transition-colors duration-200"
       >
         <div className="flex items-center gap-3"> 
-          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#f4f1e9] text-[#bd8c31]"> 
+          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-brand-soft text-brand">
             <MapPin size={20} /> 
           </div> 
 
@@ -92,7 +92,7 @@ export default function MyPageTab({ completedQuestIds, onLogout, onNotice, onOpe
               onClick={() => selectLanguage(language)}
               className={`h-11 rounded-lg border text-sm font-bold disabled:opacity-60 ${
                 currentLanguage === language.id
-                  ? "border-[#b8661c] bg-[#fff1df] text-[#8f4515]"
+                  ? "border-brand bg-brand-soft text-brand-ink"
                   : "border-[#d9cfc2] bg-white text-[#6f6256]"
               }`}
             >
@@ -138,7 +138,7 @@ export default function MyPageTab({ completedQuestIds, onLogout, onNotice, onOpe
                     })
                   );
                 }}
-                className="flex w-full items-center gap-3 py-4 text-left transition-colors hover:bg-[#faf9f6]"
+                className="flex w-full items-center gap-3 py-4 text-left transition-colors"
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f8f3ed] text-[#7c6d61]">
                   {item.id === "guide" ? (
