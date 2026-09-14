@@ -7,6 +7,20 @@ import httpx
 
 
 GOOGLE_TTS_URL = "https://texttospeech.googleapis.com/v1/text:synthesize"
+# 원고 언어에 맞는 목소리. 한국어 목소리로 영어를 읽히면 발음이 무너진다.
+VOICES = {
+    "ko": ("ko-KR", "ko-KR-Neural2-A"),
+    "en": ("en-US", "en-US-Neural2-F"),
+    "ja": ("ja-JP", "ja-JP-Neural2-B"),
+    # 구글은 중국어 표준어를 cmn-CN 으로 부른다.
+    "zh": ("cmn-CN", "cmn-CN-Wavenet-A"),
+}
+DEFAULT_TTS_LANGUAGE = "ko"
+
+
+def voice_for(language: str) -> tuple[str, str]:
+    """언어 코드 -> (구글 languageCode, 목소리 이름)."""
+    return VOICES.get(language, VOICES[DEFAULT_TTS_LANGUAGE])
 # 구글 요청 한도는 5,000바이트
 MAX_REQUEST_BYTES = 4000
 # 문장 끝(마침표/물음표/느낌표), 줄바꿈에서 변경
@@ -63,7 +77,7 @@ class GoogleTextToSpeechClient:
         self.language_code = language_code
         self.client = client
 
-    async def synthesize(self, text: str) -> bytes:
+    async def synthesize(self, text: str, language: str | None = None) -> bytes:
         if not self.api_key:
             raise TtsNotConfiguredError
 
@@ -71,16 +85,21 @@ class GoogleTextToSpeechClient:
         if not chunks:
             raise TtsUpstreamError()
 
+        # 원고 언어를 주면 그 언어 목소리로 읽는다. 없으면 만들 때 정한 목소리다.
+        language_code, voice = (
+            voice_for(language) if language else (self.language_code, self.voice)
+        )
+
         # 조각들의 mp3 를 이어 붙임
         audio = bytearray()
         for chunk in chunks:
-            audio.extend(await self._synthesize_chunk(chunk))
+            audio.extend(await self._synthesize_chunk(chunk, language_code, voice))
         return bytes(audio)
 
-    async def _synthesize_chunk(self, text: str) -> bytes:
+    async def _synthesize_chunk(self, text: str, language_code: str, voice: str) -> bytes:
         payload = {
             "input": {"text": text},
-            "voice": {"languageCode": self.language_code, "name": self.voice},
+            "voice": {"languageCode": language_code, "name": voice},
             "audioConfig": {
                 "audioEncoding": "MP3",
                 "speakingRate": self.speaking_rate,

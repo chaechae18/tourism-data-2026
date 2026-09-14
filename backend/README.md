@@ -50,6 +50,63 @@ uvicorn app.main:app --reload --port 8000
 - 상태 확인: `http://localhost:8000/health`
 - 상세 명세: [`../docs/spot-api.md`](../docs/spot-api.md)
 
+## TourAPI 동기화
+
+`sync_tourapi.py` 가 공사 데이터를 `PLACE` / `FESTIVAL` 에 넣습니다. compose 의 `sync`
+서비스가 `--loop` 로 이걸 주기 실행하므로, 평소에는 손댈 일이 없습니다.
+
+```bash
+docker compose logs -f sync                          # 진행 상황
+docker compose exec backend python sync_tourapi.py   # 지금 당장 한 번 더
+```
+
+### 호출을 아끼는 방식
+
+동기화 비용의 대부분은 장소 1건당 두 번씩 나가는 상세 조회(`detailCommon2` +
+`detailIntro2`)입니다. 그래서 상세를 부르기 **전에** 목록 응답의 `modifiedtime` 을
+`PLACE.MODIFIED_TIME` 과 대조하고, 그대로면 통째로 넘어갑니다. 분류체계 이름표
+(`lclsSystmCode2`, 한 벌 만드는 데 수십 회)도 실제로 넣거나 고칠 행이 나왔을 때만 받습니다.
+
+결과는 `created / updated / unchanged / skipped` 로 찍힙니다. `unchanged` 가 곧 아낀 건수이고,
+장소 하나당 상세 2회를 아낀 셈입니다.
+
+`MODIFIED_TIME` 은 **상세까지 받은 회차에만** 기록합니다. `--skip-detail` 로 넣은 행은 비워
+두므로, 소개·운영시간이 빈 채로 "최신"으로 굳지 않고 다음 회차에서 채워집니다.
+
+### 번역 적재
+
+공사는 언어별로 서비스를 따로 냅니다 (`KorService2` / `EngService2` / `JpnService2` /
+`ChsService2`). 엔드포인트와 파라미터는 같고 `contentId` 도 공유하므로, 같은 번호로 각
+서비스를 불러 같은 장소의 다른 언어판을 받습니다.
+
+한국어 동기화가 끝나면 이어서 언어별로 `PLACE_I18N` 을 채웁니다. `PLACE` 는 그대로 한 줄이고,
+번역만 `(PLACE_IDX, LANGUAGE_CODE)` 로 붙습니다. 한국어도 특별 취급 없이 `ko` 한 줄로 들어갑니다.
+
+- 언어를 타지 않는 좌표·사진·분류코드는 `PLACE` 에만 둡니다.
+- 쉬는날은 두 곳에 쓰임이 다르게 들어갑니다. 코스 추천이 요일을 맞춰 보는 `PLACE.REST_DATE`
+  ("화") 와, 화면에 그대로 보여 주는 `PLACE_I18N.REST_DATE` ("매주 화요일 …") 입니다.
+- 분류체계 이름은 같은 코드를 쓰는 장소가 공유하므로 `CATEGORY_NAME_I18N` 에 코드별로 한 줄만 둡니다.
+
+번역이 없는 장소는 조회할 때 **요청 언어 → 한국어 → `PLACE` 원본** 순으로 내려가므로 화면이
+비지 않습니다. 도슨트도 같은 순서로 원고를 고르고, **원고가 나온 언어에 맞는 목소리**로 읽습니다
+(영어 원고가 없어 한국어로 내려갔으면 한국어 목소리로 읽습니다).
+
+언어별로도 `MODIFIED_TIME` 을 따로 세므로, 2회차부터는 그 언어에서 바뀐 것만 받습니다.
+
+### 자주 쓰는 옵션
+
+| 옵션 | 쓸 때 |
+|---|---|
+| `--force` | 수정시각과 무관하게 전량 재적재. **컬럼을 새로 추가했을 때** 씁니다 |
+| `--skip-detail` | 목록만 빠르게. 소개·운영시간·입장료가 빕니다 |
+| `--target places\|festivals` | 한쪽만 |
+| `--languages en ja` | 그 언어만 번역 적재. `--languages` 만 주면 번역을 건너뜁니다 |
+| `--limit N` | 시험 실행 |
+| `--interval-days N` | `--loop` 간격. `SYNC_INTERVAL_DAYS` 로도 지정 |
+
+`--loop` 는 마지막 성공 시각을 `SYNC_STATE_PATH`(컨테이너에서는 `sync-state` 볼륨)에 남깁니다.
+컨테이너를 다시 띄워도 주기를 새로 세지 않고 남은 시간만 기다립니다.
+
 ## DB 마이그레이션
 
 DB 구조는 Alembic 으로 관리합니다. **백엔드가 뜰 때 자동으로 최신 상태까지 적용**되므로,

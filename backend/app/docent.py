@@ -3,10 +3,21 @@ from hashlib import sha256
 import pymysql
 
 
+# 고른 언어 -> 없으면 한국어 -> 없으면 PLACE 원본. 다른 조회들과 같은 순서다.
 DOCENT_SQL = """
-    SELECT IDX, NAME, TEXT
-    FROM PLACE
-    WHERE IDX = %s AND TEXT IS NOT NULL AND TEXT <> ''
+    SELECT p.IDX,
+           COALESCE(NULLIF(t.NAME, ''), NULLIF(k.NAME, ''), p.NAME) AS NAME,
+           COALESCE(NULLIF(t.TEXT, ''), NULLIF(k.TEXT, ''), NULLIF(p.TEXT, '')) AS TEXT,
+           -- 원고가 어느 언어로 나왔는지. 읽어 줄 목소리를 이걸로 고른다.
+           CASE
+             WHEN NULLIF(t.TEXT, '') IS NOT NULL THEN %s
+             ELSE 'ko'
+           END AS LANGUAGE_CODE
+    FROM PLACE p
+    LEFT JOIN PLACE_I18N t ON t.PLACE_IDX = p.IDX AND t.LANGUAGE_CODE = %s
+    LEFT JOIN PLACE_I18N k ON k.PLACE_IDX = p.IDX AND k.LANGUAGE_CODE = 'ko'
+    WHERE p.IDX = %s
+      AND COALESCE(NULLIF(t.TEXT, ''), NULLIF(k.TEXT, ''), NULLIF(p.TEXT, '')) IS NOT NULL
 """
 
 
@@ -14,9 +25,11 @@ class DocentNotFoundError(Exception):
     """그 장소에는 읽어 줄 설명이 없다."""
 
 
-def find_docent(connection: pymysql.Connection, place_id: int) -> dict:
+def find_docent(
+    connection: pymysql.Connection, place_id: int, language: str = "ko"
+) -> dict:
     with connection.cursor() as cursor:
-        cursor.execute(DOCENT_SQL, (place_id,))
+        cursor.execute(DOCENT_SQL, (language, language, place_id))
         row = cursor.fetchone()
     if not row:
         raise DocentNotFoundError(place_id)
@@ -25,6 +38,7 @@ def find_docent(connection: pymysql.Connection, place_id: int) -> dict:
         "place_id": row["IDX"],
         "name": row["NAME"],
         "text": row["TEXT"],
+        "language": row["LANGUAGE_CODE"],
     }
 
 

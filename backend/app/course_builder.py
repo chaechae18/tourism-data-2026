@@ -10,7 +10,7 @@ from typing import Any
 import pymysql
 
 from .mysql import fetch_all
-from .personas import Persona, Slot
+from .personas import Persona, Slot, day_plan
 from .tourapi import ALWAYS_OPEN, WEEKDAYS
 
 
@@ -40,13 +40,25 @@ def candidate_sql() -> str:
         SELECT p.IDX,
                COALESCE(NULLIF(t.NAME, ''), NULLIF(k.NAME, ''), p.NAME) AS NAME,
                COALESCE(NULLIF(t.ADDRESS, ''), NULLIF(k.ADDRESS, ''), p.ADDRESS) AS ADDRESS,
-               p.IMG, p.MENU, p.REST_DATE, p.TYPE,
-               p.OPERATING_HOURS, p.PARKING,
-               p.CATEGORY_CODE, p.CATEGORY_SUB, p.LATITUDE, p.LONGITUDE,
+               COALESCE(NULLIF(t.MENU, ''), NULLIF(k.MENU, ''), p.MENU) AS MENU,
+               COALESCE(NULLIF(t.PARKING, ''), NULLIF(k.PARKING, ''), p.PARKING) AS PARKING,
+               COALESCE(
+                 NULLIF(t.OPERATING_HOURS, ''), NULLIF(k.OPERATING_HOURS, ''), p.OPERATING_HOURS
+               ) AS OPERATING_HOURS,
+               -- 휴무일은 둘로 나뉜다. REST_DATE 는 요일을 맞춰 보는 값,
+               -- REST_DATE_TEXT 는 화면에 그대로 보여 주는 원문이다.
+               p.REST_DATE,
+               COALESCE(
+                 NULLIF(t.REST_DATE, ''), NULLIF(k.REST_DATE, ''), p.REST_DATE
+               ) AS REST_DATE_TEXT,
+               COALESCE(NULLIF(cn.CATEGORY_SUB, ''), p.CATEGORY_SUB) AS CATEGORY_SUB,
+               p.IMG, p.TYPE, p.CATEGORY_CODE, p.LATITUDE, p.LONGITUDE,
                COALESCE(s.SCORE, 0) AS PERSONA_SCORE
         FROM PLACE p
         LEFT JOIN PLACE_I18N t ON t.PLACE_IDX = p.IDX AND t.LANGUAGE_CODE = %s
         LEFT JOIN PLACE_I18N k ON k.PLACE_IDX = p.IDX AND k.LANGUAGE_CODE = 'ko'
+        LEFT JOIN CATEGORY_NAME_I18N cn
+          ON cn.CATEGORY_CODE = p.CATEGORY_CODE AND cn.LANGUAGE_CODE = %s
         LEFT JOIN PLACE_PERSONA_SCORE s ON s.PLACE_IDX = p.IDX AND s.PERSONA_KEY = %s
         WHERE p.IS_DISPLAY = 1
           AND p.CATEGORY_CODE IS NOT NULL
@@ -165,6 +177,7 @@ def _slot_pool(
     weekday: str,
     used: set[int],
     scored: bool,
+    required: bool = False,
 ) -> list[dict[str, Any]]:
     # 시간대·휴무일이 맞는 곳 중에서 자격 점수를 조금씩 낮춰 가며 찾는다.
     open_places = [
@@ -178,11 +191,34 @@ def _slot_pool(
     # 칸을 채우자고 엉뚱한 곳을 넣느니 그 칸을 비우는 편이 낫다.
     # 아직 한 번도 채점하지 않은 DB 에서는 점수를 보지 않고 뽑는다.
     thresholds = (persona.min_score, 1) if scored else (0,)
+    # 하한을 채우는 칸은 비울 수 없다. 안 어울리는 곳이라도 넣는다.
+    if required:
+        thresholds = (*thresholds, 0)
     for minimum in thresholds:
         pool = [row for row in open_places if row["PERSONA_SCORE"] >= minimum]
         if pool:
             return pool
+    # 마지막으로 휴무일까지 접는다. 오늘 쉬는 곳이라도 빈칸보다는 낫다.
+    if required:
+        return [row for row in rows if row["IDX"] not in used and matches(row, slot)]
     return []
+
+
+def _has_room_to_spare(
+    rows: Sequence[dict[str, Any]],
+    slots: Sequence[Slot],
+    index: int,
+    used: set[int],
+) -> bool:
+    """이 덤 칸을 채우고도 뒤에 남은 필수 칸을 다 채울 수 있는지."""
+    slot = slots[index]
+    later_required = sum(
+        1
+        for later in slots[index + 1:]
+        if later.place_type == slot.place_type and not later.optional
+    )
+    left = sum(1 for row in rows if row["IDX"] not in used and matches(row, slot))
+    return left > later_required
 
 
 def _build_once(
@@ -190,6 +226,7 @@ def _build_once(
     persona: Persona,
     weekday: str,
     rng: random.Random,
+    slots: Sequence[Slot] | None = None,
 ) -> tuple[list[Stop], list[str]]:
     stops: list[Stop] = []
     skipped: list[str] = []
@@ -197,9 +234,18 @@ def _build_once(
     position: tuple[float, float] | None = None
     # 이 역할로 채점된 장소가 하나라도 있는지. 없으면 점수를 보지 않고 뽑는다.
     scored = any(row["PERSONA_SCORE"] > 0 for row in rows)
+    slots = persona.slots if slots is None else slots
 
-    for slot in persona.slots:
-        pool = _slot_pool(rows, slot, persona, weekday, used, scored)
+    for index, slot in enumerate(slots):
+        # 덤 칸이 뒤에 남은 필수 칸의 몫까지 가져가면 저녁이 비어 버린다.
+        if slot.optional and not _has_room_to_spare(rows, slots, index, used):
+            skipped.append(slot.time_slot)
+            continue
+
+        # 덤으로 붙은 칸만 비울 수 있다. 하한에 드는 칸은 조건을 풀어서라도 채운다.
+        pool = _slot_pool(
+            rows, slot, persona, weekday, used, scored, required=not slot.optional
+        )
         candidates = _nearby(pool, position, persona.radius_km)
         if not candidates:
             skipped.append(slot.time_slot)
@@ -219,7 +265,7 @@ def _build_once(
                 latitude=point[0],
                 longitude=point[1],
                 menu=chosen["MENU"],
-                rest_date=chosen["REST_DATE"],
+                rest_date=chosen["REST_DATE_TEXT"],
                 operating_hours=chosen["OPERATING_HOURS"],
                 parking=chosen["PARKING"],
                 distance_km=round(distance_km(position, point), 2),
@@ -242,15 +288,21 @@ def build_course(
     attempts: int = 5,
     language: str = "ko",
 ) -> Course:
-    # 경로 생성 시도 
+    # 경로 생성 시도
     visit_date = visit_date or date.today()
     rng = rng or random.Random()
     weekday = WEEKDAYS[visit_date.weekday()]
-    rows = fetch_all(connection, candidate_sql(), (language, persona.key))
+    rows = fetch_all(connection, candidate_sql(), (language, language, persona.key))
+
+    # 코스마다 구성이 달라지도록 개수를 먼저 뽑는다. 다시 뽑으면 구성도 바뀐다.
+    slots = day_plan(
+        rng.randint(*persona.tour_range),
+        rng.randint(*persona.food_range),
+    )
 
     best: tuple[list[Stop], list[str]] | None = None
     for _ in range(max(1, attempts)):
-        stops, skipped = _build_once(rows, persona, weekday, rng)
+        stops, skipped = _build_once(rows, persona, weekday, rng, slots)
         total = sum(stop.distance_km for stop in stops)
         if total <= persona.max_total_km:
             best = (stops, skipped)
@@ -258,7 +310,7 @@ def build_course(
         if best is None or total < sum(stop.distance_km for stop in best[0]):
             best = (stops, skipped)
 
-    stops, skipped = best or ([], [slot.time_slot for slot in persona.slots])
+    stops, skipped = best or ([], [slot.time_slot for slot in slots])
     return Course(
         persona_key=persona.key,
         persona_name=persona.name,
