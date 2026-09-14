@@ -52,7 +52,7 @@ export default function NotificationButton({ refreshKey = 0 }) {
   return (
     <div className="relative">
       <div className="relative">
-        <IconButton icon={Bell} label={t("notifications.label")} onClick={toggle} />
+        <IconButton className="!border-0" icon={Bell} label={t("notifications.label")} onClick={toggle} />
         {unreadCount > 0 && (
           <span className="pointer-events-none absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#a8463d] px-1 text-[10px] font-bold text-white">
             {Math.min(unreadCount, 99)}
@@ -61,8 +61,7 @@ export default function NotificationButton({ refreshKey = 0 }) {
       </div>
 
       {open && (
-        // 벨이 아니라 헤더 여백에 맞춘다. -right-12 는 옆에 붙은 로그아웃 버튼(40px)과 간격(8px)만큼.
-        <div className="absolute -right-12 top-12 z-50 w-[min(398px,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#e2e4e0] bg-white shadow-xl">
+        <div className="absolute right-0 top-12 z-50 w-[min(398px,calc(100vw-2rem))] overflow-hidden rounded-xl border border-[#e2e4e0] bg-white shadow-xl">
           <div className="border-b border-[#e2e4e0] px-4 py-3">
             <p className="font-bold text-[#343235]">{t("notifications.label")}</p>
           </div>
@@ -75,7 +74,7 @@ export default function NotificationButton({ refreshKey = 0 }) {
                 onClick={() => read(notification)}
                 className={`flex w-full items-start gap-3 border-b border-[#f0e8de] px-4 py-3 text-left last:border-0 ${notification.isRead ? "bg-white" : "bg-[#fffaf4]"}`}
               >
-                <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${notification.isRead ? "bg-[#eef0ee] text-[#747579]" : "bg-[#fff1df] text-[#a45118]"}`}>
+                <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${notification.isRead ? "bg-[#eef0ee] text-[#747579]" : "bg-brand-soft text-brand-ink"}`}>
                   {notification.isRead ? <Check size={14} /> : <Bell size={14} />}
                 </span>
                 <span className="min-w-0">

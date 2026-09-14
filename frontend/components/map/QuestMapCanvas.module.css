@@ -1,0 +1,103 @@
+.stage {
+  position: relative;
+  height: clamp(460px, 70svh, 580px);
+  width: 100%;
+  isolation: isolate;
+  background: #eee9dc;
+}
+
+/* MapLibre 기본 position:relative와 충돌하지 않도록 높이까지 명시한다. */
+.stage .canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.marker { width: 44px; height: 44px; }
+.marker:has(button[aria-pressed="true"]) { z-index: 2; }
+.building {
+  position: relative;
+  display: block;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.building img {
+  position: absolute;
+  bottom: 0;
+  left: 2px;
+  display: block;
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  pointer-events: none;
+  user-select: none;
+  /* 실루엣에 0.5px 검정선을 먼저 두르고, 그 바깥에 1px 흰색선을 만든다. */
+  filter: drop-shadow(.5px 0 0 #000) drop-shadow(-.5px 0 0 #000)
+    drop-shadow(0 .5px 0 #000) drop-shadow(0 -.5px 0 #000)
+    drop-shadow(1px 0 0 #fff) drop-shadow(-1px 0 0 #fff)
+    drop-shadow(0 1px 0 #fff) drop-shadow(0 -1px 0 #fff);
+}
+.building:focus-visible { outline: 2px solid #1c806b; outline-offset: 4px; border-radius: 8px; }
+.label {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  width: max-content;
+  max-width: 128px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-radius: 5px;
+  padding: 2px 5px;
+  color: #343c35;
+  background: #fffdf3;
+  font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  letter-spacing: 0;
+  text-rendering: auto;
+  -webkit-font-smoothing: auto;
+}
+.building[aria-pressed="true"] .label { color: #fffdf3; background: #3a5148; }
+.label::before { content: ""; display: inline-block; width: 5px; height: 5px; margin-right: 4px; border-radius: 50%; background: #7f8582; vertical-align: 1px; }
+.building[data-nearby="true"] .label::before { background: #bd8c31; }
+.building[data-completed="true"] .label { box-shadow: 0 0 0 2px #2d8c86; }
+.badge {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #2d8c86;
+  color: white;
+  border: 2px solid #fffdf3;
+}
+.tools { position: absolute; right: 16px; top: 8rem; z-index: 3; display: grid; gap: 6px; }
+.status {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 120px;
+  z-index: 3;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fffdf3ed;
+  color: #4a493d;
+  font-size: 12px;
+  text-align: center;
+}
+.retry { margin-left: 8px; font-weight: 700; text-decoration: underline; }
+.stage :global(.maplibregl-ctrl-bottom-left),
+.stage :global(.maplibregl-ctrl-bottom-right) { bottom: 29px; }
+.stage :global(.maplibregl-ctrl-attrib) { font-size: 9px; background: #fffdf3e6; }
+.stage :global(.maplibregl-ctrl-scale) { background: #fffdf3c9; border-color: #626762; font-size: 10px; }

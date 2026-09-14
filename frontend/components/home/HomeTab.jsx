@@ -65,7 +65,7 @@ function BannerCard({ banner }) {
 
   if (!link) return body;
   return (
-    <a className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-[#bd8c31]" href={link}>
+    <a className="block rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-brand" href={link}>
       {body}
     </a>
   );
@@ -86,7 +86,7 @@ function PlaceAddress({ place }) {
   const name = encodeURIComponent(place.name || "관광지");
   return (
     <a
-      className={`${style} hover:text-[#9a4e17]`}
+      className={`${style}`}
       href={`https://map.kakao.com/link/map/${name},${place.latitude},${place.longitude}`}
       rel="noreferrer"
       target="_blank"
@@ -122,15 +122,15 @@ function NoticePopup({ popups, t }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#241b16]/45 px-8">
       <section aria-label={t("home.notice")} aria-modal="true" className="w-full max-w-[19rem] overflow-hidden rounded-2xl bg-white shadow-xl" role="dialog">
         <div className="flex items-center justify-between gap-3 border-b border-[#f0e8de] px-5 py-3.5">
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-[#a67927]">Notice</p>
-          <button aria-label={t("common.close")} className="text-[#8a7d71] hover:text-[#241b16]" onClick={() => close(false)} type="button">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-ink">Notice</p>
+          <button aria-label={t("common.close")} className="text-[#8a7d71]" onClick={() => close(false)} type="button">
             <X size={16} />
           </button>
         </div>
         <div className="max-h-[20rem] space-y-4 overflow-y-auto px-5 py-4">
           {popups.map((popup, index) => (
             <div className="flex items-start gap-3" key={`${popup.title}-${index}`}>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#fff1df] text-[#a45118]"><CalendarDays size={18} /></div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-ink"><CalendarDays size={18} /></div>
               <div className="min-w-0">
                 <p className="font-bold text-[#241b16]">{popup.title}</p>
                 {popup.content && <p className="mt-1 text-sm leading-6 text-[#6f6256]">{popup.content}</p>}
@@ -139,7 +139,7 @@ function NoticePopup({ popups, t }) {
                   <img alt="" aria-hidden="true" className="mt-3 w-full rounded-md object-cover" src={popup.img} />
                 )}
                 {safeHref(popup.link) && (
-                  <a className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]" href={safeHref(popup.link)}>
+                  <a className="mt-2 inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17]" href={safeHref(popup.link)}>
                     {t("home.detail")} <ChevronRight size={15} />
                   </a>
                 )}
@@ -147,7 +147,7 @@ function NoticePopup({ popups, t }) {
             </div>
           ))}
         </div>
-        <button className="w-full border-t border-[#f0e8de] bg-[#fff8f0] py-3 text-xs font-bold text-[#a45118] hover:bg-[#fff1df]" onClick={() => close(true)} type="button">
+        <button className="w-full border-t border-[#f0e8de] bg-[#fff8f0] py-3 text-xs font-bold text-brand-ink" onClick={() => close(true)} type="button">
           {t("home.hideToday")}
         </button>
       </section>
@@ -225,7 +225,7 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
                   <h2 className="mt-1 font-bold text-[#241b16]">{festival.name}</h2>
                   {period && <p className="mt-2 text-sm text-[#6f6256]">{period}</p>}
                   {url && (
-                    <a className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]" href={url} rel="noreferrer" target="_blank">
+                    <a className="mt-3 inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17]" href={url} rel="noreferrer" target="_blank">
                       {t("home.festivalInfo")} <ChevronRight size={15} />
                     </a>
                   )}
@@ -246,7 +246,7 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="font-bold text-[#241b16]">{place.name}</h3>
                   {place.admissionFee && (
-                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#fff1df] px-2.5 py-1 text-xs font-bold text-[#a45118]">
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand-ink">
                       <Ticket size={13} />
                       {place.admissionFee}
                     </span>
@@ -292,7 +292,7 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
       )}
 
       <div className="border-t border-[#e6ddd2] pt-5">
-        <a href={HOME_CONTENT.tourismUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17] hover:text-[#6f3210]">
+        <a href={HOME_CONTENT.tourismUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sm font-bold text-[#9a4e17]">
           {t("home.tourismInfo")} <ChevronRight size={16} />
         </a>
       </div>

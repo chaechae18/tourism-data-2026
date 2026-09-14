@@ -3,6 +3,11 @@
 @tailwind utilities;
 
 :root {
+  --bottom-nav-height: calc(4rem + max(0.6rem, env(safe-area-inset-bottom)));
+  --color-brand: 240 160 82;
+  --color-brand-ink: 150 78 19;
+  --color-brand-soft: 255 242 229;
+  --color-brand-border: 246 206 165;
   --landing-transition-duration: 6s;
   color: #343235;
   background: #f7f8f7;
@@ -10,6 +15,11 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-width: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
 }
 
 html,

@@ -1,3 +1,4 @@
+import "../../../helpers/maplibre";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { vi } from "vitest";
 import { QUESTS } from "../../../../lib/app-data";
@@ -11,21 +12,12 @@ const PROPS = {
   selectedPlace: QUESTS[0],
 };
 
-// jsdom에는 PointerEvent가 없어서 fireEvent.pointerDown으로는 좌표가 전달되지 않는다.
-// 좌표를 담을 수 있는 MouseEvent를 같은 이름으로 직접 보내 손가락 끌기를 흉내낸다.
-function dragPointer(element, points) {
-  const types = ["pointerdown", ...points.slice(1).map(() => "pointermove"), "pointerup"];
-  [...points, points.at(-1)].forEach(([clientX, clientY], index) => {
-    fireEvent(element, new MouseEvent(types[index], { bubbles: true, clientX, clientY }));
-  });
-}
-
 describe("GyeongjuMap2D", () => {
-  it("selects a place marker", () => {
+  it("selects a place marker", async () => {
     const onSelect = vi.fn();
     render(<GyeongjuMap2D {...PROPS} onSelect={onSelect} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "첨성대 선택" }));
+    fireEvent.click(await screen.findByRole("button", { name: "첨성대 선택" }));
 
     expect(onSelect).toHaveBeenCalledWith(QUESTS[1]);
   });
@@ -39,10 +31,10 @@ describe("GyeongjuMap2D", () => {
     expect(onComplete).toHaveBeenCalledWith(QUESTS[0].id);
   });
 
-  it("shows the full Gyeongju landmarks on the map", () => {
+  it("shows the full Gyeongju landmarks on the map", async () => {
     render(<GyeongjuMap2D {...PROPS} />);
 
-    expect(screen.getByRole("button", { name: "불국사 선택" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "불국사 선택" })).toBeInTheDocument();
   });
 
   it("lists the course places in visit order when the list view is selected", () => {
@@ -64,7 +56,7 @@ describe("GyeongjuMap2D", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "지도에 도보 경로 표시" }));
 
-    expect(await screen.findByRole("status")).toHaveTextContent("TMAP 키");
+    expect(await screen.findByText(/TMAP 키/)).toBeInTheDocument();
   });
 
   it("opens the docent player for a place that has a description", async () => {
@@ -86,44 +78,6 @@ describe("GyeongjuMap2D", () => {
     render(<GyeongjuMap2D {...PROPS} places={[place]} selectedPlace={place} />);
 
     expect(screen.getByRole("button", { name: "준비 중" })).toBeDisabled();
-  });
-
-  it("zooms the map with the zoom buttons and keeps marker size fixed", () => {
-    const { container } = render(<GyeongjuMap2D {...PROPS} />);
-    const mapBody = () => container.querySelector("svg > g[transform]");
-    const markerBody = () => screen.getByRole("button", { name: "첨성대 선택" }).querySelector("g");
-
-    // 1배에서는 축소·되돌리기를 쓸 이유가 없다.
-    expect(screen.getByRole("button", { name: "지도 축소" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "지도 원래대로" })).toBeNull();
-
-    fireEvent.click(screen.getByRole("button", { name: "지도 확대" }));
-
-    // 지도 본체는 1.6배로 커지고, 마커는 그만큼 되돌려져 원래 크기를 유지한다.
-    expect(mapBody().getAttribute("transform")).toContain("scale(1.6)");
-    expect(markerBody().getAttribute("transform")).toContain(`scale(${1 / 1.6})`);
-
-    fireEvent.click(screen.getByRole("button", { name: "지도 원래대로" }));
-
-    expect(mapBody().getAttribute("transform")).toContain("scale(1)");
-    expect(markerBody().getAttribute("transform")).toContain("scale(1)");
-  });
-
-  it("does not select a marker when the map was dragged instead of tapped", () => {
-    const bounds = vi.spyOn(Element.prototype, "getBoundingClientRect")
-      .mockReturnValue({ left: 0, top: 0, width: 390, height: 500 });
-    const onSelect = vi.fn();
-    const { container } = render(<GyeongjuMap2D {...PROPS} onSelect={onSelect} />);
-    const marker = screen.getByRole("button", { name: "첨성대 선택" });
-
-    fireEvent.click(screen.getByRole("button", { name: "지도 확대" }));  // 확대해야 이동할 여지가 생긴다
-    dragPointer(marker.closest("svg"), [[200, 240], [140, 240]]);
-    fireEvent.click(marker);
-
-    // 1.6배 확대 위치(-117)에서 왼쪽으로 60만큼 끌린다.
-    expect(container.querySelector("svg > g[transform]").getAttribute("transform")).toContain("translate(-177");
-    expect(onSelect).not.toHaveBeenCalled();
-    bounds.mockRestore();
   });
 
   it("opens the Kakao Map route page for the selected place", () => {

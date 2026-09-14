@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "node scripts/prepare-map-worker.mjs",
     "dev": "next dev",
+    "prebuild": "node scripts/prepare-map-worker.mjs",
     "build": "next build",
     "start": "next start",
     "test": "vitest run",
@@ -11,6 +13,7 @@
   },
   "dependencies": {
     "lucide-react": "^0.468.0",
+    "maplibre-gl": "^6.6.0",
     "next": "^15.4.6",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

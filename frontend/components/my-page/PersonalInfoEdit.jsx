@@ -38,14 +38,14 @@ export default function PersonalInfoEdit({
         <button
           type="button"
           onClick={onClose}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e2e4e0] bg-white text-[#55565a] transition-colors hover:bg-[#faf9f6]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e2e4e0] bg-white text-[#55565a] transition-colors"
           aria-label="뒤로가기"
         >
           <ChevronLeft size={19} />
         </button>
 
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#bd8c31]">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">
             PROFILE
           </p>
 
@@ -61,7 +61,7 @@ export default function PersonalInfoEdit({
         <div className="flex items-center gap-4">
 
           <div className="relative shrink-0">
-            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-[#fff1df] text-[#a45118]">
+            <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full bg-brand-soft text-brand-ink">
               {profileImage ? (
                 <img
                   src={profileImage}
@@ -75,7 +75,7 @@ export default function PersonalInfoEdit({
 
             <label
               htmlFor="profile-image"
-              className="absolute bottom-0 right-0 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-[#bd8c31] text-white shadow-sm"
+              className="absolute bottom-0 right-0 flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border-2 border-white bg-brand text-white shadow-sm"
             >
               <Camera size={13} />
             </label>
@@ -135,7 +135,7 @@ export default function PersonalInfoEdit({
               type="text"
               value={nickname}
               onChange={(event) => setNickname(event.target.value)}
-              className="h-12 w-full rounded-xl border border-[#d9d1c7] bg-white pl-10 pr-3 text-sm text-[#343235] outline-none transition-colors focus:border-[#bd8c31]"
+              className="h-12 w-full rounded-xl border border-[#d9d1c7] bg-white pl-10 pr-3 text-sm text-[#343235] outline-none transition-colors focus:border-brand"
               placeholder="닉네임을 입력해주세요"
             />
           </div>
@@ -162,7 +162,7 @@ export default function PersonalInfoEdit({
               type="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              className="h-12 w-full rounded-xl border border-[#d9d1c7] bg-white pl-10 pr-3 text-sm text-[#343235] outline-none transition-colors focus:border-[#bd8c31]"
+              className="h-12 w-full rounded-xl border border-[#d9d1c7] bg-white pl-10 pr-3 text-sm text-[#343235] outline-none transition-colors focus:border-brand"
               placeholder="이메일을 입력해주세요"
             />
           </div>
@@ -189,7 +189,7 @@ export default function PersonalInfoEdit({
               type="text"
               value={country}
               onChange={(event) => setCountry(event.target.value)}
-              className="h-12 w-full rounded-xl border border-[#d9d1c7] bg-white pl-10 pr-3 text-sm text-[#343235] outline-none transition-colors focus:border-[#bd8c31]"
+              className="h-12 w-full rounded-xl border border-[#d9d1c7] bg-white pl-10 pr-3 text-sm text-[#343235] outline-none transition-colors focus:border-brand"
               placeholder="예: KR"
               maxLength={10}
             />
@@ -221,7 +221,7 @@ export default function PersonalInfoEdit({
               type="date"
               value={birthDate}
               onChange={(event) => setBirthDate(event.target.value)}
-              className="h-12 w-full rounded-xl border border-[#d9d1c7] bg-white pl-10 pr-3 text-sm text-[#343235] outline-none transition-colors focus:border-[#bd8c31]"
+              className="h-12 w-full rounded-xl border border-[#d9d1c7] bg-white pl-10 pr-3 text-sm text-[#343235] outline-none transition-colors focus:border-brand"
             />
           </div>
 
