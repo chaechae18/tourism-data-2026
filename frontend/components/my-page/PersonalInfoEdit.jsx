@@ -96,7 +96,7 @@ export default function PersonalInfoEdit({
               font-bold
               uppercase
               tracking-[0.2em]
-              text-[#bd8c31]
+              text-brand
             "
           >
             PROFILE
@@ -133,7 +133,7 @@ export default function PersonalInfoEdit({
         {/* 카드 제목 */}
         <div className="border-b border-[#f0ece6] px-5 py-4">
           <div className="flex items-center gap-2">
-            <span className="h-1.5 w-1.5 rounded-full bg-[#bd8c31]" />
+            <span className="h-1.5 w-1.5 rounded-full bg-brand" />
 
             <h3 className="text-[13px] font-bold text-[#45413d]">
               {t("myPage.personalInfo.basicInfo")}
@@ -158,7 +158,7 @@ export default function PersonalInfoEdit({
             >
               <User
                 size={14}
-                className="text-[#bd8c31]"
+                className="text-brand"
               />
               {t("myPage.personalInfo.nickname")}
             </label>
@@ -204,7 +204,7 @@ export default function PersonalInfoEdit({
             >
               <Mail
                 size={14}
-                className="text-[#bd8c31]"
+                className="text-brand"
               />
               {t("myPage.personalInfo.email")}
             </label>
@@ -250,7 +250,7 @@ export default function PersonalInfoEdit({
             >
               <Globe2
                 size={14}
-                className="text-[#bd8c31]"
+                className="text-brand"
               />
               {t("myPage.personalInfo.country")}
             </label>
@@ -296,7 +296,7 @@ export default function PersonalInfoEdit({
             >
               <CalendarDays
                 size={14}
-                className="text-[#bd8c31]"
+                className="text-brand"
               />
               {t("myPage.personalInfo.birthDate")}
             </label>
@@ -381,7 +381,7 @@ export default function PersonalInfoEdit({
           !h-[52px]
           w-full
           rounded-xl
-          !bg-[#bd8c31]
+          !bg-brand
           !text-white
           font-semibold
           shadow-[0_5px_14px_rgba(189,140,49,0.22)]

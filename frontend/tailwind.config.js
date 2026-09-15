@@ -19,7 +19,12 @@ module.exports = {
         ink: "#343235",
         muted: "#747579",
         line: "#e2e4e0",
-        gold: "#bd8c31",
+        brand: {
+          DEFAULT: "rgb(var(--color-brand) / <alpha-value>)",
+          ink: "rgb(var(--color-brand-ink) / <alpha-value>)",
+          soft: "rgb(var(--color-brand-soft) / <alpha-value>)",
+          border: "rgb(var(--color-brand-border) / <alpha-value>)",
+        },
         teal: "#2d8c86",
         blue: "#356b98",
       },

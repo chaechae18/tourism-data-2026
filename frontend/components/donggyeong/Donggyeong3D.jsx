@@ -1,174 +1,181 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
-import { createDonggyeong } from "../../lib/donggyeong/create-donggyeong";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
+import { createDonggyeong } from "../../public/models/donggyeong/avatar.js";
+import { attachClickGreeting } from "../../public/models/donggyeong/click-greeting.js";
+import manifest from "../../public/models/donggyeong/manifest.json";
 import { donggyeongModelCache } from "../../lib/donggyeong/glb-memory-cache";
 import { useI18n } from "../i18n/LanguageProvider";
 
 export default function Donggyeong3D({ className = "", interactive = true, items = [] }) {
   const { t } = useI18n();
   const mountRef = useRef(null);
-  const modelUrls = [...new Set(items.map((item) => item.modelUrl).filter(Boolean))];
-  const modelKey = modelUrls.join("|");
+  const viewerRef = useRef(null);
+  const [status, setStatus] = useState("loading");
+  const modelKey = JSON.stringify(items);
 
   useEffect(() => {
     const mount = mountRef.current;
-    if (!mount) return undefined;
-
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(32, 1, 0.1, 100);
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.shadowMap.enabled = true;
-    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    renderer.toneMappingExposure = 1.12;
-    renderer.domElement.style.touchAction = "none";
+    renderer.shadowMap.type = THREE.VSMShadowMap;
+    renderer.toneMapping = THREE.NeutralToneMapping;
+    renderer.toneMappingExposure = 0.86;
     mount.appendChild(renderer.domElement);
 
-    scene.add(new THREE.HemisphereLight(0xfffdf8, 0x718087, 1.3));
-    const key = new THREE.DirectionalLight(0xffeed2, 2.15);
-    key.position.set(-3.8, 6, 5.4);
+    const camera = new THREE.PerspectiveCamera(31, 1, 0.1, 100);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.target.set(0, 2.3, 0);
+    controls.enableDamping = true;
+    controls.enabled = interactive;
+    controls.enablePan = false;
+    controls.minDistance = 6;
+    controls.maxDistance = 22;
+    controls.maxPolarAngle = Math.PI * 0.53;
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const room = new RoomEnvironment();
+    const environment = pmrem.fromScene(room, 0.04);
+    scene.environment = environment.texture;
+    scene.environmentIntensity = 0.65;
+    room.dispose();
+    pmrem.dispose();
+    scene.add(new THREE.HemisphereLight(0xfff5df, 0x817361, 0.65));
+    const key = new THREE.DirectionalLight(0xffedce, 2);
+    key.position.set(-3, 7, 6);
     key.castShadow = true;
-    key.shadow.mapSize.set(2048, 2048);
-    key.shadow.camera.left = -6;
-    key.shadow.camera.right = 6;
-    key.shadow.camera.top = 7;
-    key.shadow.camera.bottom = -7;
-    key.shadow.radius = 7;
+    key.shadow.mapSize.set(1024, 1024);
+    Object.assign(key.shadow.camera, { left: -4, right: 4, top: 6, bottom: -3, near: 0.1, far: 20 });
+    key.shadow.normalBias = 0.004;
     scene.add(key);
-    const fill = new THREE.DirectionalLight(0xf4f8fa, 0.72);
-    fill.position.set(4.5, 2.5, 5.5);
-    scene.add(fill);
-    const rim = new THREE.DirectionalLight(0xe6c985, 0.44);
-    rim.position.set(4, 4, -5);
-    scene.add(rim);
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(200, 200), new THREE.ShadowMaterial({ opacity: 0.22 }));
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -0.007;
+    floor.receiveShadow = true;
+    scene.add(floor);
 
-    const ground = new THREE.Mesh(
-      new THREE.CircleGeometry(3.2, 64),
-      new THREE.ShadowMaterial({ opacity: 0.28 }),
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -3.05;
-    ground.receiveShadow = true;
-    scene.add(ground);
-
-    const donggyeong = createDonggyeong();
-    scene.add(donggyeong.root);
     let active = true;
-    const itemHandles = [];
-    const itemScenes = [];
-
-    const itemLoadPromise = Promise.allSettled(modelUrls.map(async (url) => {
-      try {
-        const handle = await donggyeongModelCache.acquire(url);
-        if (!active) {
-          handle.release();
-          return;
-        }
-        const itemScene = handle.asset.scene.clone(true);
-        itemScene.traverse((object) => {
-          if (!object.isMesh) return;
-          object.castShadow = true;
-          object.receiveShadow = true;
-        });
-        itemHandles.push(handle);
-        itemScenes.push(itemScene);
-        donggyeong.root.add(itemScene);
-      } catch {
-        // Keep the base mascot usable if one optional item asset fails to load.
-      }
-    }));
-
-    const orbit = { theta: 0, phi: 1.5, radius: 12.3, drag: false, x: 0, y: 0 };
-    const applyCamera = () => {
-      camera.position.set(
-        orbit.radius * Math.sin(orbit.phi) * Math.sin(orbit.theta),
-        orbit.radius * Math.cos(orbit.phi),
-        orbit.radius * Math.sin(orbit.phi) * Math.cos(orbit.theta),
-      );
-      camera.lookAt(0, -0.42, 0);
+    let revision = 0;
+    let avatar;
+    const detachGreeting = interactive ? attachClickGreeting(renderer.domElement, camera, () => avatar) : () => {};
+    const handles = new Map();
+    const equipped = new Map();
+    const load = async (url) => {
+      if (!handles.has(url)) handles.set(url, donggyeongModelCache.acquire(url));
+      return (await handles.get(url)).asset;
     };
-    applyCamera();
-
+    const fitBackdrop = () => {
+      scene.background = avatar?.background || null;
+      if (!scene.background) return;
+      const texture = scene.background;
+      const imageAspect = texture.image.width / texture.image.height;
+      texture.repeat.set(Math.min(1, camera.aspect / imageAspect), -Math.min(1, imageAspect / camera.aspect));
+      texture.offset.set((1 - texture.repeat.x) / 2, (1 - texture.repeat.y) / 2);
+      texture.updateMatrix();
+    };
     const resize = () => {
-      const width = mount.clientWidth;
-      const height = mount.clientHeight;
+      const { clientWidth: width, clientHeight: height } = mount;
       if (!width || !height) return;
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
+      // The existing wardrobe has a narrow central column; fit the complete silhouette.
+      camera.position.set(0.6, 2.8, Math.max(11, 7.3 / camera.aspect));
+      controls.update();
       renderer.setSize(width, height);
+      fitBackdrop();
     };
-    const resizeObserver = new ResizeObserver(resize);
-    resizeObserver.observe(mount);
+    const observer = new ResizeObserver(resize);
+    observer.observe(mount);
     resize();
-
-    const onPointerDown = (event) => {
-      if (!interactive) return;
-      orbit.drag = true;
-      orbit.x = event.clientX;
-      orbit.y = event.clientY;
-      renderer.domElement.setPointerCapture?.(event.pointerId);
+    const baseReady = load(`${manifest.base.url}?v=${manifest.base.sha256.slice(0, 12)}`).then((asset) => {
+      if (!active) return;
+      avatar = createDonggyeong(asset);
+      scene.add(avatar.root);
+    });
+    viewerRef.current = {
+      greet: () => avatar?.greet(),
+      async setItems(entries) {
+        const request = ++revision;
+        setStatus("loading");
+        try {
+          await baseReady;
+          if (!active || request !== revision) return;
+          const assets = await Promise.all(entries.map((entry) => load(entry.modelUrl)));
+          if (!active || request !== revision) return;
+          for (const slot of equipped.keys()) {
+            if (!entries.some((entry) => entry.slot === slot)) {
+              avatar.remove(slot);
+              equipped.delete(slot);
+            }
+          }
+          entries.forEach((entry, index) => {
+            if (equipped.get(entry.slot)?.id !== entry.id) avatar.equip(entry.slot, assets[index]);
+            equipped.set(entry.slot, entry);
+          });
+          avatar.setMasks([...equipped.values()]);
+          avatar.root.traverse((node) => {
+            if (node.isMesh) { node.castShadow = true; node.receiveShadow = true; }
+          });
+          fitBackdrop();
+          avatar.greet();
+          setStatus("ready");
+        } catch (error) {
+          if (active && request === revision) {
+            console.error("동경이 모델을 불러오지 못했습니다", error);
+            setStatus("error");
+          }
+        }
+      },
     };
-    const onPointerMove = (event) => {
-      if (!orbit.drag) return;
-      orbit.theta -= (event.clientX - orbit.x) * 0.007;
-      orbit.phi = Math.min(2.05, Math.max(0.78, orbit.phi - (event.clientY - orbit.y) * 0.005));
-      orbit.x = event.clientX;
-      orbit.y = event.clientY;
-      applyCamera();
-    };
-    const stopDrag = () => { orbit.drag = false; };
-    const onWheel = (event) => {
-      if (!interactive) return;
-      event.preventDefault();
-      orbit.radius = Math.min(20, Math.max(10.5, orbit.radius + event.deltaY * 0.008));
-      applyCamera();
-    };
-    const canvas = renderer.domElement;
-    canvas.addEventListener("pointerdown", onPointerDown);
-    canvas.addEventListener("pointermove", onPointerMove);
-    canvas.addEventListener("pointerup", stopDrag);
-    canvas.addEventListener("pointercancel", stopDrag);
-    canvas.addEventListener("pointerleave", stopDrag);
-    canvas.addEventListener("wheel", onWheel, { passive: false });
-
     const clock = new THREE.Clock();
-    let frame;
-    const render = () => {
-      donggyeong.update(clock.getElapsedTime());
+    renderer.setAnimationLoop(() => {
+      const delta = clock.getDelta();
+      if (document.hidden) return;
+      controls.update();
+      avatar?.update(delta);
       renderer.render(scene, camera);
-      frame = requestAnimationFrame(render);
-    };
-    render();
-
+    });
     return () => {
       active = false;
-      cancelAnimationFrame(frame);
-      resizeObserver.disconnect();
-      canvas.removeEventListener("pointerdown", onPointerDown);
-      canvas.removeEventListener("pointermove", onPointerMove);
-      canvas.removeEventListener("pointerup", stopDrag);
-      canvas.removeEventListener("pointercancel", stopDrag);
-      canvas.removeEventListener("pointerleave", stopDrag);
-      canvas.removeEventListener("wheel", onWheel);
-      itemScenes.forEach((itemScene) => donggyeong.root.remove(itemScene));
-      itemHandles.forEach((handle) => handle.release());
-      void itemLoadPromise.then(() => donggyeongModelCache.clearUnused());
-      donggyeong.dispose();
+      viewerRef.current = null;
+      renderer.setAnimationLoop(null);
+      observer.disconnect();
+      detachGreeting();
+      controls.dispose();
+      if (avatar) {
+        for (const slot of [...avatar.equipment.keys()]) avatar.remove(slot);
+        avatar.mixer.stopAllAction();
+        avatar.mixer.uncacheRoot(avatar.base);
+        avatar.base.traverse((node) => { if (node.isSkinnedMesh) node.skeleton.dispose(); });
+      }
+      void Promise.allSettled([...handles.values()].map(async (handle) => (await handle).release()))
+        .then(() => donggyeongModelCache.clearUnused());
+      environment.dispose();
+      floor.geometry.dispose();
+      floor.material.dispose();
+      key.shadow.dispose();
       renderer.dispose();
-      mount.removeChild(canvas);
+      mount.removeChild(renderer.domElement);
     };
+  }, [interactive]);
+
+  useEffect(() => {
+    void viewerRef.current?.setItems(JSON.parse(modelKey));
   }, [interactive, modelKey]);
 
   return (
-    <div
-      ref={mountRef}
-      className={className}
-      aria-label={t("donggyeong.viewerLabel")}
-      role="img"
-    />
+    <div className={className}>
+      <div ref={mountRef} className="absolute inset-0" aria-label={interactive ? `${t("donggyeong.viewerLabel")} · ${t("donggyeong.greet")}` : t("donggyeong.viewerLabel")} role={interactive ? "button" : "img"} tabIndex={interactive && status === "ready" ? 0 : undefined} aria-disabled={interactive ? status !== "ready" : undefined} onKeyDown={interactive ? (event) => {
+        if (status === "ready" && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          if (!event.repeat) viewerRef.current?.greet();
+        }
+      } : undefined} />
+      {status !== "ready" && <p role="status" className="pointer-events-none absolute inset-x-2 bottom-3 text-center text-xs text-white">{t(status === "error" ? "donggyeong.loadError" : "donggyeong.loading")}</p>}
+    </div>
   );
 }

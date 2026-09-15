@@ -56,14 +56,14 @@ export default function VisitedPlaces({
         <button
           type="button"
           onClick={onClose}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e2e4e0] bg-white text-[#55565a] transition-colors hover:bg-[#f5f5f2]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#e2e4e0] bg-white text-[#55565a] transition-colors "
           aria-label="뒤로가기"
         >
           <ChevronLeft size={19} />
         </button>
 
         <div>
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#bd8c31]">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-brand">
             MY TRAVEL TICKETS
           </p>
 
@@ -85,7 +85,7 @@ export default function VisitedPlaces({
 
           <div className="flex items-center gap-3">
 
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#343235] text-[#bd8c31]">
+            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#343235] text-brand">
               <MapPin size={20} />
             </div>
 
@@ -103,7 +103,7 @@ export default function VisitedPlaces({
 
           <Navigation
             size={21}
-            className="rotate-45 text-[#bd8c31]"
+            className="rotate-45 text-brand"
           />
 
         </div>
@@ -136,11 +136,11 @@ export default function VisitedPlaces({
         <div className="mb-3 flex items-center justify-between">
 
           <p className="text-sm font-bold text-[#343235]">
-            방문 기록
+            {t("myPage.history")}
           </p>
 
           <span className="text-[11px] font-medium text-[#9a9690]">
-            {visitedPlaces.length}장의 티켓
+            {visitedPlaces.length}{t("myPage.ticketCount")}
           </span>
 
         </div>
@@ -152,7 +152,7 @@ export default function VisitedPlaces({
 
           <div className="py-12 text-center">
             <p className="text-sm text-[#88847e]">
-              방문 기록을 불러오는 중이에요.
+              {t("myPage.visitedPlaces.ticketTitle")}
             </p>
           </div>
 
@@ -162,16 +162,16 @@ export default function VisitedPlaces({
 
           <div className="rounded-2xl border border-dashed border-[#d9d4ca] bg-[#faf9f6] px-5 py-12 text-center">
 
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[#f4eee5] text-[#bd8c31]">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-brand-soft text-brand">
               <MapPin size={21} />
             </div>
 
             <p className="mt-4 text-sm font-bold text-[#343235]">
-              아직 다녀간 장소가 없어요.
+              {t("myPage.noVisited")}
             </p>
 
             <p className="mt-1 text-[11px] text-[#99938b]">
-              경주의 장소를 방문하고 여행 티켓을 모아보세요.
+              {t("myPage.description")}
             </p>
 
           </div>
@@ -291,7 +291,7 @@ export default function VisitedPlaces({
 
                       {/* 지도 아이콘 */}
 
-                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#f4eee5] text-[#bd8c31]">
+                      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand">
                         <MapPin size={19} />
                       </div>
 
@@ -327,9 +327,9 @@ export default function VisitedPlaces({
                           방문 완료 스탬프
                       ================================== */}
 
-                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-[#bd8c31]/70 text-[#bd8c31]">
+                      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-brand/70 text-brand">
 
-                        <div className="absolute inset-1 rounded-full border border-dashed border-[#bd8c31]/50" />
+                        <div className="absolute inset-1 rounded-full border border-dashed border-brand/50" />
 
                         <div className="relative text-center">
 
@@ -408,9 +408,7 @@ export default function VisitedPlaces({
       <div className="rounded-xl border border-dashed border-[#d9d4ca] bg-[#faf9f6] px-4 py-3">
 
         <p className="text-center text-[11px] leading-5 text-[#8a8b8d]">
-          티켓을 누르면 해당 장소를
-          <br />
-          지도에서 확인할 수 있어요.
+           {t("myPage.mapGuide")}
         </p>
 
       </div>
