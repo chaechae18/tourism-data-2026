@@ -482,7 +482,7 @@ export default function AuthModal({ mode, onClose, onComplete, onAuth }) {
               <span>카카오로 로그인</span>
             </button>
 
-            {/* 네이버 */}
+            {/* 네이버 
             <button
               type="button"
               onClick={() => {
@@ -510,7 +510,7 @@ export default function AuthModal({ mode, onClose, onComplete, onAuth }) {
               </span>
 
               <span>네이버로 로그인</span>
-            </button>
+            </button>*/}
 
             {/* Google */}
             <button
