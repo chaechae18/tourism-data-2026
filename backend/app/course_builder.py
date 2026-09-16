@@ -39,6 +39,7 @@ def candidate_sql() -> str:
     return """
         SELECT p.IDX,
                COALESCE(NULLIF(t.NAME, ''), NULLIF(k.NAME, ''), p.NAME) AS NAME,
+               p.NAME AS ROUTE_NAME,
                COALESCE(NULLIF(t.ADDRESS, ''), NULLIF(k.ADDRESS, ''), p.ADDRESS) AS ADDRESS,
                COALESCE(NULLIF(t.MENU, ''), NULLIF(k.MENU, ''), p.MENU) AS MENU,
                COALESCE(NULLIF(t.PARKING, ''), NULLIF(k.PARKING, ''), p.PARKING) AS PARKING,
@@ -80,6 +81,8 @@ class Stop:
     menu: str | None
     rest_date: str | None
     distance_km: float
+    # 국내 지도 길찾기에 넘길 한국어 원본 장소명. 화면 표시용 name과 분리한다.
+    route_name: str | None = None
     # 상세 카드에 보여 주는 실용 정보
     operating_hours: str | None = None
     parking: str | None = None
@@ -260,6 +263,7 @@ def _build_once(
                 time_slot=slot.time_slot,
                 place_idx=chosen["IDX"],
                 name=chosen["NAME"],
+                route_name=chosen["ROUTE_NAME"],
                 category=chosen["CATEGORY_SUB"],
                 address=chosen["ADDRESS"],
                 latitude=point[0],

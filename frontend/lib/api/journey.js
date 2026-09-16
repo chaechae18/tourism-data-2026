@@ -16,6 +16,7 @@ function toPlace(stop, t) {
     questId: stop.questId,
     completed: Boolean(stop.completed),
     name: stop.name,
+    routeName: stop.routeName || stop.name,
     description: `${details}${notice}`,
     // 상세 카드에 줄줄이 보여 주는 실용 정보
     menu: stop.menu,

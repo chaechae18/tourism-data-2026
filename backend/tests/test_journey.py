@@ -232,6 +232,7 @@ def test_course_uses_requested_place_translation(
 
     assert response.status_code == 201
     assert all(stop["name"].startswith("EN ") for stop in response.json()["stops"])
+    assert all(not stop["routeName"].startswith("EN ") for stop in response.json()["stops"])
 
 
 def test_high_scoring_places_are_preferred_for_the_role(

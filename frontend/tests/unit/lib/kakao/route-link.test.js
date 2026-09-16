@@ -10,6 +10,15 @@ describe("buildKakaoRouteUrl", () => {
     expect(url).toBe(`https://map.kakao.com/link/to/${encodeURIComponent("김유신묘")},35.8462,129.2109`);
   });
 
+  it("uses the Korean route name instead of the translated display name", () => {
+    const end = { ...END, name: "Tomb of General Kim Yusin", routeName: "김유신묘" };
+
+    const url = buildKakaoRouteUrl({ start: START, end, userAgent: "Mozilla/5.0 (Macintosh)" });
+
+    expect(url).toContain(encodeURIComponent("김유신묘"));
+    expect(url).not.toContain(encodeURIComponent("Tomb of General Kim Yusin"));
+  });
+
   it("builds an app route link with both endpoints on mobile", () => {
     const url = buildKakaoRouteUrl({
       start: START,

@@ -64,6 +64,7 @@ def to_response(course: Course) -> CourseResponse:
                 place_id=stop.place_idx,
                 quest_id=stop.quest_id,
                 name=stop.name,
+                route_name=stop.route_name,
                 category=stop.category,
                 address=stop.address,
                 latitude=stop.latitude,

@@ -91,6 +91,19 @@ describe("GyeongjuMap2D", () => {
     expect(url).toContain(`,${QUESTS[0].latitude},${QUESTS[0].longitude}`);
     open.mockRestore();
   });
+
+  it("keeps the translated label but routes with the Korean place name", () => {
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    const place = { ...QUESTS[0], name: "Cheomseongdae", routeName: "첨성대" };
+    render(<GyeongjuMap2D {...PROPS} places={[place]} selectedPlace={place} />);
+
+    expect(screen.getAllByText("Cheomseongdae").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "카카오맵으로 길찾기" }));
+
+    expect(open.mock.calls[0][0]).toContain(encodeURIComponent("첨성대"));
+    expect(open.mock.calls[0][0]).not.toContain(encodeURIComponent("Cheomseongdae"));
+    open.mockRestore();
+  });
 });
 
 describe("장소 상세 정보", () => {
