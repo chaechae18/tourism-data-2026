@@ -48,3 +48,22 @@ class LoginRequest(CamelModel):
 class LoginResponse(CamelModel):
     message: str
     user: dict
+    
+class UpdateUserRequest(CamelModel):
+    nickname: str
+    country: str
+    birth_date: date | None = Field(
+        default=None,
+        alias="birthDate",
+    )
+    email: str
+
+    @field_validator(
+        "nickname",
+        "country",
+        "email",
+        mode="before",
+    )
+    @classmethod
+    def strip_text(cls, value):
+        return str(value).strip()
