@@ -2,16 +2,15 @@ import { ApiError } from "./spots";
 
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
-const LOCAL_USER_NO = 1;
 
 async function requestPreferences(options = {}) {
   let response;
   try {
     response = await fetch(`${API_BASE_URL}/api/v1/users/me/preferences`, {
       ...options,
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
-        "X-User-No": String(LOCAL_USER_NO),
         ...options.headers,
       },
     });

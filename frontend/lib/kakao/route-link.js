@@ -24,6 +24,6 @@ export function buildKakaoRouteUrl({ end, start, userAgent = "" } = {}) {
   }
 
   // 링크 방식은 "이름,위도,경도" 순서를 지켜야 한다. 쉼표는 그대로 두고 이름만 인코딩한다.
-  const name = encodeURIComponent(end.name || "목적지");
+  const name = encodeURIComponent(end.routeName || end.name || "목적지");
   return `${KAKAO_MAP_LINK_URL}/${name},${end.latitude},${end.longitude}`;
 }

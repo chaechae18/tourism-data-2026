@@ -11,6 +11,7 @@ class CourseStopResponse(CamelModel):
     place_id: int = Field(alias="placeId")
     quest_id: int | None = Field(default=None, alias="questId")
     name: str | None = None
+    route_name: str | None = Field(default=None, alias="routeName")
     category: str | None = None
     address: str | None = None
     latitude: float

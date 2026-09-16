@@ -16,9 +16,12 @@ COPY db ./db
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 COPY sync_tourapi.py ./sync_tourapi.py
+COPY translate_places.py ./translate_places.py
 COPY sync_persona_scores.py ./sync_persona_scores.py
 
-RUN mkdir -p /app/uploads \
+# state 는 sync 서비스가 마지막 동기화 시각을 남기는 곳이다. 이미지 안에 미리 만들어
+# 둬야 이름 있는 볼륨이 app 소유로 붙는다.
+RUN mkdir -p /app/uploads /app/state \
     && chown -R app:app /app
 
 USER app

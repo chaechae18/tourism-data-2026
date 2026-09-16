@@ -36,6 +36,29 @@ services:
     depends_on:
       db:
         condition: service_healthy
+  # compose up 만 하면 빈 DB는 자동 적재한다. 이미 장소·번역이 있으면 최초 적재를 건너뛴다.
+  # 이후에는 modifiedtime 을 대조해 7일마다 신규·변경 건만 상세를 받는다.
+  sync:
+    build: ./backend
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE:-play_gyeongju}
+      DB_USER: ${MYSQL_USER:-play_gyeongju}
+      DB_PASSWORD: ${MYSQL_PASSWORD:-local-dev-password}
+      # 실행 간격은 backend/.env 의 SYNC_INTERVAL_DAYS 로 조정한다 (기본 7일).
+      SYNC_STATE_PATH: /app/state/last_sync.txt
+    command: ["python", "sync_tourapi.py", "--loop"]
+    restart: unless-stopped
+    volumes:
+      - sync-state:/app/state
+    depends_on:
+      # 스키마는 백엔드가 뜨면서 최신까지 올린다. MODIFIED_TIME 컬럼이 생긴 뒤에 붙어야 한다.
+      backend:
+        condition: service_healthy
   frontend:
     build: ./frontend
     environment:
@@ -64,5 +87,6 @@ services:
 volumes:
   mysql-data:
   uploads-data:
+  sync-state:
   frontend-node-modules:
   frontend-next-cache:

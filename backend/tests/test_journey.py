@@ -1,12 +1,33 @@
 from collections.abc import Callable
+from base64 import b64encode
+import json
 
 from fastapi.testclient import TestClient
+from itsdangerous import TimestampSigner
 import pymysql
+import pytest
 
 from app.journey import get_or_create_course
 from app.personas import PERSONAS
 
 KING = PERSONAS["king"]
+
+
+def set_session(client: TestClient, user_no: int | None) -> None:
+    if user_no is None:
+        client.cookies.delete("session")
+        return
+    payload = b64encode(json.dumps({"user": {"user_no": user_no}}).encode())
+    client.cookies.set(
+        "session",
+        TimestampSigner("dev-session-secret-key-change-this").sign(payload).decode(),
+    )
+
+
+@pytest.fixture(autouse=True)
+def signed_in_journey_client(request: pytest.FixtureRequest) -> None:
+    if "client" in request.fixturenames:
+        set_session(request.getfixturevalue("client"), 1)
 
 
 # 왕 코스 6칸을 채울 수 있는 최소한의 장소. course_builder 가 보는 컬럼만 넣는다.
@@ -81,9 +102,33 @@ def test_course_endpoint_keeps_the_same_course(client: TestClient, insert: Calla
     assert first.json()["courseId"] == second.json()["courseId"]
     assert refreshed.status_code == 201
     assert refreshed.json()["courseId"] != first.json()["courseId"]
-    assert [stop["timeSlot"] for stop in first.json()["stops"]] == [
-        "오전", "오전", "점심", "오후", "오후", "저녁",
-    ]
+    # 하루는 오전으로 시작해 저녁으로 끝나고, 점심이 그 사이에 한 번 들어간다.
+    slots = [stop["timeSlot"] for stop in first.json()["stops"]]
+    assert slots[0] == "오전"
+    assert slots[-1] == "저녁"
+    assert slots.count("점심") == 1
+    assert all(slot == "오전" for slot in slots[: slots.index("점심")])
+
+
+def test_course_requires_session_even_with_user_header(client: TestClient) -> None:
+    set_session(client, None)
+    response = client.get("/api/v1/journey/course", headers={"X-User-No": "1"})
+    assert response.status_code == 401
+
+
+def test_course_follows_session_when_header_names_another_user(
+    client: TestClient, insert: Callable[..., int]
+) -> None:
+    add_places(insert)
+    insert("USERS", NO=2, ID="second-user", NICKNAME="second", COUNTRY="KR", EMAIL="second@example.com")
+
+    first = client.get("/api/v1/journey/course").json()
+    set_session(client, 2)
+    second = client.get("/api/v1/journey/course", headers={"X-User-No": "1"}).json()
+    assert second["courseId"] != first["courseId"]
+
+    set_session(client, 1)
+    assert client.get("/api/v1/journey/course").json()["courseId"] == first["courseId"]
 
 
 def test_completed_quest_is_saved_and_comes_back_with_the_course(
@@ -132,7 +177,9 @@ def test_completing_a_quest_outside_my_course_is_rejected(
     headers = {"X-User-No": "1"}
     quest_id = client.get("/api/v1/journey/course", headers=headers).json()["stops"][0]["questId"]
 
-    response = client.post(f"/api/v1/journey/quests/{quest_id}/complete", headers={"X-User-No": "2"})
+    insert("USERS", NO=2, ID="second-user", NICKNAME="second", COUNTRY="KR", EMAIL="second@example.com")
+    set_session(client, 2)
+    response = client.post(f"/api/v1/journey/quests/{quest_id}/complete")
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "QUEST_NOT_FOUND"
@@ -185,6 +232,7 @@ def test_course_uses_requested_place_translation(
 
     assert response.status_code == 201
     assert all(stop["name"].startswith("EN ") for stop in response.json()["stops"])
+    assert all(not stop["routeName"].startswith("EN ") for stop in response.json()["stops"])
 
 
 def test_high_scoring_places_are_preferred_for_the_role(
@@ -207,9 +255,12 @@ def test_high_scoring_places_are_preferred_for_the_role(
 
     course = get_or_create_course(database, user_no=1, persona=PERSONAS["monk"])
 
-    # 점수가 있는 곳만 관광 칸에 들어간다. (0점짜리는 자격 미달로 빠진다)
-    tour_names = [stop.name for stop in course.stops if stop.time_slot != "점심" and stop.time_slot != "저녁"]
-    assert tour_names == ["운곡서원"]
+    # 점수가 높은 곳이 가장 먼저 들어간다. 나머지 칸은 하한(관광지 3곳)을 채우느라
+    # 0점짜리로 메워지지만, 어울리는 곳을 제쳐 두지는 않는다.
+    tour_names = [
+        stop.name for stop in course.stops if stop.time_slot not in ("점심", "간식", "저녁")
+    ]
+    assert "운곡서원" in tour_names
 
 
 def test_course_still_works_before_any_scoring(
@@ -221,7 +272,7 @@ def test_course_still_works_before_any_scoring(
     # 채점을 한 번도 안 돌린 DB 에서도 코스는 나와야 한다. (팀원이 막 받아 온 상태)
     course = get_or_create_course(database, user_no=1, persona=PERSONAS["hwarang"])
 
-    assert len(course.stops) == 6
+    assert 5 <= len(course.stops) <= 7
 
 
 def test_selected_role_is_remembered(client: TestClient, insert: Callable[..., int]) -> None:
@@ -256,3 +307,145 @@ def test_course_carries_opening_hours_and_parking(
 
     assert all(stop["operatingHours"] == "09:00~18:00" for stop in stops)
     assert all(stop["parking"] == "가능" for stop in stops)
+
+
+def test_course_shows_details_in_the_requested_language(
+    client: TestClient,
+    database: pymysql.Connection,
+    insert: Callable[..., int],
+) -> None:
+    add_places(insert)
+    with database.cursor() as cursor:
+        cursor.execute("SELECT IDX, CATEGORY_CODE FROM PLACE")
+        places = cursor.fetchall()
+        cursor.executemany(
+            """INSERT INTO PLACE_I18N
+               (PLACE_IDX, LANGUAGE_CODE, NAME, MENU, PARKING, OPERATING_HOURS, REST_DATE)
+               VALUES (%s, 'en', 'EN name', 'Grilled beef', 'Available',
+                       '09:00-18:00', 'Closed on Tuesdays')""",
+            [(place["IDX"],) for place in places],
+        )
+        cursor.executemany(
+            """INSERT INTO CATEGORY_NAME_I18N
+               (CATEGORY_CODE, LANGUAGE_CODE, CATEGORY_MAIN, CATEGORY_SUB)
+               VALUES (%s, 'en', 'Historic site', 'Royal tomb')
+               ON DUPLICATE KEY UPDATE CATEGORY_SUB = VALUES(CATEGORY_SUB)""",
+            [(place["CATEGORY_CODE"],) for place in places],
+        )
+
+    stops = client.post(
+        "/api/v1/journey/course/refresh?lang=en",
+        headers={"X-User-No": "1"},
+    ).json()["stops"]
+
+    assert all(stop["menu"] == "Grilled beef" for stop in stops if stop["menu"])
+    assert all(stop["parking"] == "Available" for stop in stops)
+    assert all(stop["operatingHours"] == "09:00-18:00" for stop in stops)
+    assert all(stop["restDate"] == "Closed on Tuesdays" for stop in stops)
+    assert all(stop["category"] == "Royal tomb" for stop in stops)
+
+
+def test_course_falls_back_to_korean_when_a_translation_is_missing(
+    client: TestClient,
+    database: pymysql.Connection,
+    insert: Callable[..., int],
+) -> None:
+    add_places(insert)
+    with database.cursor() as cursor:
+        cursor.execute("SELECT IDX FROM PLACE LIMIT 1")
+        translated = cursor.fetchone()["IDX"]
+        # 한 곳만 영어가 있고 나머지는 없다.
+        cursor.execute(
+            """INSERT INTO PLACE_I18N (PLACE_IDX, LANGUAGE_CODE, NAME)
+               VALUES (%s, 'en', 'Donggung Palace')""",
+            (translated,),
+        )
+
+    stops = client.post(
+        "/api/v1/journey/course/refresh?lang=en",
+        headers={"X-User-No": "1"},
+    ).json()["stops"]
+
+    names = [stop["name"] for stop in stops]
+    # 영어가 없는 곳은 빈칸이 아니라 한국어 이름으로 나온다.
+    assert all(name for name in names)
+    assert any(name == "Donggung Palace" for name in names) or all(
+        name in {place[1] for place in PLACES} for name in names
+    )
+
+
+def test_course_recommendation_still_reads_the_normalized_rest_date(
+    database: pymysql.Connection,
+    insert: Callable[..., int],
+) -> None:
+    add_places(insert)
+    with database.cursor() as cursor:
+        cursor.execute("SELECT IDX FROM PLACE")
+        places = cursor.fetchall()
+        # 화면용 원문이 영어로 들어와도 코스 추천은 PLACE.REST_DATE 를 봐야 한다.
+        cursor.executemany(
+            """INSERT INTO PLACE_I18N (PLACE_IDX, LANGUAGE_CODE, NAME, REST_DATE)
+               VALUES (%s, 'en', 'EN name', 'Closed on Mondays')""",
+            [(place["IDX"],) for place in places],
+        )
+
+    course = get_or_create_course(database, user_no=1, persona=KING, language="en")
+
+    # 모든 장소가 연중무휴라 어느 요일에 돌려도 칸이 채워진다.
+    assert course.stops
+    assert all(stop.rest_date == "Closed on Mondays" for stop in course.stops)
+
+
+def test_course_keeps_the_place_counts_within_range(
+    database: pymysql.Connection,
+    insert: Callable[..., int],
+) -> None:
+    import random
+    from app.course_builder import build_course
+
+    add_places(insert)
+    seen = set()
+    for seed in range(30):
+        course = build_course(database, KING, rng=random.Random(seed))
+        tour = sum(1 for stop in course.stops if stop.time_slot in ("오전", "오후"))
+        food = len(course.stops) - tour
+        # 관광지 3~4곳, 음식점 2~3곳을 벗어나지 않는다.
+        assert 3 <= tour <= 4, f"관광지 {tour}곳 (seed={seed})"
+        assert 2 <= food <= 3, f"음식점 {food}곳 (seed={seed})"
+        seen.add((tour, food))
+
+    # 매번 같은 구성만 나오면 "최대 3개" 가 의미가 없다.
+    assert len(seen) > 1
+
+
+def test_the_third_meal_is_an_afternoon_snack(
+    database: pymysql.Connection,
+    insert: Callable[..., int],
+) -> None:
+    import random
+    from app.course_builder import build_course
+
+    add_places(insert)
+    # 간식까지 채우려면 음식점이 셋은 있어야 한다.
+    insert(
+        "PLACE",
+        SOURCE="TOUR_API",
+        CONTENT_ID="1006",
+        TYPE="FOOD",
+        NAME="황리단길 찻집",
+        CATEGORY_CODE="FD010300",
+        CATEGORY_SUB="카페",
+        LATITUDE="35.8330",
+        LONGITUDE="129.2210",
+        REST_DATE="연중무휴",
+    )
+    for seed in range(30):
+        course = build_course(database, KING, rng=random.Random(seed))
+        slots = [stop.time_slot for stop in course.stops]
+        if "간식" not in slots:
+            continue
+        # 간식은 오후 안에 들어가고, 저녁 바로 앞에 붙지 않는다.
+        assert slots.index("점심") < slots.index("간식") < slots.index("저녁")
+        assert slots[slots.index("간식") - 1] == "오후"
+        return
+    raise AssertionError("30번 뽑는 동안 간식이 한 번도 나오지 않았다")

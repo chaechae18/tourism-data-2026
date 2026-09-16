@@ -17,17 +17,28 @@ def course_stops_sql() -> str:
         SELECT q.IDX AS QUEST_IDX, q.QUEST_ORDER, q.TIME_SLOT,
                p.IDX AS PLACE_IDX,
                COALESCE(NULLIF(t.NAME, ''), NULLIF(k.NAME, ''), p.NAME) AS NAME,
+               p.NAME AS ROUTE_NAME,
                COALESCE(NULLIF(t.ADDRESS, ''), NULLIF(k.ADDRESS, ''), p.ADDRESS) AS ADDRESS,
-               p.IMG, p.MENU, p.REST_DATE, p.OPERATING_HOURS, p.PARKING,
-               p.CATEGORY_SUB, p.LATITUDE, p.LONGITUDE, mp.MARKER_ICON_TYPE,
+               COALESCE(NULLIF(t.MENU, ''), NULLIF(k.MENU, ''), p.MENU) AS MENU,
+               COALESCE(NULLIF(t.PARKING, ''), NULLIF(k.PARKING, ''), p.PARKING) AS PARKING,
+               COALESCE(
+                 NULLIF(t.OPERATING_HOURS, ''), NULLIF(k.OPERATING_HOURS, ''), p.OPERATING_HOURS
+               ) AS OPERATING_HOURS,
+               -- 화면에는 원문을 보여 준다. 코스 추천이 쓰는 p.REST_DATE 는 따로다.
+               COALESCE(NULLIF(t.REST_DATE, ''), NULLIF(k.REST_DATE, ''), p.REST_DATE) AS REST_DATE,
+               COALESCE(NULLIF(cn.CATEGORY_SUB, ''), p.CATEGORY_SUB) AS CATEGORY_SUB,
+               p.IMG, p.LATITUDE, p.LONGITUDE, mp.MARKER_ICON_TYPE,
                uq.STATUS AS QUEST_STATUS,
-               (p.TEXT IS NOT NULL AND p.TEXT <> '') AS HAS_DOCENT
+               (COALESCE(NULLIF(t.TEXT, ''), NULLIF(k.TEXT, ''), NULLIF(p.TEXT, '')) IS NOT NULL)
+                 AS HAS_DOCENT
         FROM QUEST q
         JOIN COURSE c ON c.IDX = q.COURSE_IDX
         JOIN PLACE p ON p.IDX = q.PLACE_IDX
         JOIN MAP_PLACE mp ON mp.PLACE_IDX = p.IDX
         LEFT JOIN PLACE_I18N t ON t.PLACE_IDX = p.IDX AND t.LANGUAGE_CODE = %s
         LEFT JOIN PLACE_I18N k ON k.PLACE_IDX = p.IDX AND k.LANGUAGE_CODE = 'ko'
+        LEFT JOIN CATEGORY_NAME_I18N cn
+          ON cn.CATEGORY_CODE = p.CATEGORY_CODE AND cn.LANGUAGE_CODE = %s
         LEFT JOIN USER_QUEST uq
           ON uq.QUEST_IDX = q.IDX AND uq.USER_CHARACTER_IDX = c.USER_CHARACTER_IDX
         WHERE q.COURSE_IDX = %s
@@ -152,7 +163,7 @@ def load_course(
     language: str = "ko",
 ) -> Course | None:
     with connection.cursor() as cursor:
-        cursor.execute(course_stops_sql(), (language, course_idx))
+        cursor.execute(course_stops_sql(), (language, language, course_idx))
         rows = cursor.fetchall()
     if not rows:
         return None
@@ -167,6 +178,7 @@ def load_course(
                 time_slot=row["TIME_SLOT"] or "",
                 place_idx=row["PLACE_IDX"],
                 name=row["NAME"],
+                route_name=row["ROUTE_NAME"],
                 category=row["CATEGORY_SUB"],
                 address=row["ADDRESS"],
                 latitude=point[0],

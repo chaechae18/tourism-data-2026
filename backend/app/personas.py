@@ -54,28 +54,61 @@ PERSONA_KEYS = tuple(profile.key for profile in PERSONA_PROFILES)
 TOUR = "TOUR"
 FOOD = "FOOD"
 
+MORNING = "오전"
+LUNCH = "점심"
+AFTERNOON = "오후"
+SNACK = "간식"
+DINNER = "저녁"
+
 
 @dataclass(frozen=True)
 class Slot:
-    time_slot: str  # 오전 / 점심 / 오후 / 저녁
+    time_slot: str  # 오전 / 점심 / 오후 / 간식 / 저녁
     place_type: str  # TOUR(관광지) / FOOD(음식점)
+    # 하한을 넘는 덤. 채울 곳이 없으면 이 칸만 비운다. (점심·저녁은 절대 안 비운다)
+    optional: bool = False
 
 
-DAY_PLAN = (
-    Slot("오전", TOUR),
-    Slot("오전", TOUR),
-    Slot("점심", FOOD),
-    Slot("오후", TOUR),
-    Slot("오후", TOUR),
-    Slot("저녁", FOOD),
-)
+# 코스마다 관광지 3~4곳, 음식점 2~3곳으로 구성이 달라진다.
+TOUR_RANGE = (3, 4)
+FOOD_RANGE = (2, 3)
+
+
+def day_plan(tour_count: int, food_count: int) -> tuple[Slot, ...]:
+    """관광지·음식점 개수를 하루 순서로 늘어놓는다.
+
+    관광지는 오전과 오후로 나누고(3곳이면 오전 1 · 오후 2), 점심과 저녁 사이에
+    오후 관광을 끼운다. 음식이 셋이면 오후 관광 사이에 간식 한 끼가 들어간다.
+    """
+    morning = tour_count // 2
+    afternoon = tour_count - morning
+    # 하한을 넘는 관광지 한 곳은 오전 끝에 붙이고, 비어도 되는 칸으로 표시한다.
+    extra_tour = tour_count > TOUR_RANGE[0]
+
+    slots = [
+        Slot(MORNING, TOUR, optional=extra_tour and index == morning - 1)
+        for index in range(morning)
+    ]
+    slots.append(Slot(LUNCH, FOOD))
+    slots.append(Slot(AFTERNOON, TOUR))
+    # 간식은 오후 관광 사이에 둔다. 저녁 바로 앞에 붙이면 두 끼가 잇따른다.
+    if food_count >= 3:
+        slots.append(Slot(SNACK, FOOD, optional=True))
+    slots.extend([Slot(AFTERNOON, TOUR)] * (afternoon - 1))
+    slots.append(Slot(DINNER, FOOD))
+    return tuple(slots)
+
+
+DAY_PLAN = day_plan(TOUR_RANGE[1], FOOD_RANGE[0])
 
 
 @dataclass(frozen=True)
 class Persona:
     key: str
     name: str
-    slots: tuple[Slot, ...] = DAY_PLAN
+    # 코스를 뽑을 때마다 이 범위 안에서 개수를 고른다. 하한은 반드시 채운다.
+    tour_range: tuple[int, int] = TOUR_RANGE
+    food_range: tuple[int, int] = FOOD_RANGE
     # 차, 대중교통 기준
     radius_km: float = 12.0
     max_total_km: float = 40.0
@@ -83,6 +116,11 @@ class Persona:
     choice_pool: int = 8
     # 이 점수 미만이면 그 역할에게 안 어울리는 곳으로 보고 후보에서 뺀다.
     min_score: int = 3
+
+    @property
+    def slots(self) -> tuple[Slot, ...]:
+        # 개수를 고르지 않고 쓸 때의 기본 구성 (관광지 최대, 음식 최소)
+        return day_plan(self.tour_range[1], self.food_range[0])
 
 
 # 역할은 프로필에서 자동으로 만들어진다. 역할을 추가하려면 PERSONA_PROFILES 에 한 줄 넣고

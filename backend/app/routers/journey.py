@@ -2,7 +2,7 @@ from datetime import date
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 import pymysql
 
 from ..config import Settings, get_settings
@@ -25,7 +25,13 @@ from ..models.journey import (
 from ..mysql import get_mysql
 from ..personas import PERSONAS
 from ..search_controls import TTLCache
-from ..tts import GoogleTextToSpeechClient, TtsNotConfiguredError, TtsUpstreamError
+from ..tts import (
+    GoogleTextToSpeechClient,
+    TtsNotConfiguredError,
+    TtsUpstreamError,
+    voice_for,
+)
+from .auth import get_current_user
 
 
 logger = logging.getLogger(__name__)
@@ -34,7 +40,11 @@ router = APIRouter(prefix="/api/v1/journey", tags=["journey"])
 # 음성 하나가 수백 KB라 개수를 넉넉하지 않게 잡는다. (TTS_CACHE_ENTRIES 로 조절)
 docent_audio_cache = TTLCache(max_entries=get_settings().tts_cache_entries)
 
-UserNo = Annotated[int, Header(alias="X-User-No", ge=1)]
+def session_user_no(current: Annotated[dict, Depends(get_current_user)]) -> int:
+    return current["user"]["user_no"]
+
+
+UserNo = Annotated[int, Depends(session_user_no)]
 PersonaQuery = Annotated[str, Query(max_length=30)]
 VisitDate = Annotated[date | None, Query(alias="date")]
 LanguageQuery = Annotated[str | None, Query(alias="lang", max_length=20)]
@@ -54,6 +64,7 @@ def to_response(course: Course) -> CourseResponse:
                 place_id=stop.place_idx,
                 quest_id=stop.quest_id,
                 name=stop.name,
+                route_name=stop.route_name,
                 category=stop.category,
                 address=stop.address,
                 latitude=stop.latitude,
@@ -89,9 +100,9 @@ def get_docent_audio_cache() -> TTLCache:
     return docent_audio_cache
 
 
-def load_docent(database: pymysql.Connection, place_id: int) -> dict:
+def load_docent(database: pymysql.Connection, place_id: int, language: str = "ko") -> dict:
     try:
-        return find_docent(database, place_id)
+        return find_docent(database, place_id, language)
     except DocentNotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -168,10 +179,11 @@ def get_course(
 @router.get("/docent/{place_id}", response_model=DocentResponse, response_model_by_alias=True)
 def get_docent(
     place_id: int,
+    lang: LanguageQuery = None,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> DocentResponse:
-    # 도슨트 원고는 PLACE.TEXT 를 그대로 쓴다. (따로 옮겨 담아 둔 테이블 없음)
-    docent = load_docent(database, place_id)
+    # 원고는 PLACE_I18N 에서 고른 언어로 가져온다. 없으면 한국어로 내려간다.
+    docent = load_docent(database, place_id, resolve_language(lang, None))
     return DocentResponse(
         placeId=docent["place_id"],
         name=docent["name"],
@@ -183,23 +195,26 @@ def get_docent(
 async def get_docent_audio(
     place_id: int,
     app_settings: Annotated[Settings, Depends(get_settings)],
+    lang: LanguageQuery = None,
     database: pymysql.Connection = Depends(get_mysql),
     tts: GoogleTextToSpeechClient = Depends(get_tts_client),
     cache: TTLCache = Depends(get_docent_audio_cache),
 ) -> Response:
     # 들을 때 만들어서 바로 흘려보낸다. 서버 디스크에는 아무것도 남기지 않는다.
-    docent = load_docent(database, place_id)
+    docent = load_docent(database, place_id, resolve_language(lang, None))
+    # 영어 원고가 없어 한국어로 내려갔으면 목소리도 한국어여야 한다.
+    spoken = docent["language"]
     key = audio_cache_key(
         place_id=place_id,
         text=docent["text"],
-        voice=app_settings.tts_voice,
+        voice=voice_for(spoken)[1],
         speaking_rate=app_settings.tts_speaking_rate,
     )
 
     audio = cache.get(key)
     if audio is None:
         try:
-            audio = await tts.synthesize(docent["text"])
+            audio = await tts.synthesize(docent["text"], spoken)
         except TtsNotConfiguredError as error:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

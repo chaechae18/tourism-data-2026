@@ -1,11 +1,10 @@
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
-const LOCAL_USER_NO = 1;
 
 async function request(path, options = {}) {
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, options);
+    response = await fetch(`${API_BASE_URL}${path}`, { ...options, credentials: "include" });
   } catch (error) {
     if (error.name === "AbortError") throw error;
     throw new Error("서버에 연결하지 못했습니다.");
@@ -18,33 +17,25 @@ async function request(path, options = {}) {
   return payload;
 }
 
-const userHeaders = (json = false) => ({
-  "X-User-No": String(LOCAL_USER_NO),
-  ...(json ? { "Content-Type": "application/json" } : {}),
-});
-
 export function listNotifications({ unreadOnly = false, lang } = {}) {
   const parameters = new URLSearchParams({
     unreadOnly: String(unreadOnly),
     limit: "30",
   });
   if (lang) parameters.set("lang", lang);
-  return request(`/api/v1/notifications?${parameters}`, {
-    headers: userHeaders(),
-  });
+  return request(`/api/v1/notifications?${parameters}`);
 }
 
 export function markNotificationRead(notificationId) {
   return request(`/api/v1/notifications/${notificationId}/read`, {
     method: "PATCH",
-    headers: userHeaders(),
   });
 }
 
 export function notifyQuestCompleted(quest) {
   return request("/api/v1/notifications/quest-completed", {
     method: "POST",
-    headers: userHeaders(true),
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ questId: quest.id, questName: quest.name }),
   });
 }

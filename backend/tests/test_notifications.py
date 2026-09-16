@@ -1,4 +1,9 @@
+from base64 import b64encode
+import json
+
 import pymysql
+from fastapi.testclient import TestClient
+from itsdangerous import TimestampSigner
 
 from app.interactions import set_reaction
 from app.models.common import ReactionType
@@ -9,6 +14,41 @@ from app.notifications import (
     sync_popup_notifications,
 )
 from app.spots import create_spot
+
+
+def set_session(client: TestClient, user_no: int) -> None:
+    payload = b64encode(json.dumps({"user": {"user_no": user_no}}).encode())
+    client.cookies.set(
+        "session",
+        TimestampSigner("dev-session-secret-key-change-this").sign(payload).decode(),
+    )
+
+
+def test_notification_endpoints_follow_login_session(
+    client: TestClient, database: pymysql.Connection
+) -> None:
+    with database.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO USERS (NO, ID, NICKNAME, COUNTRY, EMAIL) "
+            "VALUES (2, 'second-user', 'second', 'KR', 'second@example.com')"
+        )
+
+    assert client.get("/api/v1/notifications", headers={"X-User-No": "1"}).status_code == 401
+
+    set_session(client, 2)
+    created = client.post(
+        "/api/v1/notifications/quest-completed",
+        headers={"X-User-No": "1"},
+        json={"questId": "place-1", "questName": "경주 첨성대"},
+    )
+    assert created.status_code == 201
+    notification_id = created.json()["id"]
+    assert [item["id"] for item in client.get("/api/v1/notifications").json()] == [notification_id]
+    assert client.patch(f"/api/v1/notifications/{notification_id}/read").status_code == 204
+
+    set_session(client, 1)
+    assert client.get("/api/v1/notifications").json() == []
+    assert client.patch(f"/api/v1/notifications/{notification_id}/read").status_code == 404
 
 
 def test_like_creates_notification_for_spot_owner(

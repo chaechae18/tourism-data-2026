@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Pause, Play, RotateCcw, RotateCw } from "lucide-react";
 import { docentAudioUrl, fetchDocentScript } from "../../lib/api/docent";
 import AppModal from "../ui/AppModal";
+import { useI18n } from "../i18n/LanguageProvider";
 
 // 건너뛰기 버튼 한 번에 움직이는 초
 const SKIP_SECONDS = 15;
@@ -19,6 +20,7 @@ function formatTime(seconds) {
 // 장소 설명(PLACE.TEXT)을 읽어 주는 재생 시트.
 // 음성은 서버가 요청받은 그 자리에서 만들어 보내 주고, 파일로 저장되지 않는다.
 export default function DocentPlayer({ onClose, place }) {
+  const { language } = useI18n();
   const audioRef = useRef(null);
   const [script, setScript] = useState(null);
   const [scriptError, setScriptError] = useState("");
@@ -38,14 +40,14 @@ export default function DocentPlayer({ onClose, place }) {
     const controller = new AbortController();
     setScript(null);
     setScriptError("");
-    fetchDocentScript(placeId, { signal: controller.signal })
+    fetchDocentScript(placeId, { language, signal: controller.signal })
       .then(setScript)
       .catch((error) => {
         if (error.name === "AbortError") return;
         setScriptError(error.message || "도슨트를 불러오지 못했어요.");
       });
     return () => controller.abort();
-  }, [placeId]);
+  }, [language, placeId]);
 
   // 재생 속도는 <audio> 에 직접 반영해야 한다.
   useEffect(() => {
@@ -91,7 +93,7 @@ export default function DocentPlayer({ onClose, place }) {
           {placeId && (
             <audio
               ref={audioRef}
-              src={docentAudioUrl(placeId)}
+              src={docentAudioUrl(placeId, language)}
               preload="auto"
               data-testid="docent-audio"
               onCanPlay={() => setReady(true)}

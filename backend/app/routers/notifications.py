@@ -18,14 +18,22 @@ from ..notifications import (
     mark_notification_read,
     sync_popup_notifications,
 )
+from .auth import get_current_user
 
 
 router = APIRouter(prefix="/api/v1/notifications", tags=["notifications"])
 
 
+def session_user_no(current: Annotated[dict, Depends(get_current_user)]) -> int:
+    return current["user"]["user_no"]
+
+
+UserNo = Annotated[int, Depends(session_user_no)]
+
+
 @router.get("", response_model=list[NotificationResponse], response_model_by_alias=True)
 def get_notifications(
-    user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
+    user_no: UserNo,
     unread_only: Annotated[bool, Query(alias="unreadOnly")] = False,
     limit: Annotated[int, Query(ge=1, le=100)] = 30,
     lang: Annotated[str | None, Query(alias="lang", max_length=20)] = None,
@@ -45,7 +53,7 @@ def get_notifications(
 @router.patch("/{notification_id}/read", status_code=status.HTTP_204_NO_CONTENT)
 def read_notification(
     notification_id: int,
-    user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
+    user_no: UserNo,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> Response:
     try:
@@ -70,7 +78,7 @@ def read_notification(
 )
 def notify_quest_completed(
     request: QuestCompletedNotificationRequest,
-    user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
+    user_no: UserNo,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> NotificationResponse:
     notification_id = create_notification(

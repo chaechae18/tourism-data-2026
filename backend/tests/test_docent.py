@@ -1,6 +1,7 @@
 from collections.abc import Callable, Iterator
 
 from fastapi.testclient import TestClient
+import pymysql
 import pytest
 
 from app.main import app
@@ -16,12 +17,15 @@ class FakeTts:
 
     def __init__(self, error: Exception | None = None) -> None:
         self.calls: list[str] = []
+        # 어떤 언어 목소리로 읽으라고 했는지
+        self.languages: list[str | None] = []
         self.error = error
 
-    async def synthesize(self, text: str) -> bytes:
+    async def synthesize(self, text: str, language: str | None = None) -> bytes:
         if self.error:
             raise self.error
         self.calls.append(text)
+        self.languages.append(language)
         return b"fake-mp3-bytes"
 
 
@@ -145,3 +149,93 @@ def test_long_scripts_are_split_into_requests_within_the_google_limit() -> None:
     assert all(len(chunk.encode("utf-8")) <= 4000 for chunk in chunks)
     # 잘라도 문장이 사라지지 않는다.
     assert "".join(chunks).replace(" ", "") == long_text.replace(" ", "")
+
+
+ENGLISH_SCRIPT = "Donggung Palace was a secondary palace of the Silla royal court."
+
+
+def add_translation(
+    database: pymysql.Connection,
+    place_id: int,
+    language: str,
+    text: str | None = ENGLISH_SCRIPT,
+) -> None:
+    with database.cursor() as cursor:
+        cursor.execute(
+            """INSERT INTO PLACE_I18N (PLACE_IDX, LANGUAGE_CODE, NAME, TEXT)
+               VALUES (%s, %s, 'Donggungggwa Wolji', %s)""",
+            (place_id, language, text),
+        )
+
+
+def test_docent_script_follows_the_requested_language(
+    client: TestClient,
+    database: pymysql.Connection,
+    insert: Callable[..., int],
+) -> None:
+    place_id = add_place(insert)
+    add_translation(database, place_id, "en")
+
+    response = client.get(f"/api/v1/journey/docent/{place_id}?lang=en")
+
+    assert response.status_code == 200
+    assert response.json()["text"] == ENGLISH_SCRIPT
+
+
+def test_docent_script_falls_back_to_korean(
+    client: TestClient,
+    insert: Callable[..., int],
+) -> None:
+    place_id = add_place(insert)
+
+    # 일본어 원고가 없으니 빈칸 대신 한국어를 읽어 준다.
+    response = client.get(f"/api/v1/journey/docent/{place_id}?lang=ja")
+
+    assert response.status_code == 200
+    assert response.json()["text"] == SCRIPT
+
+
+def test_docent_audio_is_read_by_the_voice_of_the_script(
+    client: TestClient,
+    database: pymysql.Connection,
+    insert: Callable[..., int],
+    tts: FakeTts,
+) -> None:
+    place_id = add_place(insert)
+    add_translation(database, place_id, "en")
+
+    client.get(f"/api/v1/journey/docent/{place_id}/audio?lang=en")
+
+    assert tts.calls == [ENGLISH_SCRIPT]
+    assert tts.languages == ["en"]
+
+
+def test_docent_audio_uses_a_korean_voice_when_it_falls_back(
+    client: TestClient,
+    insert: Callable[..., int],
+    tts: FakeTts,
+) -> None:
+    place_id = add_place(insert)
+
+    # 영어 원고가 없어 한국어로 내려갔다. 영어 목소리로 읽히면 발음이 무너진다.
+    client.get(f"/api/v1/journey/docent/{place_id}/audio?lang=en")
+
+    assert tts.calls == [SCRIPT]
+    assert tts.languages == ["ko"]
+
+
+def test_each_language_gets_its_own_cached_audio(
+    client: TestClient,
+    database: pymysql.Connection,
+    insert: Callable[..., int],
+    tts: FakeTts,
+) -> None:
+    place_id = add_place(insert)
+    add_translation(database, place_id, "en")
+
+    client.get(f"/api/v1/journey/docent/{place_id}/audio?lang=ko")
+    client.get(f"/api/v1/journey/docent/{place_id}/audio?lang=en")
+    client.get(f"/api/v1/journey/docent/{place_id}/audio?lang=en")
+
+    # 언어마다 따로 캐시되고, 같은 언어를 다시 부르면 만들지 않는다.
+    assert tts.calls == [SCRIPT, ENGLISH_SCRIPT]
