@@ -34,6 +34,7 @@ cp frontend/.env.example frontend/.env
 | 키 | 없으면 |
 |---|---|
 | `TOURAPI_SERVICE_KEY` | 관광 데이터를 새로 받아올 수 없음 |
+| `OPENAI_API_KEY` | 공식 외국어 API에 없는 장소·필드를 번역할 수 없음 |
 | `GOOGLE_TTS_API_KEY` | 도슨트 음성 재생 불가 |
 | `KAKAO_REST_API_KEY`, `NAVER_CLIENT_*` | 장소 검색 기능 불가 |
 
@@ -63,18 +64,16 @@ curl http://localhost:8001/health                    # {"status":"ok"} 가 나�
 
 **DB 구조(테이블)는 백엔드가 뜰 때 자동으로 만들어집니다.** 따로 칠 명령어가 없습니다.
 
-## 5단계 — 데이터 채우기
+## 5단계 — 데이터 자동 적재
 
-DB 구조는 자동으로 준비되지만 **관광지 데이터는 비어 있습니다.** 아래 명령으로 채웁니다.
+`docker compose up -d --build` 하면 `sync` 서비스가 DB를 확인합니다. 관광지 또는 영·일·중
+번역이 비어 있으면 관광공사 API에서 경주 장소와 축제를 받아 자동 적재합니다. 이미 필요한
+데이터가 있으면 최초 적재를 건너뛰므로 같은 데이터를 여러 번 넣지 않습니다.
+첫 적재에는 몇 분이 걸리며 `backend/.env` 의 `TOURAPI_SERVICE_KEY`와
+`OPENAI_API_KEY`가 채워져 있어야 합니다. 공식 외국어 API에 없는 값만 OpenAI API로 번역하고,
+결과와 원문 변경 확인용 해시는 DB에 저장합니다.
 
-```bash
-docker compose exec backend python sync_tourapi.py
-```
-
-관광공사 API에서 경주 장소와 축제를 받아 `PLACE` / `FESTIVAL` 에 저장합니다. 몇 분 걸립니다.
-`backend/.env` 의 `TOURAPI_SERVICE_KEY` 가 채워져 있어야 합니다.
-
-**이 첫 한 번만 오래 걸립니다.** 이후로는 `sync` 서비스가 **주 1회 알아서 돌면서**, 공사 쪽에서
+이후로는 `sync` 서비스가 **주 1회 알아서 돌면서**, 공사 쪽에서
 수정된 건만 상세를 다시 받습니다(목록의 `modifiedtime` 을 DB와 대조). 바뀐 게 없는 주에는
 API 호출이 목록 조회 십여 번으로 끝납니다. 간격은 `backend/.env` 의 `SYNC_INTERVAL_DAYS` 로
 바꿉니다.
@@ -83,17 +82,8 @@ API 호출이 목록 조회 십여 번으로 끝납니다. 간격은 `backend/.e
 docker compose logs -f sync    # 다음 동기화까지 얼마 남았는지 / 지난 회차 결과
 ```
 
-> ⚠️ **팀에서 인증키 하나를 같이 쓰고 있다면 첫 적재를 주의하세요.** 처음 채울 때는 API를
-> 500회 넘게 호출해서(장소마다 상세 조회 2회), 여러 명이 같은 날 각자 돌리면 일일 한도가
-> 바닥납니다. 각자 공공데이터포털에서 키를 발급받는 게 가장 깔끔합니다. 키를 못 받는
-> 상황이면 이미 채워 둔 사람이 덤프를 떠서 넘겨주세요.
->
-> ```bash
-> # 넘겨주는 쪽
-> docker compose exec -T db sh -c 'mysqldump -uroot -p"$MYSQL_ROOT_PASSWORD" play_gyeongju' > dump.sql
-> # 받는 쪽
-> docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" play_gyeongju' < dump.sql
-> ```
+상태 볼륨이 남아 있어도 DB가 비어 있으면 즉시 적재하고, DB는 완성됐지만 상태 볼륨만 없으면
+API를 다시 호출하지 않고 주기만 기록합니다.
 
 확인:
 

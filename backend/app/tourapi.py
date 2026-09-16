@@ -5,6 +5,7 @@ import logging
 import os
 import re
 import time
+import unicodedata
 from typing import Any
 
 import httpx
@@ -26,7 +27,7 @@ CONTENT_TYPE_RESTAURANT = 39
 PLACE_TYPE_TOUR = "TOUR"
 PLACE_TYPE_FOOD = "FOOD"
 
-# 언어마다 서비스가 따로 있다. 엔드포인트와 파라미터는 같고 contentId 도 공유한다.
+# 언어마다 서비스가 따로 있다. 같은 장소라도 contentId 는 다를 수 있다.
 TOURAPI_ROOT = "https://apis.data.go.kr/B551011"
 LANGUAGE_SERVICES = {
     "ko": "KorService2",
@@ -319,6 +320,16 @@ INTRO_FIELDS = {
         "PARKING": "parkingfestival",
     },
 }
+
+# 다국어 서비스는 같은 관광 유형에 국문과 다른 contentTypeId 를 쓴다.
+INTRO_FIELDS.update({
+    75: INTRO_FIELDS[CONTENT_TYPE_LEPORTS],
+    76: INTRO_FIELDS[CONTENT_TYPE_TOURIST_SPOT],
+    78: INTRO_FIELDS[CONTENT_TYPE_CULTURAL_FACILITY],
+    79: INTRO_FIELDS[CONTENT_TYPE_SHOPPING],
+    82: INTRO_FIELDS[CONTENT_TYPE_RESTAURANT],
+    85: INTRO_FIELDS[CONTENT_TYPE_FESTIVAL],
+})
 
 _HREF = re.compile(r'href=["\']([^"\']+)["\']', re.IGNORECASE)
 _BARE_URL = re.compile(r"https?://[^\s\"'<>]+")
@@ -633,7 +644,10 @@ def _upsert_i18n(
     )
     with connection.cursor() as cursor:
         cursor.execute(sql, (place_idx, language, *fields.values()))
-        return cursor.rowcount == 1
+        created = cursor.rowcount == 1
+    from .place_translation_cache import clear_machine_cache_for_official_fields
+    clear_machine_cache_for_official_fields(connection, place_idx, language, fields)
+    return created
 
 
 def _upsert_category_name(
@@ -697,7 +711,7 @@ def language_client(language: str, **kwargs: Any) -> TourApiClient:
 
 
 def load_place_ids(connection: pymysql.Connection) -> dict[str, int]:
-    """CONTENT_ID -> PLACE.IDX. 번역을 어느 장소에 붙일지 정하는 표다."""
+    """Korean CONTENT_ID -> PLACE.IDX."""
     with connection.cursor() as cursor:
         cursor.execute(
             "SELECT CONTENT_ID, IDX FROM PLACE "
@@ -708,17 +722,96 @@ def load_place_ids(connection: pymysql.Connection) -> dict[str, int]:
     return {str(row["CONTENT_ID"]): row["IDX"] for row in rows}
 
 
+def load_place_match_candidates(connection: pymysql.Connection) -> list[dict[str, Any]]:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT IDX, CONTENT_ID, NAME, LATITUDE, LONGITUDE FROM PLACE "
+            "WHERE SOURCE = %s AND NAME IS NOT NULL",
+            (SOURCE_TOUR_API,),
+        )
+        return list(cursor.fetchall())
+
+
+def load_place_tourapi_links(
+    connection: pymysql.Connection, language: str
+) -> dict[str, int]:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "SELECT CONTENT_ID, PLACE_IDX FROM PLACE_TOURAPI_LINK WHERE LANGUAGE_CODE = %s",
+            (language,),
+        )
+        return {str(row["CONTENT_ID"]): row["PLACE_IDX"] for row in cursor.fetchall()}
+
+
+def _match_name(value: str | None) -> str:
+    normalized = unicodedata.normalize("NFKC", value or "").casefold()
+    return "".join(char for char in normalized if char.isalnum())
+
+
+def _contains_korean_name(title: str | None, name: str | None) -> bool:
+    """Match a Korean label in parentheses without treating longer names as the same place."""
+    compact_title = re.sub(r"\s+", "", unicodedata.normalize("NFKC", title or ""))
+    compact_name = re.sub(r"\s+", "", unicodedata.normalize("NFKC", name or ""))
+    if len(_match_name(compact_name)) < 3:
+        return False
+    return re.search(
+        rf"(?<![가-힣]){re.escape(compact_name)}(?![가-힣])", compact_title
+    ) is not None
+
+
+def _distance_meters(place: dict[str, Any], item: dict[str, Any]) -> float | None:
+    try:
+        latitude = float(place["LATITUDE"])
+        longitude = float(place["LONGITUDE"])
+        other_latitude = float(item["mapy"])
+        other_longitude = float(item["mapx"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    # 경주 부근에서 후보를 좁히는 근사 거리. 확정에는 이름도 반드시 필요하다.
+    return ((latitude - other_latitude) ** 2 * 111_000 ** 2
+            + (longitude - other_longitude) ** 2 * 91_000 ** 2) ** .5
+
+
+def verified_place_match(
+    item: dict[str, Any], candidates: list[dict[str, Any]]
+) -> int | None:
+    """Accept only a unique Korean name embedded in the foreign title near its coordinates."""
+    matches = []
+    for place in candidates:
+        distance = _distance_meters(place, item)
+        if (_contains_korean_name(item.get("title"), place.get("NAME"))
+                and distance is not None and distance <= 1_000):
+            matches.append(place["IDX"])
+    return matches[0] if len(matches) == 1 else None
+
+
+def save_place_tourapi_link(
+    connection: pymysql.Connection,
+    *,
+    place_idx: int,
+    language: str,
+    content_id: str,
+    method: str,
+) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO PLACE_TOURAPI_LINK "
+            "(PLACE_IDX, LANGUAGE_CODE, CONTENT_ID, MATCH_METHOD) VALUES (%s, %s, %s, %s)",
+            (place_idx, language, content_id, method),
+        )
+
+
 def load_synced_i18n_modified_times(
     connection: pymysql.Connection, language: str
 ) -> dict[str, datetime]:
     """그 언어로 마지막까지 받아 둔 공사 수정시각. 언어마다 따로 센다."""
     with connection.cursor() as cursor:
         cursor.execute(
-            "SELECT p.CONTENT_ID, t.MODIFIED_TIME FROM PLACE_I18N t "
-            "JOIN PLACE p ON p.IDX = t.PLACE_IDX "
-            "WHERE t.LANGUAGE_CODE = %s AND p.SOURCE = %s "
-            "AND p.CONTENT_ID IS NOT NULL AND t.MODIFIED_TIME IS NOT NULL",
-            (language, SOURCE_TOUR_API),
+            "SELECT l.CONTENT_ID, t.MODIFIED_TIME FROM PLACE_I18N t "
+            "JOIN PLACE_TOURAPI_LINK l ON l.PLACE_IDX = t.PLACE_IDX "
+            "AND l.LANGUAGE_CODE = t.LANGUAGE_CODE "
+            "WHERE t.LANGUAGE_CODE = %s AND t.MODIFIED_TIME IS NOT NULL",
+            (language,),
         )
         rows = cursor.fetchall()
     return {str(row["CONTENT_ID"]): row["MODIFIED_TIME"] for row in rows}
@@ -812,7 +905,7 @@ def sync_place_translations(
     connection: pymysql.Connection,
     client: TourApiClient,
     language: str,
-    content_type_ids: Iterable[int],
+    content_type_ids: Iterable[int | None],
     limit: int | None = None,
     force: bool = False,
     place_ids: dict[str, int] | None = None,
@@ -820,8 +913,10 @@ def sync_place_translations(
     """한 언어의 번역을 PLACE_I18N 에 채운다. 본체(PLACE)는 건드리지 않는다."""
     result = SyncResult()
     processed = 0
-    # 번역은 이미 있는 장소에만 붙는다. contentId 가 언어 간에 같아서 이게 성립한다.
+    # 기존 링크를 우선한다. 신규는 한국어 이름이 외국어 제목에 포함되고 좌표도 가까울 때만 연결한다.
     ids = load_place_ids(connection) if place_ids is None else place_ids
+    links = load_place_tourapi_links(connection, language)
+    candidates = load_place_match_candidates(connection)
     synced = {} if force else load_synced_i18n_modified_times(connection, language)
 
     for content_type_id in content_type_ids:
@@ -834,18 +929,37 @@ def sync_place_translations(
                 result.skipped.append(f"{language}: contentid 없음 {item.get('title')!r}")
                 continue
 
-            place_idx = ids.get(content_id)
+            place_idx = links.get(content_id)
+            method = None
+            if place_idx is None and content_id in ids:
+                place_idx = ids[content_id]
+                method = "shared_content_id"
             if place_idx is None:
-                # 그 언어에만 있는 장소. 본체가 생기는 다음 회차에 붙는다.
-                result.skipped.append(f"{language}: PLACE 없음 {content_id}")
+                place_idx = verified_place_match(item, candidates)
+                if place_idx is not None:
+                    method = "name_and_coordinates"
+            if place_idx is None:
+                result.skipped.append(f"{language}: 검토 필요 {content_id} {item.get('title')!r}")
                 continue
+
+            if method is not None:
+                # 이미 다른 외국어 ID 가 같은 장소에 연결돼 있으면 확정하지 않는다.
+                if place_idx in links.values():
+                    result.skipped.append(f"{language}: 연결 충돌 {content_id}")
+                    continue
+                save_place_tourapi_link(
+                    connection, place_idx=place_idx, language=language,
+                    content_id=content_id, method=method,
+                )
+                links[content_id] = place_idx
 
             modified = parse_tour_datetime(item.get("modifiedtime"))
             if is_unchanged(synced, content_id, modified):
                 result.unchanged += 1
                 continue
 
-            common, intro = _fetch_details(client, content_id, content_type_id, True)
+            detail_type = int(item.get("contenttypeid") or content_type_id or 0)
+            common, intro = _fetch_details(client, content_id, detail_type, True)
             fields = place_i18n_fields(item, common, intro)
             # NAME 은 NOT NULL 이다. 이름이 없으면 넣을 수 없으니 넘긴다.
             if not fields["NAME"]:

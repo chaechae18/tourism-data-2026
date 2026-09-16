@@ -16,6 +16,7 @@ COPY db ./db
 COPY alembic ./alembic
 COPY alembic.ini ./alembic.ini
 COPY sync_tourapi.py ./sync_tourapi.py
+COPY translate_places.py ./translate_places.py
 COPY sync_persona_scores.py ./sync_persona_scores.py
 
 # state 는 sync 서비스가 마지막 동기화 시각을 남기는 곳이다. 이미지 안에 미리 만들어

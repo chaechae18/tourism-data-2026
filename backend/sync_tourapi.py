@@ -26,6 +26,7 @@ from app.tourapi import (
     sync_place_translations,
     sync_places,
 )
+from translate_places import translate_missing_places
 
 DEFAULT_CONTENT_TYPES = [
     CONTENT_TYPE_TOURIST_SPOT,
@@ -38,6 +39,7 @@ DEFAULT_CONTENT_TYPES = [
 DEFAULT_INTERVAL_DAYS = float(os.getenv("SYNC_INTERVAL_DAYS", "7"))
 # 실패한 회차는 주기를 다 기다리지 않고 이만큼 뒤에 다시 해 본다.
 RETRY_DELAY = timedelta(hours=1)
+BOOTSTRAP_FIELDS = ("NAME", "TEXT", "ADDRESS", "OPERATING_HOURS", "REST_DATE", "PARKING", "MENU")
 
 
 def state_path() -> Path:
@@ -60,6 +62,49 @@ def write_last_sync(finished_at: datetime) -> None:
     except OSError as exc:
         # 기록만 실패한 것이므로 동기화 자체는 성공으로 둔다. 다음 기동에서 한 번 더 돌 뿐이다.
         print(f"경고: 마지막 동기화 시각을 남기지 못했습니다 ({exc})", file=sys.stderr)
+
+
+def database_needs_place_bootstrap(
+    connection: pymysql.Connection, languages: list[str]
+) -> tuple[bool, str]:
+    """DB 자체를 보고 최초 장소/번역 적재가 필요한지 판단한다."""
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT COUNT(*) AS count FROM PLACE WHERE SOURCE = 'TOUR_API'")
+        place_count = int(cursor.fetchone()["count"])
+        if place_count == 0:
+            return True, "TourAPI PLACE가 비어 있음"
+
+        for language in languages:
+            if language == "ko":
+                continue
+            # 국문에 값이 있는 필드는 선택 언어에도 있어야 적재 완료로 본다.
+            required_fields = " OR ".join(
+                f"(COALESCE(NULLIF(k.{field}, ''), NULLIF(p.{field}, '')) IS NOT NULL "
+                f"AND NULLIF(t.{field}, '') IS NULL)"
+                for field in BOOTSTRAP_FIELDS
+            )
+            cursor.execute(
+                "SELECT COUNT(*) AS count FROM PLACE p "
+                "LEFT JOIN PLACE_I18N k ON k.PLACE_IDX = p.IDX AND k.LANGUAGE_CODE = 'ko' "
+                "LEFT JOIN PLACE_I18N t ON t.PLACE_IDX = p.IDX AND t.LANGUAGE_CODE = %s "
+                "WHERE p.SOURCE = 'TOUR_API' AND (t.IDX IS NULL OR " + required_fields + ")",
+                (language,),
+            )
+            missing = int(cursor.fetchone()["count"])
+            if missing:
+                return True, f"{language} 장소/번역 {missing}건 누락"
+
+    return False, f"TourAPI 장소 {place_count}건과 번역이 이미 준비됨"
+
+
+def bootstrap_status(options: argparse.Namespace) -> tuple[bool, str]:
+    if options.target not in ("places", "all"):
+        return False, "장소가 동기화 대상이 아님"
+    connection = connect()
+    try:
+        return database_needs_place_bootstrap(connection, options.languages)
+    finally:
+        connection.close()
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -132,12 +177,18 @@ def sync_translations(options: argparse.Namespace, connection: pymysql.Connectio
                 connection,
                 client,
                 language=language,
-                content_type_ids=options.content_types,
+                # 외국어 서비스는 국문과 contentTypeId 가 다르므로 경주 전체 목록을 받는다.
+                content_type_ids=(None,),
                 limit=options.limit,
                 force=options.force,
                 place_ids=place_ids,
             ),
         )
+    translated = translate_missing_places(
+        connection, [language for language in options.languages if language != "ko"],
+        limit_places=options.limit,
+    )
+    print(f"OpenAI 보완 번역 적재 — {translated}개 필드")
 
 
 def run_once(options: argparse.Namespace, event_start_date: str) -> None:
@@ -179,8 +230,19 @@ def run_forever(options: argparse.Namespace) -> None:
     print(f"주기 동기화를 시작합니다 — {options.interval_days}일 간격")
 
     while True:
-        # 컨테이너를 다시 띄웠다고 주기를 새로 세지 않는다. 마지막 성공 시각부터 잰다.
+        # 상태 볼륨보다 DB가 기준이다. DB가 비었거나 번역이 덜 들어갔으면 바로 채운다.
+        needs_bootstrap, reason = bootstrap_status(options)
         last = read_last_sync()
+        if needs_bootstrap:
+            print(f"초기 적재가 필요합니다 — {reason}")
+            last = None
+        elif last is None:
+            # DB는 이미 완성됐는데 상태 볼륨만 새것인 경우 API를 다시 호출하지 않는다.
+            last = datetime.now()
+            write_last_sync(last)
+            print(f"초기 적재를 건너뜁니다 — {reason}")
+
+        # 컨테이너를 다시 띄웠다고 주기를 새로 세지 않는다. 마지막 성공 시각부터 잰다.
         remaining = interval - (datetime.now() - last) if last else timedelta(0)
         if remaining > timedelta(0):
             print(f"다음 동기화까지 {remaining} 남았습니다 (마지막 성공: {last:%Y-%m-%d %H:%M})")

@@ -36,8 +36,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-  # TourAPI 주기 동기화. 목록의 modifiedtime 을 DB 와 대조해 바뀐 건만 상세를 받는다.
-  # 마지막 성공 시각을 sync-state 에 남기므로, 다시 띄워도 주기를 새로 세지 않는다.
+  # compose up 만 하면 빈 DB는 자동 적재한다. 이미 장소·번역이 있으면 최초 적재를 건너뛴다.
+  # 이후에는 modifiedtime 을 대조해 7일마다 신규·변경 건만 상세를 받는다.
   sync:
     build: ./backend
     env_file:

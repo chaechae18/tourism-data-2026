@@ -21,6 +21,7 @@ from app.tourapi import (
     sync_festivals,
     sync_place_translations,
     sync_places,
+    verified_place_match,
 )
 
 
@@ -484,6 +485,51 @@ def test_translations_skip_places_that_are_not_stored_yet(
     assert result.created == 0
     assert result.skipped
     assert not rows("SELECT IDX FROM PLACE_I18N")
+
+
+def test_foreign_content_id_joins_by_unique_name_and_coordinates(
+    database: pymysql.Connection,
+    rows: Callable[..., list[dict]],
+) -> None:
+    sync_places(database, FakeClient(places=[PLACE_ITEM]), [12], with_detail=False)
+    foreign = {
+        **PLACE_ITEM,
+        "contentid": "foreign-123",
+        "title": "Cheomseongdae Observatory (첨성대)",
+    }
+
+    result = sync_place_translations(database, FakeClient(places=[foreign]), "en", [12])
+
+    assert result.created == 1
+    link = rows("SELECT PLACE_IDX, CONTENT_ID, MATCH_METHOD FROM PLACE_TOURAPI_LINK")[0]
+    assert link["CONTENT_ID"] == "foreign-123"
+    assert link["MATCH_METHOD"] == "name_and_coordinates"
+    assert rows("SELECT NAME FROM PLACE_I18N WHERE PLACE_IDX = %s", (link["PLACE_IDX"],))[0]["NAME"] == foreign["title"]
+
+
+def test_nearby_different_place_is_not_joined(
+    database: pymysql.Connection,
+    rows: Callable[..., list[dict]],
+) -> None:
+    sync_places(database, FakeClient(places=[PLACE_ITEM]), [12], with_detail=False)
+    foreign = {**PLACE_ITEM, "contentid": "foreign-456", "title": "Another monument (다른 장소)"}
+
+    result = sync_place_translations(database, FakeClient(places=[foreign]), "en", [12])
+
+    assert result.created == 0
+    assert not rows("SELECT * FROM PLACE_TOURAPI_LINK")
+
+
+def test_longer_korean_name_is_not_mistaken_for_shorter_place() -> None:
+    candidates = [{
+        "IDX": 1, "NAME": "경주 오릉", "LATITUDE": "35.8", "LONGITUDE": "129.2",
+    }]
+    item = {
+        "title": "Gyeongju Oreung Hanok (경주오릉한옥)",
+        "mapy": "35.8", "mapx": "129.2",
+    }
+
+    assert verified_place_match(item, candidates) is None
 
 
 def test_resyncing_a_language_updates_the_same_row(

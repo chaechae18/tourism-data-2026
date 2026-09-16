@@ -53,7 +53,9 @@ uvicorn app.main:app --reload --port 8000
 ## TourAPI 동기화
 
 `sync_tourapi.py` 가 공사 데이터를 `PLACE` / `FESTIVAL` 에 넣습니다. compose 의 `sync`
-서비스가 `--loop` 로 이걸 주기 실행하므로, 평소에는 손댈 일이 없습니다.
+서비스가 `--loop` 로 이걸 주기 실행하므로, 평소에는 손댈 일이 없습니다. 시작할 때 DB를
+확인해 장소나 영·일·중 번역이 비어 있으면 즉시 최초 적재하고, 이미 완성돼 있으면 건너뜁니다.
+따라서 새로 받은 팀원도 `docker compose up -d --build` 외에 별도 적재 명령이 필요 없습니다.
 
 ```bash
 docker compose logs -f sync                          # 진행 상황
@@ -76,8 +78,10 @@ docker compose exec backend python sync_tourapi.py   # 지금 당장 한 번 더
 ### 번역 적재
 
 공사는 언어별로 서비스를 따로 냅니다 (`KorService2` / `EngService2` / `JpnService2` /
-`ChsService2`). 엔드포인트와 파라미터는 같고 `contentId` 도 공유하므로, 같은 번호로 각
-서비스를 불러 같은 장소의 다른 언어판을 받습니다.
+`ChsService2`). **같은 장소여도 언어별 `contentId` 와 `contentTypeId` 가 다를 수 있습니다.**
+확정된 외국어 ID 는 `PLACE_TOURAPI_LINK` 에 저장합니다. 새 연결은 외국어 제목에 한국어
+장소명이 포함되고 좌표도 가까운 유일한 후보일 때만 자동 확정합니다. 나머지는 로그의
+`검토 필요` 항목으로 남기며 좌표만 가깝다고 연결하지 않습니다.
 
 한국어 동기화가 끝나면 이어서 언어별로 `PLACE_I18N` 을 채웁니다. `PLACE` 는 그대로 한 줄이고,
 번역만 `(PLACE_IDX, LANGUAGE_CODE)` 로 붙습니다. 한국어도 특별 취급 없이 `ko` 한 줄로 들어갑니다.
@@ -92,6 +96,12 @@ docker compose exec backend python sync_tourapi.py   # 지금 당장 한 번 더
 (영어 원고가 없어 한국어로 내려갔으면 한국어 목소리로 읽습니다).
 
 언어별로도 `MODIFIED_TIME` 을 따로 세므로, 2회차부터는 그 언어에서 바뀐 것만 받습니다.
+공식 외국어 API에 없는 필드는 `translate_places.py`가 OpenAI API로 보완합니다. 결과는
+`PLACE_I18N`에, 한국어 원문 해시·모델·생성 상태는 `PLACE_TRANSLATION_CACHE`에 저장합니다.
+따라서 번역 파일을 배포하지 않으며, Docker 첫 실행에서 API로 만든 뒤 DB에서 재사용합니다.
+주간 동기화 때 원문 해시가 달라진 필드만 다시 번역하고, 공식 TourAPI 값이 새로 들어온 필드는
+기계 번역 이력을 지워 이후에도 공식 값을 우선합니다. 운영시간·휴무일은 숫자가 달라지면
+자동 적재하지 않고 로그에 검토 대상으로 남깁니다.
 
 ### 자주 쓰는 옵션
 
