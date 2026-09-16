@@ -119,7 +119,8 @@ function NoticePopup({ popups, t }) {
   if (!open || popups.length === 0) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#241b16]/45 px-8">
+    // 부모 section 의 space-y 가 붙여 주는 margin-top 때문에 어두운 배경이 위에서 밀린다.
+    <div className="fixed inset-0 z-50 !mt-0 flex items-center justify-center bg-[#241b16]/45 px-8">
       <section aria-label={t("home.notice")} aria-modal="true" className="w-full max-w-[19rem] overflow-hidden rounded-2xl bg-white shadow-xl" role="dialog">
         <div className="flex items-center justify-between gap-3 border-b border-[#f0e8de] px-5 py-3.5">
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand-ink">Notice</p>
