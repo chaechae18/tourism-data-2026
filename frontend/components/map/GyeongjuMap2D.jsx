@@ -18,6 +18,7 @@ import { requestTmapPedestrianRoute } from "../../lib/tmap/pedestrian-route";
 import { buildKakaoRouteUrl } from "../../lib/kakao/route-link";
 // 공통 버튼 컴포넌트 / 도슨트 재생 시트
 import AppButton, { IconButton } from "../ui/AppButton";
+import QuestResultModal from "./QuestResultModal";
 import QuestMapCanvas from "./QuestMapCanvas";
 import DocentPlayer from "./DocentPlayer";
 import { useI18n } from "../i18n/LanguageProvider";
@@ -227,6 +228,8 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
   const currentRoleName = roleName || t("roles.king.name");
 
   // --- 화면 상태(state)들 ---
+  const [completing, setCompleting] = useState(false);
+  const [questResult, setQuestResult] = useState(null);
   const [viewId, setViewId] = useState("map");  // 보기 방식(지도 그림 / 코스 리스트)
   const [docentPlace, setDocentPlace] = useState(null);  // 도슨트를 듣고 있는 장소
   const [currentLocation, setCurrentLocation] = useState(DEFAULT_CURRENT_LOCATION);  // 현재 위치
@@ -253,6 +256,46 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
     setRoute(null);
     setRouteMessage("");
     onSelect(place);
+  };
+
+  const completeAtCurrentLocation = async () => {
+    if (completed || completing) return;
+    const showLocationHelp = (message) => setQuestResult({ type: "location", name: selectedPlace.name, message });
+    if (!navigator.geolocation) {
+      showLocationHelp("현재 위치를 사용할 수 없어 퀘스트를 완료할 수 없어요.");
+      return;
+    }
+    setCompleting(true);
+    setQuestResult(null);
+    try {
+      const { coords } = await new Promise((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true, timeout: 10000, maximumAge: 0,
+        }),
+      );
+      const position = { latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy };
+      if (!Object.values(position).every(Number.isFinite) || coords.accuracy < 0 || coords.accuracy > 100) {
+        showLocationHelp("위치가 부정확해요. 탁 트인 곳에서 다시 시도해 주세요.");
+        return;
+      }
+      const distance = getDistanceMeters(position, selectedPlace, false);
+      if (!Number.isFinite(distance) || distance > 100) {
+        setQuestResult({ type: "nearby", name: selectedPlace.name });
+        return;
+      }
+      const saved = await onComplete(selectedPlace.id, position);
+      if (saved !== false) setQuestResult({ type: "success", name: selectedPlace.name });
+    } catch (error) {
+      if (error.code === "QUEST_LOCATION_INVALID") {
+        setQuestResult({ type: "nearby", name: selectedPlace.name });
+        return;
+      }
+      showLocationHelp(error.code === 1
+        ? "퀘스트를 완료하려면 위치 권한을 허용해 주세요."
+        : error.message || "현재 위치를 확인하지 못했어요. 다시 시도해 주세요.");
+    } finally {
+      setCompleting(false);
+    }
   };
 
   // "현재 위치 찾기" 버튼: 브라우저 GPS로 실제 위치를 받아 지도에 반영
@@ -409,7 +452,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
           {/* 하단 액션 버튼들: 카카오맵 길찾기 / 퀘스트 완료 / 도슨트 듣기 */}
           <div className="mt-4 grid grid-cols-2 gap-2">
             <AppButton className="col-span-2" icon={Navigation} onClick={openKakaoRoute}>카카오맵으로 길찾기</AppButton>
-            <AppButton className="!border-0" icon={completed ? Check : MapPin} variant={completed ? "outline" : "secondary"} onClick={() => onComplete(selectedPlace.id)}>{completed ? t("map.visited") : t("map.complete")}</AppButton>
+            <AppButton className="!border-0" icon={completed ? Check : MapPin} variant={completed ? "outline" : "secondary"} disabled={completed || completing} onClick={completeAtCurrentLocation}>{completed ? t("map.visited") : completing ? "위치 확인 중…" : t("map.complete")}</AppButton>
             <AppButton className="!border-0" disabled={!docentReady} icon={Headphones} variant="outline" onClick={() => setDocentPlace(selectedPlace)}>{docentReady ? t("map.docent") : t("map.pending")}</AppButton>
           </div>
 
@@ -432,6 +475,8 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
           <p className="rounded-xl bg-[#eef3ef] px-3 py-2 text-xs leading-5 text-[#626762]" role="status">{routeMessage || locationMessage}</p>
         )}
       </div>
+
+      {questResult && <QuestResultModal result={questResult} onClose={() => setQuestResult(null)} />}
 
       {/* 도슨트 재생 시트 (장소 설명을 소리로 읽어 준다) */}
       {docentPlace && <DocentPlayer onClose={() => setDocentPlace(null)} place={docentPlace} />}

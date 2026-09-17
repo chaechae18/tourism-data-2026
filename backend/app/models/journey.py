@@ -61,3 +61,9 @@ class QuestCompletionResponse(CamelModel):
     name: str | None = None
     completed: bool
     completed_at: datetime | None = Field(default=None, alias="completedAt")
+
+
+class QuestCompletionRequest(CamelModel):
+    latitude: float = Field(ge=-90, le=90, allow_inf_nan=False)
+    longitude: float = Field(ge=-180, le=180, allow_inf_nan=False)
+    accuracy: float = Field(ge=0, le=100, allow_inf_nan=False)

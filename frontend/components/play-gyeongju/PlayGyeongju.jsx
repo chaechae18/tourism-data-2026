@@ -258,34 +258,24 @@ export default function PlayGyeongju() {
     alert(error.message || "회원탈퇴에 실패했습니다.");
   }
 };
-  const completeQuest = async (id) => {
-    if (completedQuestIds.includes(id)) return;
-    // 지금 지도에 그린 장소들 중에서 찾는다. (샘플 장소든 서버 코스든 여기 들어 있다)
+  const completeQuest = async (id, position) => {
+    if (completedQuestIds.includes(id)) return false;
     const quest = places.find((item) => item.id === id);
-    if (!quest) return;
+    if (!quest) return false;
 
-    setCompletedQuestIds((current) => [...current, id]);
-
-    // 서버 코스에서 온 장소면 방문 완료를 저장한다. 저장에 실패하면 완료 표시를 되돌린다.
+    // 저장 실패는 지도 팝업에서 안내하고, 성공한 경우에만 축하한다.
     if (quest.questId) {
-      try {
-        await saveQuestCompletion({ questId: quest.questId });
-      } catch (error) {
-        setCompletedQuestIds((current) => current.filter((item) => item !== id));
-        showNotice(error.message || "방문 완료를 저장하지 못했어요.");
-        return;
-      }
-      showNotice("방문 완료를 저장했어요.");
-    } else {
-      showNotice("방문 완료로 표시했어요.");
+      await saveQuestCompletion({ questId: quest.questId, ...position });
     }
 
+    setCompletedQuestIds((current) => [...current, id]);
     try {
       await notifyQuestCompleted(quest);
       setNotificationVersion((current) => current + 1);
     } catch (error) {
       showNotice(translateError(error, t));
     }
+    return true;
   };
 
   const openQuestOnMap = (quest) => {

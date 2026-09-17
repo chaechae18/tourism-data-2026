@@ -139,9 +139,11 @@ def test_completed_quest_is_saved_and_comes_back_with_the_course(
     add_places(insert)
     headers = {"X-User-No": "1"}
     stops = client.get("/api/v1/journey/course", headers=headers).json()["stops"]
-    quest_id = stops[0]["questId"]
+    stop = stops[0]
+    quest_id = stop["questId"]
 
-    completed = client.post(f"/api/v1/journey/quests/{quest_id}/complete", headers=headers)
+    completed = client.post(f"/api/v1/journey/quests/{quest_id}/complete", headers=headers,
+                           json={"latitude": stop["latitude"], "longitude": stop["longitude"], "accuracy": 10})
 
     assert completed.status_code == 200
     assert completed.json()["completed"] is True
@@ -158,10 +160,13 @@ def test_completing_the_same_quest_twice_keeps_one_record(
 ) -> None:
     add_places(insert)
     headers = {"X-User-No": "1"}
-    quest_id = client.get("/api/v1/journey/course", headers=headers).json()["stops"][0]["questId"]
+    stop = client.get("/api/v1/journey/course", headers=headers).json()["stops"][0]
+    quest_id = stop["questId"]
 
-    first = client.post(f"/api/v1/journey/quests/{quest_id}/complete", headers=headers)
-    second = client.post(f"/api/v1/journey/quests/{quest_id}/complete", headers=headers)
+    first = client.post(f"/api/v1/journey/quests/{quest_id}/complete", headers=headers,
+                           json={"latitude": stop["latitude"], "longitude": stop["longitude"], "accuracy": 10})
+    second = client.post(f"/api/v1/journey/quests/{quest_id}/complete", headers=headers,
+                           json={"latitude": stop["latitude"], "longitude": stop["longitude"], "accuracy": 10})
 
     assert second.status_code == 200
     # 완료일시는 처음 누른 시각을 지킨다.
@@ -175,11 +180,13 @@ def test_completing_a_quest_outside_my_course_is_rejected(
 ) -> None:
     add_places(insert)
     headers = {"X-User-No": "1"}
-    quest_id = client.get("/api/v1/journey/course", headers=headers).json()["stops"][0]["questId"]
+    stop = client.get("/api/v1/journey/course", headers=headers).json()["stops"][0]
+    quest_id = stop["questId"]
 
     insert("USERS", NO=2, ID="second-user", NICKNAME="second", COUNTRY="KR", EMAIL="second@example.com")
     set_session(client, 2)
-    response = client.post(f"/api/v1/journey/quests/{quest_id}/complete")
+    response = client.post(f"/api/v1/journey/quests/{quest_id}/complete",
+                           json={"latitude": stop["latitude"], "longitude": stop["longitude"], "accuracy": 10})
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "QUEST_NOT_FOUND"
@@ -449,3 +456,22 @@ def test_the_third_meal_is_an_afternoon_snack(
         assert slots[slots.index("간식") - 1] == "오후"
         return
     raise AssertionError("30번 뽑는 동안 간식이 한 번도 나오지 않았다")
+
+
+@pytest.mark.parametrize("offset,accuracy,expected", [(0.0008, 10, 200), (0.001, 10, 400), (1, 10, 400), (0, 101, 422)])
+def test_completion_requires_nearby_location(client, insert, rows, offset, accuracy, expected):
+    add_places(insert)
+    stop = client.get("/api/v1/journey/course").json()["stops"][0]
+    response = client.post(f"/api/v1/journey/quests/{stop['questId']}/complete", json={
+        "latitude": stop["latitude"] + offset, "longitude": stop["longitude"], "accuracy": accuracy,
+    })
+    assert response.status_code == expected
+    assert len(rows("SELECT IDX FROM USER_QUEST WHERE STATUS = 2")) == (1 if expected == 200 else 0)
+
+
+def test_completion_requires_coordinates(client, insert, rows):
+    add_places(insert)
+    stop = client.get("/api/v1/journey/course").json()["stops"][0]
+    response = client.post(f"/api/v1/journey/quests/{stop['questId']}/complete")
+    assert response.status_code == 422
+    assert not rows("SELECT IDX FROM USER_QUEST WHERE STATUS = 2")
