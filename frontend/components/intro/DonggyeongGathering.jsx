@@ -46,7 +46,7 @@ export default function DonggyeongGathering() {
             "--phase": `${phase}s`,
             zIndex: index === 2 ? 7 : index + 1,
           }}>
-            <Image src={PORTRAITS[role]} alt="" width={400} height={440} sizes="(max-width: 430px) 25vw, 108px" priority draggable={false} onLoad={() => finishImage(role)} onError={() => finishImage(role)} />
+            <Image src={PORTRAITS[role]} alt="" width={400} height={440} sizes="(max-width: 430px) 25vw, 108px" unoptimized priority draggable={false} onLoad={() => finishImage(role)} onError={() => finishImage(role)} />
           </div>
         ))}
       </div>
