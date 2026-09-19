@@ -12,8 +12,10 @@ class FakeTourApi:
     def __init__(self, items: list[dict] | None = None, error: str | None = None) -> None:
         self.items = items or []
         self.error = error
+        self.searches = 0
 
     def search_festival(self, event_start_date: str, **kwargs: object):
+        self.searches += 1
         if self.error:
             raise TourApiError(self.error)
         return iter(self.items)
@@ -125,20 +127,22 @@ def test_festival_list_comes_from_tourapi_and_keeps_translations(
         "FESTIVAL",
         SOURCE="TOUR_API", CONTENT_ID="4062064", NAME="숨김 처리된 행사", IS_TRASH=1,
     )
-    use_tour_api(
-        FakeTourApi(
-            [
-                festival_item("4087207", "한 달 뒤", soon, soon),
-                festival_item("1718137", "신라문화제", first, today),
-                festival_item("3509748", "끝남", "20250101", "20250102"),
-                festival_item("4062064", "숨김 처리된 행사", first, today),
-                festival_item("4087208", "창 밖", far, far),
-            ]
-        )
+    tour_api = FakeTourApi(
+        [
+            festival_item("4087207", "한 달 뒤", soon, soon),
+            festival_item("1718137", "신라문화제", first, today),
+            festival_item("3509748", "끝남", "20250101", "20250102"),
+            festival_item("4062064", "숨김 처리된 행사", first, today),
+            festival_item("4087208", "창 밖", far, far),
+        ]
     )
+    use_tour_api(tour_api)
 
     body = client.get("/api/v1/main/festivals").json()
     translated = client.get("/api/v1/main/festivals", params={"lang": "en"}).json()
+
+    # 언어가 달라도 TourAPI 결과는 캐시에서 다시 쓴다.
+    assert tour_api.searches == 1
 
     # 운영자가 IS_TRASH 로 숨긴 행사는 TourAPI 가 내려줘도 언어와 무관하게 빠진다.
     # 창을 넘겨 시작하는 행사와 이미 끝난 행사는 홈에 걸리지 않고, 진행중이 앞에 온다.
@@ -180,11 +184,16 @@ def test_festival_list_falls_back_to_stored_rows_when_tourapi_fails(
         START_DATE=now + timedelta(days=90), END_DATE=None,
     )
     insert("FESTIVAL", NAME="삭제됨", IS_TRASH=1)
-    use_tour_api(FakeTourApi(error="504 게이트웨이 시간 초과"))
+    tour_api = FakeTourApi(error="504 게이트웨이 시간 초과")
+    use_tour_api(tour_api)
 
     body = client.get("/api/v1/main/festivals").json()
+    again = client.get("/api/v1/main/festivals").json()
 
     assert [row["name"] for row in body] == ["저장된 행사"]
+    # 장애 중에는 요청마다 TourAPI 를 다시 기다리지 않는다.
+    assert again == body
+    assert tour_api.searches == 1
 
 
 def test_recommended_places_order(

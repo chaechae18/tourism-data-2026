@@ -3,6 +3,7 @@ from functools import lru_cache
 import logging
 import os
 import re
+from threading import Lock
 
 import pymysql
 
@@ -27,9 +28,11 @@ OVERRIDE_COLUMNS = ("URL", "IMG")
 # 상세 조회가 행사 1건당 2회라, 홈 화면에 걸리는 시간을 건수로 막는다.
 FESTIVAL_LIMIT = int(os.getenv("FESTIVAL_LIMIT", "12"))
 FESTIVAL_CACHE_TTL_SECONDS = int(os.getenv("FESTIVAL_CACHE_TTL_SECONDS", "60"))
+FESTIVAL_FAILURE_TTL_SECONDS = int(os.getenv("FESTIVAL_FAILURE_TTL_SECONDS", "60"))
 FESTIVAL_WINDOW_DAYS = int(os.getenv("FESTIVAL_WINDOW_DAYS", "60"))
 
 festival_cache = TTLCache(max_entries=8)
+festival_refresh_lock = Lock()
 
 # PLACE 에 정렬 컬럼이 없어 홈 노출 순서를 여기서 고정한다. 목록에 없는 곳은 조회수 순으로 뒤에 붙는다.
 # PLACE.TEXT 와 번역 행은 홈 카드에 담기엔 길어서, 아래 요약을 대신 내려보낸다.
@@ -224,8 +227,19 @@ def _festival_window(client: TourApiClient, now: datetime) -> list[dict] | None:
     today = now.strftime("%Y%m%d")
     cached = festival_cache.get(today)
     if cached is not None:
-        return cached
+        return None if cached is False else cached
 
+    # 캐시가 빈 순간 몰린 요청이 각자 TourAPI 를 부르면 일일 호출 한도가 금방 찬다.
+    with festival_refresh_lock:
+        cached = festival_cache.get(today)
+        if cached is not None:
+            return None if cached is False else cached
+        return _refresh_festival_window(client, now, today)
+
+
+def _refresh_festival_window(
+    client: TourApiClient, now: datetime, today: str
+) -> list[dict] | None:
     last = now + timedelta(days=FESTIVAL_WINDOW_DAYS)
     try:
         festivals = fetch_festivals(
@@ -233,6 +247,8 @@ def _festival_window(client: TourApiClient, now: datetime) -> list[dict] | None:
         )
     except TourApiError as exc:
         logger.warning("TourAPI 행사 조회 실패, FESTIVAL 테이블로 대체합니다: %s", exc)
+        # 장애 중 요청마다 타임아웃을 기다리지 않도록 실패도 잠깐 기억한다.
+        festival_cache.set(today, False, FESTIVAL_FAILURE_TTL_SECONDS)
         return None
 
     # 날짜는 자정으로 파싱되므로 날짜끼리 비교해야 오늘 끝나는 행사가 남는다.
