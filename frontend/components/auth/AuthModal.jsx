@@ -7,7 +7,7 @@ import { useI18n } from "../i18n/LanguageProvider";
 import AppButton from "../ui/AppButton";
 import AppModal from "../ui/AppModal";
 
-const AUTH_API_BASE_URL = "http://localhost:8001/api/v1/auth";
+const AUTH_API_BASE_URL = `${process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001"}/api/v1/auth`;
 
 const INITIAL_FORM = {
   id: "",
@@ -455,7 +455,7 @@ export default function AuthModal({ mode, onClose, onComplete, onAuth }) {
               type="button"
               onClick={() => {
                 window.location.href =
-                  "http://localhost:8001/api/v1/auth/kakao/login";
+                  `${AUTH_API_BASE_URL}/kakao/login`;
               }}
               className="
                 relative flex h-12 w-full items-center justify-center
@@ -487,7 +487,7 @@ export default function AuthModal({ mode, onClose, onComplete, onAuth }) {
               type="button"
               onClick={() => {
                 window.location.href =
-                  "http://localhost:8001/api/v1/auth/naver/login";
+                  `${AUTH_API_BASE_URL}/naver/login`;
               }}
               className="
                 relative flex h-12 w-full items-center justify-center
@@ -517,7 +517,7 @@ export default function AuthModal({ mode, onClose, onComplete, onAuth }) {
               type="button"
               onClick={() => {
                 window.location.href =
-                  "http://localhost:8001/api/v1/auth/google/login";
+                  `${AUTH_API_BASE_URL}/google/login`;
               }}
               className="
                 relative flex h-12 w-full items-center justify-center

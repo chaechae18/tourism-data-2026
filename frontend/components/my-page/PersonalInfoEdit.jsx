@@ -8,6 +8,8 @@ import {
 import { useState } from "react";
 import { useI18n } from "../i18n/LanguageProvider";
 import AppButton from "../ui/AppButton";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
 
 export default function PersonalInfoEdit({
   user,
@@ -31,7 +33,7 @@ export default function PersonalInfoEdit({
       };
 
       const response = await fetch(
-        "http://localhost:8001/api/v1/auth/update-user",
+        `${API_BASE_URL}/api/v1/auth/update-user`,
         {
           method: "PUT",
           credentials: "include",

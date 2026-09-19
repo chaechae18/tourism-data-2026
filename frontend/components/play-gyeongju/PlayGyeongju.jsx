@@ -26,6 +26,8 @@ const INITIAL_TAB = "home";
 const INITIAL_SELECTED_QUEST_ID = "bunhwangsa";
 const NOTICE_DURATION = 2800;
 const GUIDE_SEEN_KEY = "playgyeongju.guideSeen";
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
 
 export default function PlayGyeongju() {
   const { language, reloadLanguage, resetLanguage, t } = useI18n();
@@ -76,7 +78,7 @@ export default function PlayGyeongju() {
   const checkLogin = async () => {
     try {
       const response = await fetch(
-        "http://localhost:8001/api/v1/auth/me",
+        `${API_BASE_URL}/api/v1/auth/me`,
         {
           method: "GET",
           credentials: "include",
@@ -192,7 +194,7 @@ export default function PlayGyeongju() {
   const logout = async () => {
   try {
     const response = await fetch(
-      "http://localhost:8001/api/v1/auth/logout",
+      `${API_BASE_URL}/api/v1/auth/logout`,
       {
         method: "POST",
         credentials: "include",
@@ -227,7 +229,7 @@ export default function PlayGyeongju() {
 
   try {
     const response = await fetch(
-      "http://localhost:8001/api/v1/auth/withdraw",
+      `${API_BASE_URL}/api/v1/auth/withdraw`,
       {
         method: "DELETE",
         credentials: "include",
