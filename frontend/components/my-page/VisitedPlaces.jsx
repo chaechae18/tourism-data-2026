@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { useI18n } from "../i18n/LanguageProvider";
 
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
 
 export default function VisitedPlaces({
   onClose,
@@ -20,7 +22,7 @@ export default function VisitedPlaces({
     const fetchVisitedPlaces = async () => {
       try {
         const response = await fetch(
-          "http://localhost:8001/api/v1/auth/visit-place",
+          `${API_BASE_URL}/api/v1/auth/visit-place`,
           {
             credentials: "include",
           }

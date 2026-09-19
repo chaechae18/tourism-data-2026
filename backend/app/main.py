@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+import os
 
 from fastapi import FastAPI, HTTPException, status
 from fastapi.exceptions import RequestValidationError
@@ -33,6 +34,8 @@ app = FastAPI(
     title="Play Gyeongju API",
     version="0.1.0",
     lifespan=lifespan,
+    # Vercel forwards the service prefix; local requests use the original paths.
+    root_path="/api/backend" if os.getenv("VERCEL") == "1" else "",
 )
 settings = get_settings()
 settings.upload_dir.mkdir(parents=True, exist_ok=True)
