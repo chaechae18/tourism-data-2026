@@ -16,6 +16,43 @@ const PROPS = {
 };
 
 describe("GyeongjuMap2D", () => {
+  it("saves an explicit demo completion without requesting GPS", async () => {
+    const getCurrentPosition = vi.fn();
+    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
+    const onComplete = vi.fn().mockResolvedValue(true);
+    render(<GyeongjuMap2D {...PROPS} onComplete={onComplete} />);
+    fireEvent.click(screen.getByRole("button", { name: "예비용 · 방문 완료 체험" }));
+    await waitFor(() => expect(onComplete).toHaveBeenCalledWith(QUESTS[0].id, { demoCompletion: true }));
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(await screen.findByText("심사·시연용 체험")).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it("explains the demo button on tap and associates help with the button", () => {
+    render(<GyeongjuMap2D {...PROPS} />);
+    const help = screen.getByRole("button", { name: "예비 버튼을 만든 이유" });
+    expect(help).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(help);
+    expect(help).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("현장 방문이 어려운 심사위원");
+    expect(screen.getByRole("button", { name: "예비용 · 방문 완료 체험" }))
+      .toHaveAttribute("aria-describedby", screen.getByRole("tooltip").id);
+  });
+
+  it("does not celebrate a failed demo save", async () => {
+    render(<GyeongjuMap2D {...PROPS} onComplete={vi.fn().mockRejectedValue(new Error("저장 실패"))} />);
+    fireEvent.click(screen.getByRole("button", { name: "예비용 · 방문 완료 체험" }));
+    expect(await screen.findByText("저장 실패")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "퀘스트 완료!" })).not.toBeInTheDocument();
+  });
+
+  it("disables both completion buttons after completion", () => {
+    render(<GyeongjuMap2D {...PROPS} completedQuestIds={[QUESTS[0].id]} />);
+    const buttons = screen.getAllByRole("button", { name: "방문 완료" });
+    expect(buttons).toHaveLength(2);
+    buttons.forEach((button) => expect(button).toBeDisabled());
+  });
+
   it("selects a place marker", async () => {
     const onSelect = vi.fn();
     render(<GyeongjuMap2D {...PROPS} onSelect={onSelect} />);

@@ -7,8 +7,9 @@ import time
 
 import pymysql
 
-from app.config import BACKEND_DIR
+from app.config import BACKEND_DIR, get_settings
 from app.mysql import connect
+from app.persona_scoring import PersonaScoringError, score_places
 from app.tourapi import (
     CONTENT_TYPE_CULTURAL_FACILITY,
     CONTENT_TYPE_LEPORTS,
@@ -191,6 +192,23 @@ def sync_translations(options: argparse.Namespace, connection: pymysql.Connectio
     print(f"OpenAI 보완 번역 적재 — {translated}개 필드")
 
 
+def sync_persona_scores(options: argparse.Namespace) -> None:
+    if options.target not in ("places", "all"):
+        return
+    settings = get_settings()
+    connection = connect()
+    try:
+        result = score_places(
+            connection, api_key=settings.openai_api_key,
+            model=settings.openai_model, limit=options.limit,
+        )
+        print(f"역할 적합도 채점 완료 — {result}", flush=True)
+        if result.failed:
+            raise PersonaScoringError(f"역할 적합도 채점 {result.failed}건 실패")
+    finally:
+        connection.close()
+
+
 def run_once(options: argparse.Namespace, event_start_date: str) -> None:
     with_detail = not options.skip_detail
     connection = connect()
@@ -223,6 +241,7 @@ def run_once(options: argparse.Namespace, event_start_date: str) -> None:
             )
     finally:
         connection.close()
+    sync_persona_scores(options)
 
 
 def run_forever(options: argparse.Namespace) -> None:
@@ -230,30 +249,28 @@ def run_forever(options: argparse.Namespace) -> None:
     print(f"주기 동기화를 시작합니다 — {options.interval_days}일 간격")
 
     while True:
-        # 상태 볼륨보다 DB가 기준이다. DB가 비었거나 번역이 덜 들어갔으면 바로 채운다.
-        needs_bootstrap, reason = bootstrap_status(options)
-        last = read_last_sync()
-        if needs_bootstrap:
-            print(f"초기 적재가 필요합니다 — {reason}")
-            last = None
-        elif last is None:
-            # DB는 이미 완성됐는데 상태 볼륨만 새것인 경우 API를 다시 호출하지 않는다.
-            last = datetime.now()
-            write_last_sync(last)
-            print(f"초기 적재를 건너뜁니다 — {reason}")
-
-        # 컨테이너를 다시 띄웠다고 주기를 새로 세지 않는다. 마지막 성공 시각부터 잰다.
-        remaining = interval - (datetime.now() - last) if last else timedelta(0)
-        if remaining > timedelta(0):
-            print(f"다음 동기화까지 {remaining} 남았습니다 (마지막 성공: {last:%Y-%m-%d %H:%M})")
-            time.sleep(remaining.total_seconds())
-
-        # 행사 조회 하한은 실행하는 날 기준이라 반복할 때마다 새로 잡는다.
-        # --from 을 직접 준 경우에만 그 값을 그대로 쓴다.
-        start = options.event_start_date or date.today().strftime("%Y%m%d")
         try:
+            # 적재가 완성된 DB도 시작 시 누락·변경 점수를 확인한다.
+            needs_bootstrap, reason = bootstrap_status(options)
+            last = read_last_sync()
+            if needs_bootstrap:
+                print(f"초기 적재가 필요합니다 — {reason}")
+                last = None
+            else:
+                sync_persona_scores(options)
+                if last is None:
+                    last = datetime.now()
+                    write_last_sync(last)
+                    print(f"초기 적재를 건너뜁니다 — {reason}")
+
+            remaining = interval - (datetime.now() - last) if last else timedelta(0)
+            if remaining > timedelta(0):
+                print(f"다음 동기화까지 {remaining} 남았습니다 (마지막 성공: {last:%Y-%m-%d %H:%M})", flush=True)
+                time.sleep(remaining.total_seconds())
+
+            start = options.event_start_date or date.today().strftime("%Y%m%d")
             run_once(options, start)
-        except (TourApiError, pymysql.Error) as exc:
+        except (TourApiError, pymysql.Error, RuntimeError) as exc:
             print(f"동기화 실패, {RETRY_DELAY} 뒤에 다시 시도합니다: {exc}", file=sys.stderr)
             time.sleep(RETRY_DELAY.total_seconds())
             continue
@@ -282,7 +299,7 @@ def main(argv: list[str] | None = None) -> None:
 
     try:
         run_once(options, start)
-    except TourApiError as exc:
+    except (TourApiError, PersonaScoringError) as exc:
         raise SystemExit(str(exc)) from exc
 
 

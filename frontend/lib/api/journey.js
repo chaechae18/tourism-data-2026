@@ -94,7 +94,7 @@ export async function fetchSelectedRole({ signal } = {}) {
 }
 
 // 방문 완료를 서버에 저장한다. 저장해 두면 다시 들어와도 완료 상태가 남는다.
-export async function completeQuest({ questId, latitude, longitude, accuracy, signal } = {}) {
+export async function completeQuest({ questId, latitude, longitude, accuracy, demoCompletion = false, signal } = {}) {
   if (!questId) throw new ApiError("퀘스트 번호가 없습니다.", "QUEST_ID_MISSING", null);
 
   let response;
@@ -102,7 +102,7 @@ export async function completeQuest({ questId, latitude, longitude, accuracy, si
     response = await fetch(`${API_BASE_URL}/api/v1/journey/quests/${questId}/complete`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ latitude, longitude, accuracy }),
+      body: JSON.stringify({ latitude, longitude, accuracy, ...(demoCompletion ? { demoCompletion: true } : {}) }),
       credentials: "include",
       signal,
     });

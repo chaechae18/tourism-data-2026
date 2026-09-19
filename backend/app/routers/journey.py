@@ -268,7 +268,7 @@ def complete_course_quest(
     try:
         completion = complete_quest(database, user_no=user_no, quest_id=quest_id,
                                     latitude=request.latitude, longitude=request.longitude,
-                                    accuracy=request.accuracy)
+                                    accuracy=request.accuracy, demo_completion=request.demo_completion)
     except QuestLocationError as error:
         raise HTTPException(status_code=400, detail={
             "code": "QUEST_LOCATION_INVALID", "message": str(error),

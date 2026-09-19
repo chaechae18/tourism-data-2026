@@ -48,10 +48,10 @@ export default function QuestResultModal({ result, onClose }) {
           </span>
           <span className={styles.smallIcon}>{success ? <Sparkles size={20} /> : <Footprints size={20} />}</span>
         </div>
-        <p className={styles.eyebrow}>{success ? "오늘의 발자취 하나 더" : "발걸음이 모여 완성되는 여행"}</p>
+        <p className={styles.eyebrow}>{success ? (result.demo ? "심사·시연용 체험" : "오늘의 발자취 하나 더") : "발걸음이 모여 완성되는 여행"}</p>
         <h2 className={styles.title}>{title}</h2>
         <p id="quest-result-description" className={styles.description}>
-          {success ? <>경주에서의 멋진 발걸음을 남겼어요.<br />다음 퀘스트도 함께해요!</> : nearby
+          {success ? (result.demo ? <>현장 방문 없이 완료 기능을 체험했어요.<br />현재 코스에 완료 상태가 저장됐어요.</> : <>경주에서의 멋진 발걸음을 남겼어요.<br />다음 퀘스트도 함께해요!</>) : nearby
             ? <>아직 도착 전이에요.<br />장소에 방문해서 퀘스트를 완성해 주세요.</> : result.message}
         </p>
         <div className={styles.place}>

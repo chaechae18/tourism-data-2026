@@ -475,3 +475,35 @@ def test_completion_requires_coordinates(client, insert, rows):
     response = client.post(f"/api/v1/journey/quests/{stop['questId']}/complete")
     assert response.status_code == 422
     assert not rows("SELECT IDX FROM USER_QUEST WHERE STATUS = 2")
+
+
+def test_demo_completion_without_gps_is_saved(client, insert, rows):
+    add_places(insert)
+    stop = client.get("/api/v1/journey/course").json()["stops"][0]
+    response = client.post(f"/api/v1/journey/quests/{stop['questId']}/complete",
+                           json={"demoCompletion": True})
+    assert response.status_code == 200
+    assert response.json()["completed"] is True
+    reloaded = client.get("/api/v1/journey/course").json()["stops"]
+    assert next(s for s in reloaded if s["questId"] == stop["questId"])["completed"] is True
+    assert len(rows("SELECT IDX FROM USER_QUEST WHERE STATUS = 2")) == 1
+
+
+@pytest.mark.parametrize("payload", [{}, {"demoCompletion": False}, {"demoCompletion": "true"}])
+def test_location_bypass_requires_explicit_demo_boolean(client, insert, rows, payload):
+    add_places(insert)
+    stop = client.get("/api/v1/journey/course").json()["stops"][0]
+    response = client.post(f"/api/v1/journey/quests/{stop['questId']}/complete", json=payload)
+    assert response.status_code == 422
+    assert not rows("SELECT IDX FROM USER_QUEST WHERE STATUS = 2")
+
+
+def test_demo_completion_cannot_complete_another_users_quest(client, insert, rows):
+    add_places(insert)
+    stop = client.get("/api/v1/journey/course").json()["stops"][0]
+    insert("USERS", NO=2, ID="demo-other-user", NICKNAME="other", COUNTRY="KR", EMAIL="other@example.com", LANGUAGE_CODE="ko")
+    set_session(client, 2)
+    response = client.post(f"/api/v1/journey/quests/{stop['questId']}/complete",
+                           json={"demoCompletion": True})
+    assert response.status_code == 404
+    assert not rows("SELECT IDX FROM USER_QUEST WHERE STATUS = 2")

@@ -268,9 +268,10 @@ def complete_quest(
     *,
     user_no: int,
     quest_id: int,
-    latitude: float,
-    longitude: float,
-    accuracy: float,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    accuracy: float | None = None,
+    demo_completion: bool = False,
 ) -> dict:
     # 방문 완료를 USER_QUEST 에 저장
     with connection.cursor() as cursor:
@@ -279,18 +280,20 @@ def complete_quest(
     if not owner:
         raise QuestNotFoundError(quest_id)
 
-    try:
-        target = (float(owner["LATITUDE"]), float(owner["LONGITUDE"]))
-        valid = (all(math.isfinite(v) for v in (*target, latitude, longitude, accuracy))
-                 and -90 <= target[0] <= 90 and -180 <= target[1] <= 180
-                 and -90 <= latitude <= 90 and -180 <= longitude <= 180
-                 and 0 <= accuracy <= 100)
-    except (TypeError, ValueError):
-        valid = False
-    if not valid:
-        raise QuestLocationError("위치를 정확히 확인할 수 없어요. 다시 시도해 주세요.")
-    if distance_km((latitude, longitude), target) * 1000 > 100:
-        raise QuestLocationError("퀘스트 장소 100m 이내에서만 완료할 수 있어요.")
+    # 심사·시연 요청만 위치 검증을 생략한다. 코스 소유권 검증은 항상 유지한다.
+    if not demo_completion:
+        try:
+            target = (float(owner["LATITUDE"]), float(owner["LONGITUDE"]))
+            valid = (all(math.isfinite(v) for v in (*target, latitude, longitude, accuracy))
+                     and -90 <= target[0] <= 90 and -180 <= target[1] <= 180
+                     and -90 <= latitude <= 90 and -180 <= longitude <= 180
+                     and 0 <= accuracy <= 100)
+        except (TypeError, ValueError):
+            valid = False
+        if not valid:
+            raise QuestLocationError("위치를 정확히 확인할 수 없어요. 다시 시도해 주세요.")
+        if distance_km((latitude, longitude), target) * 1000 > 100:
+            raise QuestLocationError("퀘스트 장소 100m 이내에서만 완료할 수 있어요.")
 
     _execute(
         connection,
