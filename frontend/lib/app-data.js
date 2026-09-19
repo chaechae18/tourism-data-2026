@@ -75,6 +75,7 @@ export const PROFILE_MENU = [
   { id: "guide", label: "앱 사용법 다시 보기" },
   { id: "privacy", label: "개인정보 수정" },
   { id: "contact", label: "Contact us." },
+  { id: "logout", label: "로그 아웃" },
   { id: "withdraw", label: "회원 탈퇴" },
 ];
 

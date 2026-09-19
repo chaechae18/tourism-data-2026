@@ -56,6 +56,44 @@ export default function PlayGyeongju() {
   // 역할을 아직 못 읽었으면 코스도 부르지 않는다.
   const courseRoleKey = roleKey && role.ready ? role.key : null;
 
+  // OAuth 로그인 결과 처리
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get("error");
+
+    if (error === "USER_DELETED") {
+      alert("탈퇴한 회원입니다.");
+
+      // URL에서 error 파라미터 제거
+      params.delete("error");
+
+      const query = params.toString();
+
+      const cleanUrl =
+        window.location.pathname +
+        (query ? `?${query}` : "") +
+        window.location.hash;
+
+      window.history.replaceState({}, "", cleanUrl);
+
+      return;
+    }
+
+    if (error === "KAKAO_LOGIN_ERROR") {
+      alert("카카오 로그인 중 오류가 발생했습니다.");
+
+      params.delete("error");
+
+      const query = params.toString();
+
+      const cleanUrl =
+        window.location.pathname +
+        (query ? `?${query}` : "") +
+        window.location.hash;
+
+      window.history.replaceState({}, "", cleanUrl);
+    }
+  }, []);
   // 지난번에 고른 역할로 돌아간다. 처음 들어온 사용자면 기본값(왕)으로 시작한다.
   useEffect(() => {
     if (!entered) return undefined;
@@ -189,6 +227,7 @@ export default function PlayGyeongju() {
     setAuthMode(null);
     await reloadLanguage().catch(() => undefined);
     setEntered(true);
+    setActiveTab(INITIAL_TAB);
   };
   
   const logout = async () => {
@@ -308,6 +347,7 @@ export default function PlayGyeongju() {
         </div>
       </header>
 
+
       {courseError && (
         <p className="mx-4 mt-3 rounded-lg border border-[#e3c2b4] bg-[#fbeee8] px-3 py-2 text-xs font-semibold text-[#9f4a2c]">
           {t("play.courseFallback", { message: courseError })}
@@ -325,6 +365,7 @@ export default function PlayGyeongju() {
       {notice && <div className="fixed bottom-24 left-1/2 z-40 w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 rounded-lg bg-[#343235] px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">{notice}</div>}
       {guideOpen && <AppGuide onDone={finishGuide} onTabChange={setActiveTab} />}
       <RoleSelect onClose={() => setRoleOpen(false)} onSelect={selectRole} open={roleOpen} selectedKey={roleKey} />
+        <p className="pb-24 text-center text-[12px] font-normal text-[#aaa59d]">출처: ⓒ한국관광공사</p>
       <BottomNavigation activeTab={activeTab} onChange={setActiveTab} />
       </div>
     </div>

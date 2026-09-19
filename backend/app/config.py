@@ -22,6 +22,8 @@ class Settings:
     search_rate_window_seconds: int
     admin_api_key: str
     cors_origins: tuple[str, ...]
+     # 세션
+    session_secret_key: str
     # 도슨트 음성(구글 TTS). 키가 없으면 도슨트 재생만 막히고 나머지는 그대로 돈다.
     google_tts_api_key: str = ""
     tts_voice: str = "ko-KR-Neural2-A"
@@ -66,6 +68,7 @@ def get_settings() -> Settings:
         ),
         admin_api_key=os.getenv("ADMIN_API_KEY", "").strip(),
         cors_origins=cors_origins,
+        session_secret_key=os.getenv("SESSION_SECRET_KEY", "").strip(),
         google_tts_api_key=os.getenv("GOOGLE_TTS_API_KEY", "").strip(),
         tts_voice=os.getenv("TTS_VOICE", "ko-KR-Neural2-A").strip(),
         tts_speaking_rate=float(os.getenv("TTS_SPEAKING_RATE", "0.95")),
