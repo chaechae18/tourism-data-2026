@@ -90,6 +90,7 @@ function RoleCarousel({ onSelect, selectedKey }) {
           width={400}
           height={440}
           sizes="(max-width: 430px) 65vw, 278px"
+          unoptimized
           priority
           className="mx-auto h-[clamp(180px,34svh,300px)] w-full object-contain"
         />

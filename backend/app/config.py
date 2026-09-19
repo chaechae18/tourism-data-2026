@@ -36,8 +36,10 @@ class Settings:
 
 @lru_cache
 def get_settings() -> Settings:
+    # Vercel's application directory is read-only; /tmp is ephemeral storage.
+    default_upload_dir = "/tmp/uploads" if os.getenv("VERCEL") == "1" else "./uploads"
     configured_upload_dir = Path(
-        os.getenv("UPLOAD_DIR", "./uploads")
+        os.getenv("UPLOAD_DIR", default_upload_dir)
     ).expanduser()
     upload_dir = (
         configured_upload_dir
