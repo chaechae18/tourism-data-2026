@@ -1,8 +1,11 @@
 import "../../../helpers/maplibre";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import { QUESTS } from "../../../../lib/app-data";
 import GyeongjuMap2D from "../../../../components/map/GyeongjuMap2D";
+
+// Canvas animation is separate from GPS and completion dialog behavior.
+vi.mock("../../../../components/map/QuestConfetti", () => ({ default: () => null }));
 
 const PROPS = {
   completedQuestIds: [],
@@ -13,6 +16,43 @@ const PROPS = {
 };
 
 describe("GyeongjuMap2D", () => {
+  it("saves an explicit demo completion without requesting GPS", async () => {
+    const getCurrentPosition = vi.fn();
+    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
+    const onComplete = vi.fn().mockResolvedValue(true);
+    render(<GyeongjuMap2D {...PROPS} onComplete={onComplete} />);
+    fireEvent.click(screen.getByRole("button", { name: "예비용 · 방문 완료 체험" }));
+    await waitFor(() => expect(onComplete).toHaveBeenCalledWith(QUESTS[0].id, { demoCompletion: true }));
+    expect(getCurrentPosition).not.toHaveBeenCalled();
+    expect(await screen.findByText("심사·시연용 체험")).toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it("explains the demo button on tap and associates help with the button", () => {
+    render(<GyeongjuMap2D {...PROPS} />);
+    const help = screen.getByRole("button", { name: "예비 버튼을 만든 이유" });
+    expect(help).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(help);
+    expect(help).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("tooltip")).toHaveTextContent("현장 방문이 어려운 심사위원");
+    expect(screen.getByRole("button", { name: "예비용 · 방문 완료 체험" }))
+      .toHaveAttribute("aria-describedby", screen.getByRole("tooltip").id);
+  });
+
+  it("does not celebrate a failed demo save", async () => {
+    render(<GyeongjuMap2D {...PROPS} onComplete={vi.fn().mockRejectedValue(new Error("저장 실패"))} />);
+    fireEvent.click(screen.getByRole("button", { name: "예비용 · 방문 완료 체험" }));
+    expect(await screen.findByText("저장 실패")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "퀘스트 완료!" })).not.toBeInTheDocument();
+  });
+
+  it("disables both completion buttons after completion", () => {
+    render(<GyeongjuMap2D {...PROPS} completedQuestIds={[QUESTS[0].id]} />);
+    const buttons = screen.getAllByRole("button", { name: "방문 완료" });
+    expect(buttons).toHaveLength(2);
+    buttons.forEach((button) => expect(button).toBeDisabled());
+  });
+
   it("selects a place marker", async () => {
     const onSelect = vi.fn();
     render(<GyeongjuMap2D {...PROPS} onSelect={onSelect} />);
@@ -22,13 +62,52 @@ describe("GyeongjuMap2D", () => {
     expect(onSelect).toHaveBeenCalledWith(QUESTS[1]);
   });
 
-  it("marks the selected quest as complete", () => {
+  it.each([
+    [0, 10, true, null],
+    [0.001, 10, false, "조금만 더 가까이 와주세요"],
+    [0, 150, false, "위치가 부정확해요. 탁 트인 곳에서 다시 시도해 주세요."],
+  ])("checks fresh GPS with offset %s and accuracy %s", async (offset, accuracy, allowed, message) => {
+    const coords = { latitude: QUESTS[0].latitude + offset, longitude: QUESTS[0].longitude, accuracy };
+    const getCurrentPosition = vi.fn((resolve) => resolve({ coords }));
+    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
     const onComplete = vi.fn();
     render(<GyeongjuMap2D {...PROPS} onComplete={onComplete} />);
-
     fireEvent.click(screen.getByRole("button", { name: "퀘스트 완료" }));
+    if (allowed) {
+      await waitFor(() => expect(onComplete).toHaveBeenCalledWith(QUESTS[0].id, coords));
+      expect(await screen.findByRole("dialog", { name: "퀘스트 완료!" })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "좋아, 계속 탐험하기" }));
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    } else {
+      expect(await screen.findByText(message)).toBeInTheDocument();
+      expect(onComplete).not.toHaveBeenCalled();
+    }
+    expect(getCurrentPosition).toHaveBeenCalledWith(expect.any(Function), expect.any(Function),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 });
+    vi.unstubAllGlobals();
+  });
 
-    expect(onComplete).toHaveBeenCalledWith(QUESTS[0].id);
+  it("does not celebrate when saving fails", async () => {
+    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition: (resolve) => resolve({ coords: {
+      latitude: QUESTS[0].latitude, longitude: QUESTS[0].longitude, accuracy: 10,
+    } }) } });
+    render(<GyeongjuMap2D {...PROPS} onComplete={vi.fn().mockRejectedValue(new Error("저장에 실패했어요."))} />);
+    fireEvent.click(screen.getByRole("button", { name: "퀘스트 완료" }));
+    expect(await screen.findByText("저장에 실패했어요.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "퀘스트 완료!" })).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    vi.unstubAllGlobals();
+  });
+
+  it("blocks completion when location permission is denied", async () => {
+    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition: (_, reject) => reject({ code: 1 }) } });
+    const onComplete = vi.fn();
+    render(<GyeongjuMap2D {...PROPS} onComplete={onComplete} />);
+    fireEvent.click(screen.getByRole("button", { name: "퀘스트 완료" }));
+    expect(await screen.findByText("퀘스트를 완료하려면 위치 권한을 허용해 주세요.")).toBeInTheDocument();
+    expect(onComplete).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
   });
 
   it("shows the full Gyeongju landmarks on the map", async () => {

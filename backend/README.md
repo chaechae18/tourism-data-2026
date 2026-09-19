@@ -57,6 +57,12 @@ uvicorn app.main:app --reload --port 8000
 확인해 장소나 영·일·중 번역이 비어 있으면 즉시 최초 적재하고, 이미 완성돼 있으면 건너뜁니다.
 따라서 새로 받은 팀원도 `docker compose up -d --build` 외에 별도 적재 명령이 필요 없습니다.
 
+장소 적재와 번역 후에는 GPT로 캐릭터별 적합도를 자동 채점합니다. 컨테이너 시작 시에도
+기존 DB의 누락·변경 점수를 확인하므로 별도 채점 명령은 필요 없습니다. 좌표와 설명이 있는
+장소만 채점하며, 내용이 같으면 API 호출을 건너뛰고 수동 점수는 보존합니다.
+채점 실패 시 완료 시각을 갱신하지 않고 1시간 뒤 재시도합니다. `OPENAI_API_KEY`가 필요하며,
+신규·변경 장소의 번역과 채점에는 API 사용 요금이 발생합니다.
+
 ```bash
 docker compose logs -f sync                          # 진행 상황
 docker compose exec backend python sync_tourapi.py   # 지금 당장 한 번 더

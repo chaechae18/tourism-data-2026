@@ -1,4 +1,5 @@
 from datetime import date
+import math
 
 import pymysql
 
@@ -47,10 +48,11 @@ def course_stops_sql() -> str:
 
 # 퀘스트가 정말 이 사용자의 코스에 속하는지 확인하면서 사용자 캐릭터를 찾는다.
 QUEST_OWNER_SQL = """
-    SELECT c.USER_CHARACTER_IDX, q.TITLE
+    SELECT c.USER_CHARACTER_IDX, q.TITLE, p.LATITUDE, p.LONGITUDE
     FROM QUEST q
     JOIN COURSE c ON c.IDX = q.COURSE_IDX
     JOIN USER_CHARACTER uc ON uc.IDX = c.USER_CHARACTER_IDX
+    JOIN PLACE p ON p.IDX = q.PLACE_IDX
     WHERE q.IDX = %s AND uc.USER_NO = %s
 """
 
@@ -68,6 +70,10 @@ SELECTED_PERSONA_SQL = """
 def find_selected_persona_key(connection: pymysql.Connection, user_no: int) -> str | None:
     # 앱을 다시 열었을 때 고르던 역할을 그대로 보여 주기 위해 쓴다.
     return _scalar(connection, SELECTED_PERSONA_SQL, (user_no,))
+
+
+class QuestLocationError(Exception):
+    """방문 위치를 확인할 수 없거나 허용 반경 밖이다."""
 
 
 class QuestNotFoundError(Exception):
@@ -262,6 +268,10 @@ def complete_quest(
     *,
     user_no: int,
     quest_id: int,
+    latitude: float | None = None,
+    longitude: float | None = None,
+    accuracy: float | None = None,
+    demo_completion: bool = False,
 ) -> dict:
     # 방문 완료를 USER_QUEST 에 저장
     with connection.cursor() as cursor:
@@ -269,6 +279,21 @@ def complete_quest(
         owner = cursor.fetchone()
     if not owner:
         raise QuestNotFoundError(quest_id)
+
+    # 심사·시연 요청만 위치 검증을 생략한다. 코스 소유권 검증은 항상 유지한다.
+    if not demo_completion:
+        try:
+            target = (float(owner["LATITUDE"]), float(owner["LONGITUDE"]))
+            valid = (all(math.isfinite(v) for v in (*target, latitude, longitude, accuracy))
+                     and -90 <= target[0] <= 90 and -180 <= target[1] <= 180
+                     and -90 <= latitude <= 90 and -180 <= longitude <= 180
+                     and 0 <= accuracy <= 100)
+        except (TypeError, ValueError):
+            valid = False
+        if not valid:
+            raise QuestLocationError("위치를 정확히 확인할 수 없어요. 다시 시도해 주세요.")
+        if distance_km((latitude, longitude), target) * 1000 > 100:
+            raise QuestLocationError("퀘스트 장소 100m 이내에서만 완료할 수 있어요.")
 
     _execute(
         connection,

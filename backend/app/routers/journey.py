@@ -11,6 +11,7 @@ from ..docent import DocentNotFoundError, audio_cache_key, find_docent
 from ..home import resolve_language
 from ..journey import (
     QuestNotFoundError,
+    QuestLocationError,
     complete_quest,
     find_selected_persona_key,
     get_or_create_course,
@@ -21,6 +22,7 @@ from ..models.journey import (
     CourseStopResponse,
     DocentResponse,
     QuestCompletionResponse,
+    QuestCompletionRequest,
 )
 from ..mysql import get_mysql
 from ..personas import PERSONAS
@@ -258,12 +260,19 @@ async def get_docent_audio(
 )
 def complete_course_quest(
     quest_id: int,
+    request: QuestCompletionRequest,
     user_no: UserNo,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> QuestCompletionResponse:
     # 방문 완료를 저장한다. 새로고침하거나 다시 들어와도 완료 상태가 남는다.
     try:
-        completion = complete_quest(database, user_no=user_no, quest_id=quest_id)
+        completion = complete_quest(database, user_no=user_no, quest_id=quest_id,
+                                    latitude=request.latitude, longitude=request.longitude,
+                                    accuracy=request.accuracy, demo_completion=request.demo_completion)
+    except QuestLocationError as error:
+        raise HTTPException(status_code=400, detail={
+            "code": "QUEST_LOCATION_INVALID", "message": str(error),
+        }) from error
     except QuestNotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

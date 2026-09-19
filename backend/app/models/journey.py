@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from .common import CamelModel
 
@@ -61,3 +61,18 @@ class QuestCompletionResponse(CamelModel):
     name: str | None = None
     completed: bool
     completed_at: datetime | None = Field(default=None, alias="completedAt")
+
+
+class QuestCompletionRequest(CamelModel):
+    latitude: float | None = Field(default=None, ge=-90, le=90, allow_inf_nan=False)
+    longitude: float | None = Field(default=None, ge=-180, le=180, allow_inf_nan=False)
+    accuracy: float | None = Field(default=None, ge=0, le=100, allow_inf_nan=False)
+    demo_completion: bool = Field(default=False, alias="demoCompletion", strict=True)
+
+    @model_validator(mode="after")
+    def require_location_for_visit(self):
+        if not self.demo_completion and any(value is None for value in (
+            self.latitude, self.longitude, self.accuracy,
+        )):
+            raise ValueError("방문 완료에는 현재 위치가 필요합니다.")
+        return self

@@ -117,7 +117,7 @@ export function coordinatesToPath(coordinates, bounds) {
   }).join(" ");
 }
 
-export function getDistanceMeters(start, end) {
+export function getDistanceMeters(start, end, round = true) {
   const latitudeDelta = (end.latitude - start.latitude) * Math.PI / 180;
   const longitudeDelta = (end.longitude - start.longitude) * Math.PI / 180;
   const startLatitude = start.latitude * Math.PI / 180;
@@ -125,7 +125,8 @@ export function getDistanceMeters(start, end) {
   const haversine = Math.sin(latitudeDelta / 2) ** 2
     + Math.cos(startLatitude) * Math.cos(endLatitude) * Math.sin(longitudeDelta / 2) ** 2;
 
-  return Math.round(6371000 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine)));
+  const meters = 6371000 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+  return round ? Math.round(meters) : meters;
 }
 
 export function formatDistance(distanceMeters) {
