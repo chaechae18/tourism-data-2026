@@ -1,3 +1,4 @@
+import os
 from io import BytesIO
 from pathlib import Path
 from typing import Annotated
@@ -8,7 +9,6 @@ from fastapi import (
     APIRouter,
     Depends,
     File,
-    Header,
     HTTPException,
     Request,
     UploadFile,
@@ -18,6 +18,7 @@ from PIL import Image, UnidentifiedImageError
 
 from ..config import Settings, get_settings
 from ..mysql import get_mysql
+from ..spot_session import UserNo
 from ..models.uploads import ImageUploadResponse
 
 
@@ -89,10 +90,15 @@ def detect_image(content: bytes) -> tuple[str, str]:
 async def upload_image(
     request: Request,
     file: Annotated[UploadFile, File()],
-    user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
+    user_no: UserNo,
     database: pymysql.Connection = Depends(get_mysql),
     settings: Settings = Depends(get_settings),
 ) -> ImageUploadResponse:
+    if os.getenv("VERCEL"):
+        raise HTTPException(
+            status_code=410,
+            detail={"code": "DIRECT_UPLOAD_REQUIRED", "message": "사진은 Blob 직접 업로드를 사용해 주세요."},
+        )
     validate_active_user(database, user_no)
 
     content = await file.read(settings.max_upload_bytes + 1)

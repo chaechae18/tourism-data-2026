@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@vercel/blob": "^2.8.0",
     "lucide-react": "^0.468.0",
     "maplibre-gl": "^6.6.0",
     "next": "^15.4.6",

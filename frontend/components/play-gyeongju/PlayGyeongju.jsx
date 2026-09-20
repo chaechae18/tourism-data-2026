@@ -405,7 +405,7 @@ export default function PlayGyeongju() {
         {activeTab === "home" && <HomeTab language={language} onMapOpen={() => setActiveTab("map")} popupHidden={guideOpen} />}
         {activeTab === "my-dg" && <MyDGTab availableItems={availableItems} completedQuestIds={completedQuestIds} onMapQuest={openQuestOnMap} onSaveOutfit={persistOutfit} outfit={outfit} places={places} setOutfit={setOutfit} />}
         {activeTab === "map" && <GyeongjuMap2D completedQuestIds={completedQuestIds} onComplete={completeQuest} onOpenRoles={() => setRoleOpen(true)} onSelect={(quest) => setSelectedQuestId(quest.id)} places={places} roleName={roleName} selectedPlace={selectedQuest} />}
-        {activeTab === "spots" && <SpotsTab user={user} />}
+        {activeTab === "spots" && <SpotsTab key={user.user_no ?? user.userNo ?? user.userId ?? "guest"} user={user} />}
         {activeTab === "my-page" && <MyPageTab completedQuestIds={completedQuestIds} onLogout={logout} onNotice={showNotice} onOpenGuide={reopenGuide} setUser={setUser} user={user} onWithdraw={handleWithdraw} />}
       </main>
 

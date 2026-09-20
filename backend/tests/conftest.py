@@ -104,3 +104,19 @@ def rows(database: pymysql.Connection) -> Callable[..., list[dict]]:
             return cursor.fetchall()
 
     return select
+
+
+@pytest.fixture
+def session_headers():
+    """Create cookies using the same signing key as the application's middleware."""
+    from base64 import b64encode
+    import json
+    from itsdangerous import TimestampSigner
+    from app.main import settings
+
+    def headers(user_no: int) -> dict[str, str]:
+        payload = b64encode(json.dumps({"user": {"user_no": user_no}}).encode())
+        signed = TimestampSigner(settings.session_secret_key).sign(payload).decode()
+        return {"Cookie": f"session={signed}"}
+
+    return headers

@@ -25,4 +25,6 @@ const canvasContext = {
 Object.defineProperty(globalThis, "ResizeObserver", { value: ResizeObserverStub, writable: true });
 Object.defineProperty(globalThis, "requestAnimationFrame", { value: () => 1, writable: true });
 Object.defineProperty(globalThis, "cancelAnimationFrame", { value: () => {}, writable: true });
-Object.defineProperty(HTMLCanvasElement.prototype, "getContext", { value: () => canvasContext, writable: true });
+if (typeof HTMLCanvasElement !== "undefined") {
+  Object.defineProperty(HTMLCanvasElement.prototype, "getContext", { value: () => canvasContext, writable: true });
+}
