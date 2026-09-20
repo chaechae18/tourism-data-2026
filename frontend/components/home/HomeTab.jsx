@@ -212,7 +212,7 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
       </div>
 
       <div>
-        <SectionHeading eyebrow="Festival" title={t("home.festivals")} />
+        <SectionHeading title={t("home.festivals")} />
         <div className="space-y-3">
           {festivals.length === 0 && <p className="text-sm text-[#7c6d61]">{t("home.noFestival")}</p>}
           {festivals.map((festival, index) => {
@@ -243,7 +243,7 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
       </div>
 
       <div>
-        <SectionHeading eyebrow="Recommended" title={t("home.recommended")} />
+        <SectionHeading title={t("home.recommended")} />
         <ul className="space-y-3">
           {places.length === 0 && <li className="text-sm text-[#7c6d61]">{t("home.noRecommended")}</li>}
           {pagedPlaces.map((place, index) => (
