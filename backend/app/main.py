@@ -36,7 +36,7 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
     # Vercel forwards the service prefix; local requests use the original paths.
-    root_path="/api/backend" if os.getenv("VERCEL") == "1" else "",
+    # root_path="/api/backend" if os.getenv("VERCEL") == "1" else "",
 )
 settings = get_settings()
 settings.upload_dir.mkdir(parents=True, exist_ok=True)
