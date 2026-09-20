@@ -1,4 +1,4 @@
-import "../../../helpers/maplibre";
+import { maps } from "../../../helpers/maplibre";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import { QUESTS } from "../../../../lib/app-data";
@@ -16,6 +16,42 @@ const PROPS = {
 };
 
 describe("GyeongjuMap2D", () => {
+  it.each([true, false])("passes the saved reward to the celebration for demo=%s", async (demo) => {
+    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition: (resolve) => resolve({ coords: {
+      latitude: QUESTS[0].latitude, longitude: QUESTS[0].longitude, accuracy: 10,
+    } }) } });
+    try {
+      render(<GyeongjuMap2D {...PROPS} onComplete={vi.fn().mockResolvedValue({ completed: true, reward: { slot: "hat", name: "신라 금관" } })} />);
+      fireEvent.click(screen.getByRole("button", { name: demo ? "예비용 · 방문 완료 체험" : "퀘스트 완료" }));
+      fireEvent.click(await screen.findByRole("button", { name: "보상 확인하기" }));
+      expect(screen.getByRole("dialog", { name: "모자를 얻었어요!" })).toBeInTheDocument();
+      expect(screen.getByText("신라 금관")).toBeInTheDocument();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("includes coastal and northern course places in both markers and the list", async () => {
+    const places = [
+      QUESTS[0],
+      { ...QUESTS[1], id: "place-coast", name: "감포 해안", longitude: 129.5, latitude: 35.8 },
+      { ...QUESTS[2], id: "place-north", name: "양동마을", longitude: 129.255, latitude: 36.002 },
+    ];
+    const onSelect = vi.fn();
+    render(<GyeongjuMap2D {...PROPS} places={places} selectedPlace={places[1]} onSelect={onSelect} />);
+    const marker = await screen.findByRole("button", { name: "감포 해안 선택" });
+    expect(marker.querySelector("img")).toHaveAttribute("src", "/images/map-quests/tower-simple.webp");
+    expect(screen.getByRole("button", { name: "양동마을 선택" })).toBeInTheDocument();
+    expect(maps[0].options.maxBounds[1][0]).toBeGreaterThan(129.5);
+    expect(maps[0].options.maxBounds[1][1]).toBeGreaterThan(36.002);
+    expect(maps[0].easeTo).toHaveBeenCalledWith(expect.objectContaining({ center: [129.5, 35.8] }));
+    fireEvent.click(marker);
+    expect(onSelect).toHaveBeenCalledWith(places[1]);
+    fireEvent.click(screen.getByRole("button", { name: "리스트" }));
+    expect(screen.getByText("오늘의 코스 3곳")).toBeInTheDocument();
+    places.forEach((place) => expect(screen.getByRole("button", { name: `${place.name} 선택` })).toBeInTheDocument());
+  });
+
   it("saves an explicit demo completion without requesting GPS", async () => {
     const getCurrentPosition = vi.fn();
     vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });

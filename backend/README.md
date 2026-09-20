@@ -2,6 +2,8 @@
 
 FastAPI와 MySQL을 사용하는 API 서버입니다.
 
+Docker는 `backend/.env`의 운영 DB에 직접 연결합니다. [Docker 운영 DB 연결 안내](../docs/docker.md)를 참고하세요.
+
 ## 실행
 
 ```bash
@@ -12,18 +14,21 @@ pip install -r requirements-dev.txt
 cp .env.example .env
 ```
 
-`.env`에 외부 API 키와 로컬 설정을 입력합니다.
+`.env`에 외부 API 키와 팀에서 받은 운영 DB 설정을 입력합니다.
 
 ```env
 KAKAO_REST_API_KEY=
 NAVER_CLIENT_ID=
 NAVER_CLIENT_SECRET=
 ADMIN_API_KEY=
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_NAME=play_gyeongju
-DB_USER=play_gyeongju
+DB_HOST=
+DB_PORT=
+DB_NAME=
+DB_USER=
 DB_PASSWORD=
+DB_SSL=true
+DB_SSL_CA=
+DB_AUTO_MIGRATE=false
 MYSQL_DATABASE=play_gyeongju
 MYSQL_USER=play_gyeongju
 MYSQL_PASSWORD=
@@ -44,7 +49,7 @@ Kakao 검색이 실패하거나 결과가 없으면 Naver 지역 검색을 사�
 uvicorn app.main:app --reload --port 8000
 ```
 
-첫 실행 시 MySQL 스키마와 로컬 개발용 사용자(`X-User-No: 1`)가 준비됩니다.
+`DB_AUTO_MIGRATE=false`이면 시작 시 DB 접속만 확인합니다. 스키마 변경은 `alembic upgrade head`로 별도 적용합니다.
 
 - API 문서: `http://localhost:8000/docs`
 - 상태 확인: `http://localhost:8000/health`
@@ -53,9 +58,9 @@ uvicorn app.main:app --reload --port 8000
 ## TourAPI 동기화
 
 `sync_tourapi.py` 가 공사 데이터를 `PLACE` / `FESTIVAL` 에 넣습니다. compose 의 `sync`
-서비스가 `--loop` 로 이걸 주기 실행하므로, 평소에는 손댈 일이 없습니다. 시작할 때 DB를
+서비스는 `docker compose --profile sync up -d --build sync`로 명시적으로 시작합니다. 시작할 때 DB를
 확인해 장소나 영·일·중 번역이 비어 있으면 즉시 최초 적재하고, 이미 완성돼 있으면 건너뜁니다.
-따라서 새로 받은 팀원도 `docker compose up -d --build` 외에 별도 적재 명령이 필요 없습니다.
+운영 DB를 수정하는 작업이므로 담당자 한 명이 실행합니다. 기본 `docker compose up`은 적재하지 않습니다.
 
 장소 적재와 번역 후에는 GPT로 캐릭터별 적합도를 자동 채점합니다. 컨테이너 시작 시에도
 기존 DB의 누락·변경 점수를 확인하므로 별도 채점 명령은 필요 없습니다. 좌표와 설명이 있는
@@ -125,11 +130,11 @@ docker compose exec backend python sync_tourapi.py   # 지금 당장 한 번 더
 
 ## DB 마이그레이션
 
-DB 구조는 Alembic 으로 관리합니다. **백엔드가 뜰 때 자동으로 최신 상태까지 적용**되므로,
-코드를 받은 뒤에는 백엔드만 다시 띄우면 됩니다. 손으로 `ALTER TABLE` 을 칠 일이 없습니다.
+DB 구조는 Alembic으로 관리합니다. **Docker에서는 자동 적용하지 않습니다.**
+운영 DB 변경 내용을 검토하고 팀과 적용 시점을 정한 뒤 별도로 실행합니다.
 
 ```bash
-docker compose up -d --build backend   # 이것만으로 DB 구조가 최신이 됩니다
+docker compose run --rm --no-deps backend alembic upgrade head
 ```
 
 ### 스키마를 바꿔야 할 때
@@ -153,7 +158,7 @@ def downgrade() -> None:
     op.execute("ALTER TABLE USER_AUTH DROP COLUMN PASSWORD_HASH")
 ```
 
-커밋해서 올리면 팀원은 백엔드를 다시 띄우는 것만으로 같은 구조가 됩니다.
+공용 DB에서는 담당자 한 명이 마이그레이션을 적용하면 모든 팀원이 같은 구조를 사용합니다.
 
 ### 규칙
 
@@ -167,7 +172,7 @@ def downgrade() -> None:
 ```bash
 alembic current            # 지금 DB 가 몇 번까지 적용됐는지
 alembic history            # 마이그레이션 목록
-alembic upgrade head       # 최신까지 적용 (백엔드 시작 시 자동 실행되는 것과 동일)
+alembic upgrade head       # 현재 접속 DB의 스키마를 최신까지 변경
 alembic downgrade -1       # 한 단계 되돌리기
 ```
 
@@ -182,5 +187,5 @@ pytest
 ## Docker Compose
 
 프로젝트 루트에서 `docker compose up --build`를 실행합니다. 외부 API 키와
-MySQL 계정 정보는 모두 `backend/.env`에 설정합니다. MySQL 데이터와 업로드
-파일은 Docker 볼륨에 보존됩니다.
+MySQL 계정 정보는 모두 `backend/.env`에 설정합니다. DB 데이터는 Aiven에 저장되며,
+로컬 Docker 업로드 파일은 Docker 볼륨에 보존됩니다. Vercel의 업로드 저장소와는 별개입니다.

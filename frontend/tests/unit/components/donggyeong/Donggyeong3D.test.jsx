@@ -1,9 +1,10 @@
+import { createRef } from "react";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   acquire: vi.fn(), release: vi.fn(), clearUnused: vi.fn(),
-  equip: vi.fn(), setMasks: vi.fn(), greet: vi.fn(),
+  equip: vi.fn(), setMasks: vi.fn(), greet: vi.fn(), render: vi.fn(),
 }));
 
 vi.mock("three", async (importOriginal) => {
@@ -16,6 +17,7 @@ vi.mock("three", async (importOriginal) => {
       setPixelRatio() {}
       setSize() {}
       setAnimationLoop() {}
+      render(scene) { mocks.render(scene.background); }
     },
     PMREMGenerator: class {
       fromScene() { return { texture: {}, dispose() {} }; }
@@ -55,6 +57,21 @@ describe("Donggyeong3D", () => {
     vi.clearAllMocks();
     mocks.acquire.mockResolvedValue({ asset: {}, release: mocks.release });
     mocks.clearUnused.mockResolvedValue(undefined);
+  });
+
+  it("draws a fresh transparent character frame onto the camera photo only after loading", async () => {
+    const ref = createRef();
+    const onReadyChange = vi.fn();
+    const context = { drawImage: vi.fn(() => {
+      expect(mocks.render).toHaveBeenCalledTimes(1);
+    }) };
+    render(<Donggyeong3D ref={ref} transparent onReadyChange={onReadyChange} />);
+    expect(ref.current.drawTo(context, 540, 576, 540, 864)).toBe(false);
+    expect(context.drawImage).not.toHaveBeenCalled();
+    await waitFor(() => expect(onReadyChange).toHaveBeenLastCalledWith(true));
+    expect(ref.current.drawTo(context, 540, 576, 540, 864)).toBe(true);
+    expect(context.drawImage).toHaveBeenCalledWith(expect.any(HTMLCanvasElement), 540, 576, 540, 864);
+    expect(mocks.render).toHaveBeenLastCalledWith(null);
   });
 
   it("loads the base and releases its cache handle on unmount", async () => {

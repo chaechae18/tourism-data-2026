@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from .config import get_settings
-from .mysql import initialize_database
+from .mysql import connect, initialize_database
 from .routers.admin import router as admin_router
 from .routers.auth import router as auth_router
 from .routers.donggyeong import router as donggyeong_router
@@ -27,10 +27,14 @@ from .routers.users import router as users_router
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-
     if not os.getenv("VERCEL"):
-        initialize_database()
-
+        if os.getenv("DB_AUTO_MIGRATE", "true").lower() == "true":
+            initialize_database()
+        else:
+            # 운영 DB 연결만 확인한다. 스키마 변경은 alembic 명령으로 따로 실행한다.
+            with connect() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute("SELECT 1")
     yield
 
 

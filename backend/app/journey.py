@@ -5,6 +5,7 @@ import pymysql
 
 from .course_builder import Course, Stop, build_course, distance_km
 from .personas import Persona
+from .quest_rewards import grant_next_reward, inventory
 
 
 QUEST_TYPE_VISIT = 1
@@ -48,10 +49,11 @@ def course_stops_sql() -> str:
 
 # 퀘스트가 정말 이 사용자의 코스에 속하는지 확인하면서 사용자 캐릭터를 찾는다.
 QUEST_OWNER_SQL = """
-    SELECT c.USER_CHARACTER_IDX, q.TITLE, p.LATITUDE, p.LONGITUDE
+    SELECT c.USER_CHARACTER_IDX, uc.CHARACTER_IDX, cm.CHARACTER_TYPE, q.TITLE, p.LATITUDE, p.LONGITUDE
     FROM QUEST q
     JOIN COURSE c ON c.IDX = q.COURSE_IDX
     JOIN USER_CHARACTER uc ON uc.IDX = c.USER_CHARACTER_IDX
+    JOIN CHARACTER_MASTER cm ON cm.IDX = uc.CHARACTER_IDX
     JOIN PLACE p ON p.IDX = q.PLACE_IDX
     WHERE q.IDX = %s AND uc.USER_NO = %s
 """
@@ -295,30 +297,47 @@ def complete_quest(
         if distance_km((latitude, longitude), target) * 1000 > 100:
             raise QuestLocationError("퀘스트 장소 100m 이내에서만 완료할 수 있어요.")
 
-    _execute(
-        connection,
-        """INSERT INTO USER_QUEST (USER_CHARACTER_IDX, QUEST_IDX, STATUS, COMPLETED_AT)
-           VALUES (%s, %s, %s, NOW())
-           ON DUPLICATE KEY UPDATE
-               STATUS = %s,
-               COMPLETED_AT = COALESCE(COMPLETED_AT, NOW())""",
-        (owner["USER_CHARACTER_IDX"], quest_id, QUEST_STATUS_DONE, QUEST_STATUS_DONE),
-    )
-
-    with connection.cursor() as cursor:
-        cursor.execute(
-            """SELECT STATUS, COMPLETED_AT FROM USER_QUEST
-               WHERE USER_CHARACTER_IDX = %s AND QUEST_IDX = %s""",
-            (owner["USER_CHARACTER_IDX"], quest_id),
-        )
-        saved = cursor.fetchone() or {}
-
-    return {
-        "quest_id": quest_id,
-        "name": owner["TITLE"],
-        "completed": saved.get("STATUS") == QUEST_STATUS_DONE,
-        "completed_at": saved.get("COMPLETED_AT"),
-    }
+    connection.begin()
+    try:
+        with connection.cursor() as cursor:
+            # 같은 역할의 동시 완료 요청도 순서대로 처리한다.
+            cursor.execute("SELECT IDX FROM USER_CHARACTER WHERE IDX = %s FOR UPDATE",
+                           (owner["USER_CHARACTER_IDX"],))
+            cursor.fetchone()
+            cursor.execute(
+                """SELECT STATUS, COMPLETED_AT FROM USER_QUEST
+                   WHERE USER_CHARACTER_IDX = %s AND QUEST_IDX = %s""",
+                (owner["USER_CHARACTER_IDX"], quest_id),
+            )
+            previous = cursor.fetchone()
+            reward = None
+            if not previous or previous["STATUS"] != QUEST_STATUS_DONE:
+                cursor.execute(
+                    """INSERT INTO USER_QUEST (USER_CHARACTER_IDX, QUEST_IDX, STATUS, COMPLETED_AT)
+                       VALUES (%s, %s, %s, NOW())
+                       ON DUPLICATE KEY UPDATE STATUS = %s, COMPLETED_AT = COALESCE(COMPLETED_AT, NOW())""",
+                    (owner["USER_CHARACTER_IDX"], quest_id, QUEST_STATUS_DONE, QUEST_STATUS_DONE),
+                )
+                reward = grant_next_reward(connection, user_no=user_no, owner=owner)
+            cursor.execute(
+                """SELECT STATUS, COMPLETED_AT FROM USER_QUEST
+                   WHERE USER_CHARACTER_IDX = %s AND QUEST_IDX = %s""",
+                (owner["USER_CHARACTER_IDX"], quest_id),
+            )
+            saved = cursor.fetchone()
+        result = {
+            "quest_id": quest_id,
+            "name": owner["TITLE"],
+            "completed": saved["STATUS"] == QUEST_STATUS_DONE,
+            "completed_at": saved["COMPLETED_AT"],
+            "reward": reward,
+            "inventory": inventory(connection, user_no, owner["CHARACTER_TYPE"]),
+        }
+        connection.commit()
+        return result
+    except Exception:
+        connection.rollback()
+        raise
 
 
 def get_or_create_course(

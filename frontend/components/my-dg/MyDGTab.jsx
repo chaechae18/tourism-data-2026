@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Check, ChevronRight, Crown, Hand, Image, MapPin, Package, Save, Shirt } from "lucide-react";
+import { Camera, Check, ChevronRight, Crown, Hand, Image, MapPin, Package, Save, Shirt } from "lucide-react";
 import { DONGGYEONG_NUMBER, QUESTS } from "../../lib/app-data";
+import { localizeQuest } from "../../lib/i18n";
 import { DONGGYEONG_ITEMS } from "../../lib/donggyeong/role-outfit";
 import manifest from "../../public/models/donggyeong/manifest.json";
 import Donggyeong3D from "../donggyeong/Donggyeong3D";
+import DonggyeongCamera from "../donggyeong/DonggyeongCamera";
 import AppButton from "../ui/AppButton";
 import AppModal from "../ui/AppModal";
 import SectionHeading from "../ui/SectionHeading";
@@ -33,6 +35,7 @@ function SlotButton({ item, label, onClick }) {
 export default function MyDGTab({ availableItems = [], completedQuestIds, onMapQuest, onSaveOutfit, outfit, places = QUESTS, setOutfit }) {
   const { t } = useI18n();
   const [activeSlot, setActiveSlot] = useState(null);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const getItem = (itemId) => DONGGYEONG_ITEMS.find((item) => item.id === itemId);
   const getDisplayedItem = getItem;
   const equippedItems = DG_SLOTS.map((slot) => getItem(outfit[slot.id])).filter(Boolean);
@@ -45,7 +48,13 @@ export default function MyDGTab({ availableItems = [], completedQuestIds, onMapQ
 
   return (
     <section className="space-y-8">
-      <SectionHeading eyebrow="My Donggyeong" title={t("donggyeong.title")} action={<AppButton icon={Save} size="sm" onClick={onSaveOutfit}>{t("donggyeong.save")}</AppButton>} />
+      <div>
+        <SectionHeading eyebrow="My Donggyeong" title={t("donggyeong.title")} className="mb-3" />
+        <div className="flex flex-wrap justify-end gap-2">
+          <AppButton icon={Save} size="sm" onClick={onSaveOutfit}>{t("donggyeong.save")}</AppButton>
+          <AppButton icon={Camera} size="sm" variant="outline" onClick={() => setCameraOpen(true)}>{t("donggyeong.photo")}</AppButton>
+        </div>
+      </div>
       <div className="grid grid-cols-[72px_minmax(0,1fr)_72px] gap-3">
         <div className="grid grid-rows-2 gap-3">
           {DG_SLOTS.slice(0, 2).map((slot) => <SlotButton key={slot.id} label={t(`slots.${slot.id}`)} item={getDisplayedItem(outfit[slot.id])} onClick={() => setActiveSlot(slot.id)} />)}
@@ -64,17 +73,19 @@ export default function MyDGTab({ availableItems = [], completedQuestIds, onMapQ
         <div className="space-y-2">
           {places.map((quest) => {
             const done = completedQuestIds.includes(quest.id);
+            const localized = localizeQuest(quest, t);
             return (
               <button key={quest.id} type="button" onClick={() => onMapQuest(quest)} className="flex w-full items-center gap-3 rounded-lg bg-white p-3 text-left transition-colors">
                 <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${done ? "bg-[#e4f1ed] text-[#24746f]" : "bg-brand-soft text-brand-ink"}`}>{done ? <Check size={17} /> : <MapPin size={17} />}</span>
-                <span className="min-w-0 flex-1"><span className="block font-semibold text-[#343235]">{t(`quests.${quest.id}.name`)}</span><span className="mt-0.5 block truncate text-xs text-[#747579]">{quest.distance} · {t(`quests.${quest.id}.description`)}</span></span>
+                <span className="min-w-0 flex-1"><span className="block font-semibold text-[#343235]">{localized.name}</span><span className="mt-0.5 block truncate text-xs text-[#747579]">{quest.distance} · {localized.description}</span></span>
                 <ChevronRight size={17} className="shrink-0 text-[#747579]" />
               </button>
             );
           })}
         </div>
       </div>
-      <AppModal open={activeSlot !== null} onClose={() => setActiveSlot(null)} title={activeSlot ? t(`slots.${activeSlot}`) : ""}>
+      {cameraOpen && <DonggyeongCamera items={equippedItems} onClose={() => setCameraOpen(false)} />}
+      <AppModal variant="dialog" open={activeSlot !== null} onClose={() => setActiveSlot(null)} title={activeSlot ? t(`slots.${activeSlot}`) : ""}>
         <div className="space-y-2">
           {slotItems.map((item) => (
             <button

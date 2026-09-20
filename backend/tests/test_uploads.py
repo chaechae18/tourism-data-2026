@@ -19,6 +19,7 @@ def test_upload_image_returns_local_url(client: TestClient, tmp_path) -> None:
         kakao_rest_api_key="", naver_client_id="", naver_client_secret="", upload_dir=upload_dir,
         max_upload_bytes=10 * 1024 * 1024, search_cache_ttl_seconds=300, search_rate_limit=30,
         search_rate_window_seconds=60, admin_api_key="", cors_origins=("http://localhost:3000",),
+        session_secret_key="test-only-session-secret",
     )
     try:
         image = create_png()

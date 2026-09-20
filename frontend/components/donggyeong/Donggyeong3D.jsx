@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
@@ -10,12 +10,18 @@ import manifest from "../../public/models/donggyeong/manifest.json";
 import { donggyeongModelCache } from "../../lib/donggyeong/glb-memory-cache";
 import { useI18n } from "../i18n/LanguageProvider";
 
-export default function Donggyeong3D({ className = "", interactive = true, items = [] }) {
+export default forwardRef(function Donggyeong3D({ className = "", interactive = true, items = [], onReadyChange, transparent = false }, ref) {
   const { t } = useI18n();
   const mountRef = useRef(null);
   const viewerRef = useRef(null);
   const [status, setStatus] = useState("loading");
   const modelKey = JSON.stringify(items);
+
+  useImperativeHandle(ref, () => ({
+    drawTo: (...args) => status === "ready" ? viewerRef.current?.drawTo(...args) : false,
+  }), [status]);
+
+  useEffect(() => { onReadyChange?.(status === "ready"); }, [status, onReadyChange]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -69,7 +75,7 @@ export default function Donggyeong3D({ className = "", interactive = true, items
       return (await handles.get(url)).asset;
     };
     const fitBackdrop = () => {
-      scene.background = avatar?.background || null;
+      scene.background = transparent ? null : avatar?.background || null;
       if (!scene.background) return;
       const texture = scene.background;
       const imageAspect = texture.image.width / texture.image.height;
@@ -98,6 +104,11 @@ export default function Donggyeong3D({ className = "", interactive = true, items
     });
     viewerRef.current = {
       greet: () => avatar?.greet(),
+      drawTo: (context, x, y, width, height) => {
+        renderer.render(scene, camera);
+        context.drawImage(renderer.domElement, x, y, width, height);
+        return true;
+      },
       async setItems(entries) {
         const request = ++revision;
         setStatus("loading");
@@ -161,11 +172,11 @@ export default function Donggyeong3D({ className = "", interactive = true, items
       renderer.dispose();
       mount.removeChild(renderer.domElement);
     };
-  }, [interactive]);
+  }, [interactive, transparent]);
 
   useEffect(() => {
     void viewerRef.current?.setItems(JSON.parse(modelKey));
-  }, [interactive, modelKey]);
+  }, [interactive, modelKey, transparent]);
 
   return (
     <div className={className}>
@@ -178,4 +189,4 @@ export default function Donggyeong3D({ className = "", interactive = true, items
       {status !== "ready" && <p role="status" className="pointer-events-none absolute inset-x-2 bottom-3 text-center text-xs text-white">{t(status === "error" ? "donggyeong.loadError" : "donggyeong.loading")}</p>}
     </div>
   );
-}
+});

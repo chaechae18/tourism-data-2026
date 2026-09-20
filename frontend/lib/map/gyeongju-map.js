@@ -90,6 +90,21 @@ export function isWithinBounds(point, bounds) {
     && point.latitude <= bounds.north;
 }
 
+// 도심 기본 영역에 해안·외곽 코스까지 포함하고 마커 주변 이동 여백을 둔다.
+export function getCourseBounds(places) {
+  const bounds = { ...MAP_SCOPES.all.bounds };
+  const padding = 0.02;
+  for (const { longitude, latitude } of places) {
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)
+      || Math.abs(longitude) > 180 || Math.abs(latitude) > 90) continue;
+    bounds.west = Math.min(bounds.west, longitude - padding);
+    bounds.east = Math.max(bounds.east, longitude + padding);
+    bounds.south = Math.min(bounds.south, latitude - padding);
+    bounds.north = Math.max(bounds.north, latitude + padding);
+  }
+  return bounds;
+}
+
 export function projectCoordinate(point, bounds, viewbox = MAP_VIEWBOX) {
   const centerLatitude = (bounds.north + bounds.south) / 2;
   const longitudeKm = EARTH_KM_PER_LATITUDE_DEGREE * Math.cos(centerLatitude * Math.PI / 180);

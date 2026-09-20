@@ -21,6 +21,8 @@ os.environ["DB_NAME"] = TEST_DATABASE
 
 @pytest.fixture(scope="session")
 def mysql_database() -> Iterator[pymysql.Connection]:
+    if os.getenv("DB_HOST", "127.0.0.1") not in {"localhost", "127.0.0.1", "db"}:
+        pytest.fail("DB 통합 테스트는 로컬 MySQL에서만 실행하세요. 공용 DB에서는 실행할 수 없습니다.")
     server = connect(database=None)
     with server.cursor() as cursor:
         cursor.execute(f"DROP DATABASE IF EXISTS {TEST_DATABASE}")

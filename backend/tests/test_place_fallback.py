@@ -93,6 +93,7 @@ def settings(tmp_path: Path, *, rate_limit: int = 30) -> Settings:
         search_rate_window_seconds=60,
         admin_api_key="test-admin-key",
         cors_origins=("http://localhost:3000",),
+        session_secret_key="test-only-session-secret",
     )
 
 

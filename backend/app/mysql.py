@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 import logging
 import os
+import ssl
 
 from alembic import command
 from alembic.config import Config
@@ -18,7 +19,7 @@ load_dotenv(BACKEND_DIR / ".env")
 
 
 def connection_settings() -> dict:
-    return {
+    settings = {
         "host": os.getenv("DB_HOST", "127.0.0.1"),
         "port": int(os.getenv("DB_PORT", "3306")),
         "user": os.getenv("DB_USER") or "root",
@@ -28,6 +29,11 @@ def connection_settings() -> dict:
         "cursorclass": DictCursor,
         "autocommit": True,
     }
+    if os.getenv("DB_SSL", "false").lower() == "true":
+        settings["ssl"] = ssl.create_default_context(
+            cafile=os.getenv("DB_SSL_CA") or None,
+        )
+    return settings
 
 
 def connect(**overrides) -> pymysql.Connection:

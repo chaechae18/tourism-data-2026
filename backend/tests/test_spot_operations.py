@@ -15,6 +15,7 @@ def test_public_spot_interactions_and_owner_delete(client: TestClient, database:
         kakao_rest_api_key="", naver_client_id="", naver_client_secret="", upload_dir=tmp_path / "uploads",
         max_upload_bytes=10 * 1024 * 1024, search_cache_ttl_seconds=300, search_rate_limit=30,
         search_rate_window_seconds=60, admin_api_key="test-admin-key", cors_origins=("http://localhost:3000",),
+        session_secret_key="test-only-session-secret",
     )
     try:
         created = client.post("/api/v1/spots", headers={"X-User-No": "1"}, json=SPOT_BODY)

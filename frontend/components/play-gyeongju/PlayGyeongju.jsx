@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { DEFAULT_USER, QUESTS } from "../../lib/app-data";
 import { localizeQuest, translateError } from "../../lib/i18n";
 import { notifyQuestCompleted } from "../../lib/api/notifications";
+import { fetchInventory, saveOutfit } from "../../lib/api/inventory";
+import { DONGGYEONG_ITEMS } from "../../lib/donggyeong/role-outfit";
 import {
   completeQuest as saveQuestCompletion,
   fetchCourse,
@@ -39,6 +41,9 @@ export default function PlayGyeongju() {
   const [completedQuestIds, setCompletedQuestIds] = useState([]);
   const [selectedQuestId, setSelectedQuestId] = useState(INITIAL_SELECTED_QUEST_ID);
   const [outfit, setOutfit] = useState({});
+  const [ownedItemIds, setOwnedItemIds] = useState([]);
+  const inventoryRevision = useRef(0);
+  const availableItems = useMemo(() => DONGGYEONG_ITEMS.filter((item) => ownedItemIds.includes(item.id)), [ownedItemIds]);
   const [notice, setNotice] = useState("");
   const [notificationVersion, setNotificationVersion] = useState(0);
   // 캐릭터 코스는 백엔드가 뽑아서 저장해 둔다. 다시 들어와도 같은 코스가 나온다.
@@ -55,6 +60,39 @@ export default function PlayGyeongju() {
 
   // 역할을 아직 못 읽었으면 코스도 부르지 않는다.
   const courseRoleKey = roleKey && role.ready ? role.key : null;
+
+  const applyInventory = (saved) => {
+    setOwnedItemIds(saved.items.map((item) => item.id));
+    setOutfit(saved.outfit);
+  };
+
+  useEffect(() => {
+    const revision = ++inventoryRevision.current;
+    setOwnedItemIds([]);
+    setOutfit({});
+    if (!entered || !courseRoleKey) return undefined;
+    const controller = new AbortController();
+    fetchInventory({ persona: courseRoleKey, signal: controller.signal })
+      .then((saved) => {
+        if (!controller.signal.aborted && revision === inventoryRevision.current) applyInventory(saved);
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) showNotice(error.message);
+      });
+    return () => controller.abort();
+  }, [entered, courseRoleKey]);
+
+  const persistOutfit = async () => {
+    const revision = ++inventoryRevision.current;
+    try {
+      const saved = await saveOutfit({ persona: courseRoleKey, outfit });
+      if (revision !== inventoryRevision.current) return;
+      applyInventory(saved);
+      showNotice(t("play.outfitSaved"));
+    } catch (error) {
+      showNotice(error.message);
+    }
+  };
 
   // OAuth 로그인 결과 처리
   useEffect(() => {
@@ -94,7 +132,7 @@ export default function PlayGyeongju() {
       window.history.replaceState({}, "", cleanUrl);
     }
   }, []);
-  // 지난번에 고른 역할로 돌아간다. 처음 들어온 사용자면 기본값(왕)으로 시작한다.
+  // 선택 이력이 없으면 코스를 만들기 전에 역할 선택 창을 연다.
   useEffect(() => {
     if (!entered) return undefined;
 
@@ -103,11 +141,13 @@ export default function PlayGyeongju() {
       .then((saved) => {
         if (controller.signal.aborted) return;
         const known = saved?.key && ROLES.some((item) => item.key === saved.key);
-        setRoleKey(known ? saved.key : ROLES[0].key);
+        setRoleKey(known ? saved.key : null);
+        if (!known) setRoleOpen(true);
       })
       .catch((error) => {
         if (controller.signal.aborted || error.name === "AbortError") return;
-        setRoleKey(ROLES[0].key);
+        setRoleKey(null);
+        setRoleOpen(true);
       });
     return () => controller.abort();
   }, [entered]);
@@ -193,6 +233,11 @@ export default function PlayGyeongju() {
   };
 
   const selectRole = (nextRole) => {
+    if (nextRole.key !== roleKey) {
+      inventoryRevision.current += 1;
+      setCoursePlaces(null);
+      setCompletedQuestIds([]);
+    }
     setRoleKey(nextRole.key);
     setRoleOpen(false);
     showNotice(
@@ -304,10 +349,12 @@ export default function PlayGyeongju() {
     const quest = places.find((item) => item.id === id);
     if (!quest) return false;
 
-    // 저장 실패는 지도 팝업에서 안내하고, 성공한 경우에만 축하한다.
-    if (quest.questId) {
-      await saveQuestCompletion({ questId: quest.questId, ...position });
-    }
+    // 서버가 확인한 완료와 보상만 반영한다. 샘플 장소는 지급할 수 없다.
+    if (!quest.questId) throw new Error("코스를 불러온 후 다시 시도해 주세요.");
+    const revision = ++inventoryRevision.current;
+    const saved = await saveQuestCompletion({ questId: quest.questId, ...position });
+    if (!saved.completed || revision !== inventoryRevision.current) return false;
+    applyInventory(saved.inventory);
 
     setCompletedQuestIds((current) => [...current, id]);
     try {
@@ -316,7 +363,7 @@ export default function PlayGyeongju() {
     } catch (error) {
       showNotice(translateError(error, t));
     }
-    return true;
+    return saved;
   };
 
   const openQuestOnMap = (quest) => {
@@ -338,8 +385,8 @@ export default function PlayGyeongju() {
   }
 
   return (
-    <div className="min-h-[100svh] bg-[#edf0ed]">
-      <div className={`mx-auto w-full max-w-[430px] bg-[#f7f7f5] shadow-[0_0_32px_rgba(52,50,53,0.08)] ${activeTab === "spots" ? "flex h-[100dvh] flex-col overflow-hidden pb-[var(--bottom-nav-height)]" : "min-h-[100svh] pb-24"}`}>
+    <div className="min-h-[100svh] bg-white">
+      <div className={`mx-auto w-full max-w-[430px] bg-white shadow-[0_0_32px_rgba(52,50,53,0.08)] ${activeTab === "spots" ? "flex h-[100dvh] flex-col overflow-hidden pb-[var(--bottom-nav-height)]" : "min-h-[100svh] pb-24"}`}>
       <header className="relative z-30 shrink-0 bg-white/90 px-4 py-3 backdrop-blur">
         <div className="flex items-center justify-between gap-4">
           <button type="button" onClick={() => setActiveTab("home")} className="text-left font-semibold text-[#343235]">Play Gyeongju</button>
@@ -356,7 +403,7 @@ export default function PlayGyeongju() {
 
       <main className={`w-full px-4 ${activeTab === "spots" ? "flex min-h-0 flex-1 flex-col pt-6" : "py-6"}`}>
         {activeTab === "home" && <HomeTab language={language} onMapOpen={() => setActiveTab("map")} popupHidden={guideOpen} />}
-        {activeTab === "my-dg" && <MyDGTab completedQuestIds={completedQuestIds} onMapQuest={openQuestOnMap} onSaveOutfit={() => showNotice(t("play.outfitSaved"))} outfit={outfit} places={places} setOutfit={setOutfit} />}
+        {activeTab === "my-dg" && <MyDGTab availableItems={availableItems} completedQuestIds={completedQuestIds} onMapQuest={openQuestOnMap} onSaveOutfit={persistOutfit} outfit={outfit} places={places} setOutfit={setOutfit} />}
         {activeTab === "map" && <GyeongjuMap2D completedQuestIds={completedQuestIds} onComplete={completeQuest} onOpenRoles={() => setRoleOpen(true)} onSelect={(quest) => setSelectedQuestId(quest.id)} places={places} roleName={roleName} selectedPlace={selectedQuest} />}
         {activeTab === "spots" && <SpotsTab user={user} />}
         {activeTab === "my-page" && <MyPageTab completedQuestIds={completedQuestIds} onLogout={logout} onNotice={showNotice} onOpenGuide={reopenGuide} setUser={setUser} user={user} onWithdraw={handleWithdraw} />}
@@ -365,7 +412,7 @@ export default function PlayGyeongju() {
       {notice && <div className="fixed bottom-24 left-1/2 z-40 w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 rounded-lg bg-[#343235] px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">{notice}</div>}
       {guideOpen && <AppGuide onDone={finishGuide} onTabChange={setActiveTab} />}
       <RoleSelect onClose={() => setRoleOpen(false)} onSelect={selectRole} open={roleOpen} selectedKey={roleKey} />
-        <p className="pb-24 text-center text-[12px] font-normal text-[#aaa59d]">출처: ⓒ한국관광공사</p>
+      {activeTab !== "home" && <p className="pb-24 text-center text-[12px] font-normal text-[#aaa59d]">출처: ⓒ한국관광공사</p>}
       <BottomNavigation activeTab={activeTab} onChange={setActiveTab} />
       </div>
     </div>

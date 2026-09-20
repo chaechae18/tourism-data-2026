@@ -5,7 +5,6 @@ import {
   ImagePlus,
   LoaderCircle,
   List,
-  LocateFixed,
   MapPin,
   MessageCircle,
   Search,
@@ -22,7 +21,6 @@ import {
   listPublicSpots,
   listSpotRanking,
   listSpotComments,
-  searchNearbyPlaces,
   searchPlaces,
   setSpotReaction,
   uploadSpotImage,
@@ -63,12 +61,6 @@ function inferPlaceType(place) {
   const foodCodes = ["FD6", "CE7"];
   if (foodCodes.includes(place.categoryGroupCode)) return "FOOD";
   return /음식|카페|식당/.test(place.categoryName) ? "FOOD" : "TOUR";
-}
-
-function formatDistance(distance) {
-  if (distance === null || distance === undefined) return null;
-  if (distance < 1_000) return `${distance}m`;
-  return `${(distance / 1_000).toFixed(1)}km`;
 }
 
 function SpotPhoto({
@@ -320,9 +312,7 @@ export default function SpotsTab() {
   const [query, setQuery] = useState("");
   const [selectedPlace, setSelectedPlace] = useState(null);
   const [searchResults, setSearchResults] = useState([]);
-  const [nearbyResults, setNearbyResults] = useState([]);
   const [searching, setSearching] = useState(false);
-  const [locating, setLocating] = useState(false);
   const [review, setReview] = useState("");
   const [photoFile, setPhotoFile] = useState(null);
   const [publicSpots, setPublicSpots] = useState([]);
@@ -411,61 +401,6 @@ export default function SpotsTab() {
     setSelectedPlace(place);
     setQuery(place.name);
     setSearchResults([]);
-    setNearbyResults([]);
-  };
-
-  const loadNearbyPlaces = () => {
-    if (!navigator.geolocation) {
-      setErrors((current) => ({
-        ...current,
-        search: t("spots.geolocationUnsupported"),
-      }));
-      return;
-    }
-
-    setLocating(true);
-    setNotice("");
-    setErrors((current) => ({ ...current, search: "" }));
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        try {
-          const result = await searchNearbyPlaces({
-            latitude: coords.latitude,
-            longitude: coords.longitude,
-          });
-          setSelectedPlace(null);
-          setQuery("");
-          setSearchResults([]);
-          setNearbyResults(result.places);
-          setNotice(
-            result.places.length > 0
-              ? t("spots.nearbyLoaded")
-              : t("spots.nearbyEmpty"),
-          );
-        } catch (error) {
-          setErrors((current) => ({ ...current, search: getErrorMessage(error, t) }));
-        } finally {
-          setLocating(false);
-        }
-      },
-      (error) => {
-        const messages = {
-          1: t("spots.permissionDenied"),
-          2: t("spots.positionUnavailable"),
-          3: t("spots.timeout"),
-        };
-        setErrors((current) => ({
-          ...current,
-          search: messages[error.code] || t("spots.locationFailed"),
-        }));
-        setLocating(false);
-      },
-      {
-        enableHighAccuracy: false,
-        maximumAge: 300_000,
-        timeout: 8_000,
-      },
-    );
   };
 
   const shareSpot = async () => {
@@ -490,7 +425,6 @@ export default function SpotsTab() {
       setMySpots((current) => [created, ...current]);
       setSelectedPlace(null);
       setQuery("");
-      setNearbyResults([]);
       setReview("");
       setPhotoFile(null);
       setNotice(t("spots.created"));
@@ -586,9 +520,6 @@ export default function SpotsTab() {
     }
   };
 
-  const placeResults = searchResults.length > 0
-    ? searchResults
-    : nearbyResults;
   const detailSpot = publicSpots.find((spot) => spot.id === detailSpotId) || null;
 
   const closeSpotDetail = () => {
@@ -600,7 +531,7 @@ export default function SpotsTab() {
   return (
     <section className={activeView === "ranking" ? "flex min-h-0 flex-1 flex-col" : "min-h-0 flex-1 overflow-y-auto pb-6"}>
       <h1 className="mb-3 shrink-0 text-lg font-semibold text-[#343235]">{t("spots.title")}</h1>
-      <nav className="sticky top-0 z-20 -mx-4 shrink-0 bg-[#f7f7f5]/95 px-4 py-1 backdrop-blur" aria-label={t("spots.navLabel")}>
+      <nav className="sticky top-0 z-20 -mx-4 shrink-0 bg-white px-4 py-1 backdrop-blur" aria-label={t("spots.navLabel")}>
         <div className="grid grid-cols-3 gap-2">
           {[
             { id: "ranking", label: t("spots.ranking"), icon: Trophy },
@@ -670,7 +601,6 @@ export default function SpotsTab() {
               onChange={(event) => {
                 setQuery(event.target.value);
                 setSelectedPlace(null);
-                setNearbyResults([]);
               }}
               className="h-11 w-full rounded-lg border-0 bg-white pl-10 pr-9 text-sm outline-none focus:bg-brand-soft"
               placeholder={t("spots.locationPlaceholder")}
@@ -681,30 +611,9 @@ export default function SpotsTab() {
           </div>
         </div>
 
-        <div className="mt-2 flex items-center gap-3">
-          <AppButton
-            icon={LocateFixed}
-            className="!border-0"
-            size="sm"
-            variant="outline"
-            disabled={locating}
-            onClick={loadNearbyPlaces}
-          >
-            {t(locating ? "spots.locating" : "spots.nearby")}
-          </AppButton>
-          <span className="text-xs text-[#7c6d61]">{t("spots.radius")}</span>
-        </div>
-
-        {nearbyResults.length > 0 && (
-          <div className="mt-3 flex items-center justify-between text-xs font-bold text-[#7c6d61]">
-            <span>{t("spots.nearby")}</span>
-            <span>{t("spots.nearest")}</span>
-          </div>
-        )}
-
-        {placeResults.length > 0 && (
+        {searchResults.length > 0 && (
           <div className="mt-2 max-h-64 overflow-y-auto rounded-lg bg-white shadow-lg">
-            {placeResults.map((place) => (
+            {searchResults.map((place) => (
               <button
                 key={`${place.provider}-${place.id}`}
                 type="button"
@@ -718,11 +627,6 @@ export default function SpotsTab() {
                     {place.roadAddress || place.address}
                   </span>
                 </span>
-                {formatDistance(place.distance) && (
-                  <span className="ml-auto shrink-0 text-right text-[10px] font-bold text-brand-ink">
-                    {formatDistance(place.distance)}
-                  </span>
-                )}
               </button>
             ))}
           </div>

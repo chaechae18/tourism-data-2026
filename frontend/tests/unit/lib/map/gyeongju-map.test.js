@@ -3,13 +3,35 @@ import {
   createDemoRoute,
   DEFAULT_CURRENT_LOCATION,
   DEFAULT_MAP_VIEW,
+  getCourseBounds,
   getDistanceMeters,
+  isWithinBounds,
   MAP_SCOPES,
   MAP_VIEWBOX,
   MAP_ZOOM,
   projectCoordinate,
   scaleMapView,
 } from "../../../../lib/map/gyeongju-map";
+
+describe("course bounds", () => {
+  it("keeps the default city area and expands for coastal and northern places", () => {
+    const places = [{ longitude: 129.5, latitude: 35.8 }, { longitude: 129.255, latitude: 36.002 }];
+    const bounds = getCourseBounds(places);
+    places.forEach((place) => expect(isWithinBounds(place, bounds)).toBe(true));
+    expect(bounds.west).toBeLessThanOrEqual(MAP_SCOPES.all.bounds.west);
+    expect(bounds.east).toBeGreaterThan(129.5);
+    expect(bounds.north).toBeGreaterThan(36.002);
+  });
+
+  it("ignores missing or invalid coordinates and preserves the default bounds", () => {
+    expect(getCourseBounds([])).toEqual(MAP_SCOPES.all.bounds);
+    expect(getCourseBounds([
+      {}, { longitude: null, latitude: null },
+      { longitude: NaN, latitude: 35.8 }, { longitude: Infinity, latitude: 35.8 },
+      { longitude: 129.5, latitude: 91 }, { longitude: 181, latitude: 35.8 },
+    ])).toEqual(MAP_SCOPES.all.bounds);
+  });
+});
 
 describe("gyeongju map projection", () => {
   it("projects eastern coordinates to the right", () => {
