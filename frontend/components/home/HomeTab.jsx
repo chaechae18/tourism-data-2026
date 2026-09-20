@@ -250,7 +250,7 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
             <li key={`${place.name}-${index}`}>
               <article className="rounded-lg border border-[#e6ddd2] bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <h3 className="font-bold text-[#241b16]">{place.name}</h3>
+                  <h3 className="min-w-0 flex-1 truncate font-bold text-[#241b16]">{place.name}</h3>
                   {place.admissionFee && (
                     <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-brand-soft px-2.5 py-1 text-xs font-bold text-brand-ink">
                       <Ticket size={13} />

@@ -14,6 +14,7 @@ from .models.home import (
     RecommendedPlaceResponse,
 )
 from .mysql import fetch_all
+from .place_translation_cache import strip_korean_gloss
 from .search_controls import TTLCache
 from .tourapi import SOURCE_TOUR_API, TourApiClient, TourApiError, fetch_festivals
 
@@ -40,73 +41,73 @@ festival_refresh_lock = Lock()
 RECOMMENDED_PLACES = {
     "경주 불국사 [유네스코 세계유산]": {
         "ko": "석가탑과 다보탑이 마주 선 신라 불교 예술의 정수.\n돌계단과 석축까지 국보로 지정돼 있습니다.",
-        "en": "Silla Buddhist art at its peak, where the Seokgatap and Dabotap pagodas face each other.\nEven the stone stairways and terraces are national treasures.",
+        "en": "Seokgatap and Dabotap face each other here.\nThe stone stairs and terraces are treasures too.",
         "ja": "釈迦塔と多宝塔が向かい合う、新羅仏教美術の頂点。\n石段や石垣まで国宝に指定されています。",
         "zh": "释迦塔与多宝塔相对而立，新罗佛教艺术的巅峰。\n连石阶与石墙都被列为国宝。",
     },
     "경주 석굴암 [유네스코 세계유산]": {
         "ko": "토함산 인공 석굴에서 동해를 바라보는 본존불.\n해 뜰 무렵 얼굴에 빛이 닿도록 설계했습니다.",
-        "en": "A grotto carved into Tohamsan, its Buddha gazing toward the East Sea.\nIt was built so the dawn light would reach his face.",
+        "en": "A Buddha in a Tohamsan grotto, facing the sea.\nBuilt so dawn light lands on his face.",
         "ja": "吐含山の人工石窟から東海を望む本尊仏。\n日の出の光が顔に届くよう設計されています。",
         "zh": "吐含山人工石窟中的本尊佛，遥望东海。\n当初的设计让日出之光正好照在佛面上。",
     },
     "경주 첨성대": {
         "ko": "신라가 별을 읽던 자리, 동양에서 가장 오래된 천문대.\n1400년을 무너지지 않고 그대로 서 있습니다.",
-        "en": "The oldest surviving observatory in East Asia, where Silla read the stars.\nIt has stood unmoved for fourteen centuries.",
+        "en": "East Asia's oldest surviving observatory.\nIt has stood unmoved for fourteen centuries.",
         "ja": "新羅が星を読んだ場所、東洋最古の天文台。\n1400年のあいだ崩れることなく立ち続けています。",
         "zh": "新罗人观星之处，东亚现存最古老的天文台。\n历经一千四百年依然屹立不倒。",
     },
     "경주 대릉원 일원": {
         "ko": "신라 고분 스물세 기가 이어지는 능선.\n천마총은 무덤 안까지 걸어 들어갈 수 있습니다.",
-        "en": "A skyline of twenty-three Silla royal mounds.\nAt Cheonmachong you can walk right inside the tomb.",
+        "en": "A skyline of twenty-three Silla royal mounds.\nYou can walk right inside Cheonmachong.",
         "ja": "新羅の古墳23基が連なる稜線。\n天馬塚は墓の内部まで歩いて入れます。",
         "zh": "二十三座新罗古坟连成的起伏天际线。\n天马冢可以一直走进墓室内部。",
     },
     "경주 동궁과 월지": {
         "ko": "신라 왕궁의 별궁과 연못.\n해가 지면 물 위에 전각이 통째로 비칩니다.",
-        "en": "The detached palace and pond of the Silla court.\nAfter sunset the halls reflect whole on the water.",
+        "en": "The detached palace and pond of the Silla court.\nAfter sunset the halls reflect on the water.",
         "ja": "新羅王宮の別宮と池。\n日が暮れると水面に楼閣がまるごと映ります。",
         "zh": "新罗王宫的别宫与莲池。\n日落之后，楼阁完整倒映在水面上。",
     },
     "월정교": {
         "ko": "왕궁과 남산을 잇던 신라의 다리.\n밤에는 조명이 켜져 강물에 반쯤 잠긴 듯 보입니다.",
-        "en": "The Silla bridge that linked the palace to Namsan.\nLit at night, it looks half-sunk in the river.",
+        "en": "A Silla bridge linking the palace to Namsan.\nLit at night, it looks half-sunk in the river.",
         "ja": "王宮と南山を結んでいた新羅の橋。\n夜は照明がともり、川に半ば沈んだように見えます。",
         "zh": "曾连接王宫与南山的新罗桥梁。\n入夜亮灯，宛如半沉在河水之中。",
     },
     "경주 황리단길": {
         "ko": "대릉원 돌담을 따라 이어진 한옥 골목.\n카페와 공방, 사진관이 촘촘히 모여 있습니다.",
-        "en": "A hanok lane running along the Daereungwon wall.\nCafes, craft studios and photo shops sit shoulder to shoulder.",
+        "en": "A hanok lane running along the Daereungwon wall.\nCafes, craft studios and photo shops line it.",
         "ja": "大陵苑の石垣沿いに続く韓屋の路地。\nカフェや工房、写真館が軒を連ねています。",
         "zh": "沿着大陵苑石墙延伸的韩屋小巷。\n咖啡馆、手作工坊与照相馆紧挨在一起。",
     },
     "경주 양동마을 [유네스코 세계유산]": {
         "ko": "500년 넘게 사람이 살아온 조선 시대 씨족 마을.\n기와집과 초가집이 언덕을 따라 앉아 있습니다.",
-        "en": "A Joseon clan village lived in for more than five hundred years.\nTiled and thatched houses sit along the hillside.",
+        "en": "A Joseon clan village, lived in for 500 years.\nTiled and thatched houses sit along the hillside.",
         "ja": "500年以上人が暮らし続ける朝鮮時代の同族村。\n瓦屋根と藁葺きの家が丘に沿って並びます。",
         "zh": "延续五百多年、至今仍有人居住的朝鲜时代同族村落。\n瓦房与草屋沿着山坡错落而建。",
     },
     "천마총(대릉원)": {
         "ko": "천마도가 나온 신라 고분.\n무덤 속으로 들어가 금관과 부장품을 볼 수 있습니다.",
-        "en": "The Silla tomb that yielded the painting of the heavenly horse.\nStep inside to see the gold crown and burial goods.",
+        "en": "The Silla tomb of the heavenly horse painting.\nStep inside for the gold crown and burial goods.",
         "ja": "天馬図が出土した新羅の古墳。\n墓の中に入り、金冠や副葬品を見られます。",
         "zh": "出土天马图的新罗古坟。\n可以走进墓室，看到金冠与随葬品。",
     },
     "경주 포석정지": {
         "ko": "물길에 술잔을 띄우던 신라 귀족의 연회터.\n지금은 굽이치는 돌 수로만 남아 있습니다.",
-        "en": "Where Silla nobles floated wine cups down a winding channel.\nOnly the curving stone waterway remains today.",
+        "en": "Silla nobles floated wine cups down this channel.\nOnly the curving stone waterway remains today.",
         "ja": "水路に杯を浮かべた新羅貴族の宴の跡。\n今は曲がりくねった石の水路だけが残ります。",
         "zh": "新罗贵族在水道上流觞饮酒的宴游之地。\n如今只剩下蜿蜒的石制水渠。",
     },
     "경주엑스포대공원": {
         "ko": "경주타워와 정원이 있는 문화 공원.\n밤에는 타워 벽면에 미디어 아트를 띄웁니다.",
-        "en": "A culture park built around Gyeongju Tower and its gardens.\nAt night media art plays across the tower wall.",
+        "en": "A culture park around Gyeongju Tower.\nAt night media art plays across the tower wall.",
         "ja": "慶州タワーと庭園がある文化公園。\n夜はタワーの壁面にメディアアートが映し出されます。",
         "zh": "以庆州塔和园林为中心的文化公园。\n夜间塔身墙面会上演媒体艺术秀。",
     },
     "경주 배동 삼릉": {
         "ko": "소나무 숲에 신라 왕릉 세 기가 나란합니다.\n새벽 안개가 내리면 사진가들이 모입니다.",
-        "en": "Three Silla royal tombs lined up in a pine forest.\nPhotographers gather here when the dawn mist settles.",
+        "en": "Three Silla royal tombs in a pine forest.\nPhotographers come for the dawn mist.",
         "ja": "松林の中に新羅の王陵が三基並びます。\n明け方に霧が立つと写真家が集まります。",
         "zh": "松林之中并排着三座新罗王陵。\n清晨起雾时，摄影师们纷纷聚集于此。",
     },
@@ -367,6 +368,18 @@ def _recommended_rank(row: dict) -> int:
     return RECOMMENDED_ORDER.index(name) if name in RECOMMENDED_ORDER else len(RECOMMENDED_ORDER)
 
 
+# 카드 제목은 한 줄에 들어가야 한다. 이름 뒤에 붙는 지정 문구와 별칭은 떼어 낸다.
+# "Gyeongju Bulguksa Temple [UNESCO World Heritage]" → "Gyeongju Bulguksa Temple"
+NAME_SUFFIX = re.compile(r"\s*(?:[\[［(（][^\]］)）]*[\]］)）])+\s*$")
+
+
+def _display_name(name: str | None, language: str) -> str | None:
+    if not name:
+        return name
+    text = name if language == DEFAULT_LANGUAGE else (strip_korean_gloss(name) or name)
+    return NAME_SUFFIX.sub("", text).strip() or text
+
+
 def _summary(row: dict, language: str) -> str | None:
     written = RECOMMENDED_PLACES.get(row["SOURCE_NAME"])
     if written:
@@ -413,7 +426,7 @@ def list_recommended_places(
     rows = sorted(rows, key=_recommended_rank)
     return [
         RecommendedPlaceResponse(
-            name=row["NAME"],
+            name=_display_name(row["NAME"], language),
             text=_summary(row, language),
             address=row["ADDRESS"],
             latitude=row["LATITUDE"],

@@ -12,7 +12,7 @@ export const ROLES = [
     key: "king",
     name: "왕",
     tagline: "궁궐과 왕릉을 따라",
-    description: "월성에서 시작해 왕릉을 잇는 하루. 상차림은 고기 위주로.",
+    description: "월성에서 시작해 왕릉을 잇는 하루.",
     accent: "rgb(var(--color-brand))",
     tint: "rgb(var(--color-brand-soft))",
     ready: true,

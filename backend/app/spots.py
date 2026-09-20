@@ -262,13 +262,15 @@ def list_daily_ranking(
         """,
         (viewer, viewer, viewer, ranking_date, limit),
     )
+    # 순서는 하루치 스냅샷을 따르되 번호는 다시 매긴다.
+    # RANK_POSITION 을 그대로 쓰면 글이 지워진 자리가 비어 2위부터 보인다.
     return [
         RankedSpotResponse(
             **_to_response(row).model_dump(by_alias=True),
-            rank=row["RANK_POSITION"],
+            rank=position,
             rankingUpdatedAt=row["RANKING_UPDATED_AT"],
         )
-        for row in rows
+        for position, row in enumerate(rows, start=1)
     ]
 
 
