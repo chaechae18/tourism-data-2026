@@ -21,6 +21,7 @@ export default function DonggyeongCamera({ items, onClose }) {
   const [avatarReady, setAvatarReady] = useState(false);
   const [error, setError] = useState(null);
   const [photo, setPhoto] = useState(null);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (photo) return;
@@ -87,16 +88,39 @@ export default function DonggyeongCamera({ items, onClose }) {
     }
   };
 
-  const savePhoto = () => {
+  const savePhoto = async () => {
+    if (!photo || saving) return;
+    setSaving(true);
+    setError(null);
     try {
+      const bytes = Uint8Array.from(atob(photo.split(",")[1]), (character) => character.charCodeAt(0));
+      const file = new File([bytes], "my-donggyeong.png", { type: "image/png" });
+      // Keep sharing in the button's user activation; do not await image conversion.
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        try {
+          await navigator.share({ files: [file] });
+          return;
+        } catch (cause) {
+          if (cause.name === "AbortError") return;
+          // A blocked share sheet can still allow a regular file download.
+        }
+      }
+      const url = URL.createObjectURL(file);
       const link = document.createElement("a");
-      link.href = photo;
-      link.download = "my-donggyeong.png";
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
+      try {
+        link.href = url;
+        link.download = file.name;
+        document.body.appendChild(link);
+        link.click();
+      } finally {
+        link.remove();
+        // Give the browser time to consume the URL before releasing it.
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      }
     } catch {
       setError("donggyeong.photoError");
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -115,8 +139,8 @@ export default function DonggyeongCamera({ items, onClose }) {
       {error && <p role="alert" className="mt-3 text-sm text-[#9f4a2c]">{t(error)}</p>}
       <div className="mt-4 flex flex-wrap justify-center gap-3">
         {photo ? <>
-          <AppButton icon={RefreshCw} variant="outline" onClick={() => { setAvatarReady(false); setPhoto(null); }}>{t("camera.retake")}</AppButton>
-          <AppButton icon={Download} onClick={savePhoto}>{t("camera.save")}</AppButton>
+          <AppButton icon={RefreshCw} variant="outline" disabled={saving} onClick={() => { setAvatarReady(false); setPhoto(null); }}>{t("camera.retake")}</AppButton>
+          <AppButton icon={Download} disabled={saving} onClick={savePhoto}>{t("camera.save")}</AppButton>
         </> : <>
           <AppButton icon={SwitchCamera} variant="outline" disabled={!cameraReady} onClick={() => { setCameraReady(false); setAvatarReady(false); setFacing((current) => current === "user" ? "environment" : "user"); }}>{t("camera.switch")}</AppButton>
           <AppButton icon={Camera} disabled={!cameraReady || !avatarReady || Boolean(error)} onClick={takePhoto}>{t("camera.shutter")}</AppButton>
