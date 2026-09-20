@@ -10,7 +10,8 @@ import httpx
 
 from app.mysql import connect
 from app.place_translation_cache import (
-    FIELDS, LANGUAGES, cached_fields, save_machine_translation, source_hash, source_rows,
+    FIELDS, LANGUAGES, cached_fields, is_partially_translated, record_rejected_translation,
+    save_machine_translation, source_hash, source_rows,
 )
 
 API_URL = "https://api.openai.com/v1/chat/completions"
@@ -45,7 +46,8 @@ def pending_places(connection, language):
             if cached and cached["SOURCE_HASH"] == source_hash(str(value)):
                 continue
             # 캐시 이력이 없는 기존 값은 공식 TourAPI 값이므로 GPT가 덮어쓰지 않는다.
-            if not cached and current.get(field):
+            # 다만 "慶州 배동 石造如来三尊立像" 처럼 한글이 남은 값은 번역이 덜 끝난 것이라 다시 받는다.
+            if not cached and current.get(field) and not is_partially_translated(current[field]):
                 continue
             missing[field] = str(value)
         if missing:
@@ -60,7 +62,10 @@ def translate_batch(client, api_key, model, language, places):
         f"Translate each Korean field into {LANGUAGE_NAMES[language]} for a tourism map. "
         "Return a JSON object with a 'places' array. Each item must contain the input 'id' "
         "and a 'fields' object with exactly the input keys. Translate faithfully. Preserve "
-        "numbers, clock times, prices, proper nouns, URLs, HTML structure, and uncertainty. "
+        "numbers, clock times, prices, URLs, HTML structure, and uncertainty. "
+        # 'proper nouns' 를 보존하라고 하면 지명을 한글 그대로 남긴다 (경주 배동 → 慶州 배동).
+        f"Render every Korean word in {LANGUAGE_NAMES[language]}: use the established name "
+        "where one exists and transliterate otherwise. Never leave Hangul in the output. "
         "Do not invent facts. Copy numeric substrings in the same order. Output only JSON."
     )
     payload = [{"id": place["id"], "fields": place["fields"]} for place in places]
@@ -99,9 +104,10 @@ def translation_batches(places):
         yield batch
 
 
+# 시각만 본다. 월 숫자는 번역되면 단어로 바뀌어(3월 → March) 비교 대상이 될 수 없다.
 def number_signature(value):
     return [tuple(int(part) for part in token.split(":"))
-            for token in re.findall(r"\d+(?::\d+)?", value)]
+            for token in re.findall(r"\d{1,2}:\d{2}", value)]
 
 
 def translate_missing_places(connection, languages=LANGUAGES, *, limit_places=None) -> int:
@@ -136,14 +142,30 @@ def translate_missing_places(connection, languages=LANGUAGES, *, limit_places=No
                         result = fields.get(field)
                         if source is None or not isinstance(result, str) or not result.strip():
                             continue
+                        reject = None
                         if (field in ("OPERATING_HOURS", "REST_DATE")
                                 and number_signature(source) != number_signature(result)):
-                            print(f"숫자 검토 필요: {place['id']} {language} {field}", flush=True)
+                            reject = "시각이 원문과 다름"
+                        else:
+                            try:
+                                save_machine_translation(
+                                    connection, place_idx=place["place_idx"], language=language,
+                                    field=field, source=source, translation=result, model=model,
+                                )
+                            except ValueError as error:
+                                reject = str(error)
+                            except RuntimeError as error:
+                                # NAME 이 빠져 아직 행이 없을 뿐이다. 다음 회차에 다시 시도한다.
+                                print(f"보류: {place['id']} {language} {field} — {error}", flush=True)
+                                continue
+                        if reject:
+                            # 온도 0 이라 다시 불러도 결과가 같다. 거절을 남겨 재시도를 멈춘다.
+                            record_rejected_translation(
+                                connection, place_idx=place["place_idx"], language=language,
+                                field=field, source=source, model=model,
+                            )
+                            print(f"거절: {place['id']} {language} {field} — {reject}", flush=True)
                             continue
-                        save_machine_translation(
-                            connection, place_idx=place["place_idx"], language=language,
-                            field=field, source=source, translation=result, model=model,
-                        )
                         total += 1
     return total
 

@@ -1,17 +1,55 @@
 """DB-backed provenance for place fields translated through OpenAI."""
 
 from hashlib import sha256
+import re
+
 import pymysql
 
 FIELDS = (
     "NAME", "TEXT", "ADDRESS", "OPERATING_HOURS", "ADMISSION_FEE",
     "PARKING", "REST_DATE", "MENU",
 )
+# PLACE_I18N 의 컬럼 폭과 같아야 한다. 번역문은 한국어 원문보다 두 배까지 길어진다.
 FIELD_LIMITS = {
-    "NAME": 200, "ADDRESS": 500, "OPERATING_HOURS": 300,
-    "ADMISSION_FEE": 300, "PARKING": 300, "REST_DATE": 300, "MENU": 500,
+    "NAME": 200, "ADDRESS": 500, "OPERATING_HOURS": 1000,
+    "ADMISSION_FEE": 1000, "PARKING": 1000, "REST_DATE": 1000, "MENU": 1000,
 }
 LANGUAGES = ("en", "ja", "zh")
+
+
+HANGUL = re.compile(r"[가-힣]")
+CLOSING_BRACKETS = {")": "(", "）": "（"}
+# 한글 뒤에 한자나 라틴 문자가 더 붙어 있으면 덧붙인 원문이 아니라 이름의 일부다.
+KOREAN_TAIL = re.compile(r"^[가-힣0-9\s()（）\[\]{}·,./\-~]+$")
+
+
+# 공사 외국어 서비스는 "Bulguksa Temple (경주 불국사)" 처럼 한국어 원문을 덧붙여 준다.
+def strip_korean_gloss(value: str | None) -> str:
+    text = (value or "").rstrip()
+    if not text or not HANGUL.search(text):
+        return text
+    if text[-1] in CLOSING_BRACKETS:
+        closer = text[-1]
+        opener = CLOSING_BRACKETS[closer]
+        depth = 0
+        for index in range(len(text) - 1, -1, -1):
+            if text[index] == closer:
+                depth += 1
+            elif text[index] == opener:
+                depth -= 1
+                if depth == 0:
+                    head = text[:index].rstrip()
+                    if head and HANGUL.search(text[index + 1 : -1]):
+                        return head
+                    break
+    start = HANGUL.search(text).start()
+    head = text[:start].rstrip(" ([（［")
+    return head if head and KOREAN_TAIL.match(text[start:]) else text
+
+
+# 원문을 떼어 내고도 한글이 남으면 번역이 덜 끝난 값이다.
+def is_partially_translated(value: str | None) -> bool:
+    return bool(HANGUL.search(strip_korean_gloss(value)))
 
 
 def source_hash(value: str) -> str:
@@ -71,6 +109,21 @@ def save_machine_translation(
             "VALUES (%s, %s, %s, %s, %s) ON DUPLICATE KEY UPDATE "
             "SOURCE_HASH = VALUES(SOURCE_HASH), TRANSLATION_SOURCE = 'OPENAI', "
             "MODEL = VALUES(MODEL), STATUS = 'machine', TRANSLATED_AT = CURRENT_TIMESTAMP",
+            (place_idx, language, field, source_hash(source), model),
+        )
+
+
+def record_rejected_translation(
+    connection: pymysql.Connection, *, place_idx: int, language: str,
+    field: str, source: str, model: str,
+) -> None:
+    with connection.cursor() as cursor:
+        cursor.execute(
+            "INSERT INTO PLACE_TRANSLATION_CACHE "
+            "(PLACE_IDX, LANGUAGE_CODE, FIELD_NAME, SOURCE_HASH, MODEL, STATUS) "
+            "VALUES (%s, %s, %s, %s, %s, 'rejected') ON DUPLICATE KEY UPDATE "
+            "SOURCE_HASH = VALUES(SOURCE_HASH), MODEL = VALUES(MODEL), "
+            "STATUS = 'rejected', TRANSLATED_AT = CURRENT_TIMESTAMP",
             (place_idx, language, field, source_hash(source), model),
         )
 
