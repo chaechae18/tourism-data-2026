@@ -77,14 +77,15 @@ def set_reaction(connection: pymysql.Connection, *, spot_id: int, user_no: int, 
 def create_comment(connection: pymysql.Connection, *, spot_id: int, user_no: int, request: CommentCreateRequest) -> CommentResponse:
     require_active_user(connection, user_no)
     require_approved_spot(connection, spot_id)
-    comment_id = _execute(connection, "INSERT INTO SPOT_COMMENT (SPOT_IDX, USER_NO, CONTENT) VALUES (%s, %s, %s)", (spot_id, user_no, request.content))
+    # 작성 언어를 남겨 두면 보는 사람 언어와 다를 때만 번역 버튼을 띄울 수 있다.
+    comment_id = _execute(connection, "INSERT INTO SPOT_COMMENT (SPOT_IDX, USER_NO, CONTENT, LANGUAGE_CODE) VALUES (%s, %s, %s, (SELECT LANGUAGE_CODE FROM USERS WHERE NO = %s))", (spot_id, user_no, request.content, user_no))
     return get_comment(connection, comment_id=comment_id, viewer_no=user_no)
 
 
 def get_comment(connection: pymysql.Connection, *, comment_id: int, viewer_no: int | None) -> CommentResponse:
     row = _one(connection, """
-        SELECT c.IDX, c.SPOT_IDX, c.USER_NO, u.NICKNAME, c.CONTENT, c.MODERATION_STATUS,
-            (c.USER_NO = %s) AS IS_OWNER, c.CREATED_AT
+        SELECT c.IDX, c.SPOT_IDX, c.USER_NO, u.NICKNAME, c.CONTENT, c.LANGUAGE_CODE,
+            c.MODERATION_STATUS, (c.USER_NO = %s) AS IS_OWNER, c.CREATED_AT
         FROM SPOT_COMMENT c JOIN USERS u ON u.NO = c.USER_NO
         WHERE c.IDX = %s AND c.DELETED_AT IS NULL
         """, (viewer_no or -1, comment_id))
@@ -97,8 +98,8 @@ def list_comments(connection: pymysql.Connection, *, spot_id: int, viewer_no: in
     require_approved_spot(connection, spot_id)
     viewer = viewer_no or -1
     rows = _all(connection, """
-        SELECT c.IDX, c.SPOT_IDX, c.USER_NO, u.NICKNAME, c.CONTENT, c.MODERATION_STATUS,
-            (c.USER_NO = %s) AS IS_OWNER, c.CREATED_AT
+        SELECT c.IDX, c.SPOT_IDX, c.USER_NO, u.NICKNAME, c.CONTENT, c.LANGUAGE_CODE,
+            c.MODERATION_STATUS, (c.USER_NO = %s) AS IS_OWNER, c.CREATED_AT
         FROM SPOT_COMMENT c JOIN USERS u ON u.NO = c.USER_NO
         WHERE c.SPOT_IDX = %s AND c.DELETED_AT IS NULL
           AND (c.MODERATION_STATUS = 1 OR c.USER_NO = %s)
@@ -111,6 +112,7 @@ def _to_comment_response(row: dict) -> CommentResponse:
     return CommentResponse.model_validate({
         "id": row["IDX"], "spotId": row["SPOT_IDX"], "userNo": row["USER_NO"],
         "authorNickname": row["NICKNAME"], "content": row["CONTENT"],
+        "languageCode": row["LANGUAGE_CODE"],
         "moderationStatus": row["MODERATION_STATUS"], "isOwner": bool(row["IS_OWNER"]),
         "createdAt": row["CREATED_AT"],
     })

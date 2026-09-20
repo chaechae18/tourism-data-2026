@@ -25,7 +25,7 @@ SPOT_SELECT = """
     SELECT s.IDX AS SPOT_ID, s.USER_NO, u.NICKNAME,
         s.MAP_PROVIDER, s.MAP_PLACE_ID, s.PLACE_TYPE,
         s.PLACE_NAME, s.PLACE_ADDRESS AS ADDRESS,
-        s.LAT, s.LNG, s.PHOTO_URL, s.CAPTION, s.LIKE_COUNT,
+        s.LAT, s.LNG, s.PHOTO_URL, s.CAPTION, s.LANGUAGE_CODE, s.LIKE_COUNT,
         (SELECT COUNT(*) FROM SPOT_COMMENT c
             WHERE c.SPOT_IDX = s.IDX
               AND c.MODERATION_STATUS = 1
@@ -97,9 +97,10 @@ def create_spot(
             """
             INSERT INTO SPOTS (
                 USER_NO, MAP_PROVIDER, MAP_PLACE_ID, PLACE_TYPE,
-                PLACE_NAME, PLACE_ADDRESS, LAT, LNG, PHOTO_URL, CAPTION
+                PLACE_NAME, PLACE_ADDRESS, LAT, LNG, PHOTO_URL, CAPTION, LANGUAGE_CODE
             )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                (SELECT LANGUAGE_CODE FROM USERS WHERE NO = %s))
             """,
             (
                 user_no,
@@ -112,6 +113,7 @@ def create_spot(
                 place.longitude,
                 request.photo_url,
                 request.caption,
+                user_no,
             ),
         )
 
@@ -297,6 +299,7 @@ def _to_response(row: dict) -> SpotResponse:
             },
             "photoUrl": row["PHOTO_URL"],
             "caption": row["CAPTION"],
+            "languageCode": row["LANGUAGE_CODE"],
             "likeCount": row["LIKE_COUNT"],
             "commentCount": row["COMMENT_COUNT"],
             "isLiked": bool(row["IS_LIKED"]),
