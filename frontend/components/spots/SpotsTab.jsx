@@ -96,7 +96,7 @@ function SpotCard({
   onReaction,
   spot,
   submittingComment,
-  className = "rounded-lg bg-white p-4",
+  className = "rounded-lg bg-white p-4 shadow-[4px_4px_12px_rgba(52,50,53,0.06)]",
   hidePhoto = false,
 }) {
   const { t } = useI18n();
@@ -205,7 +205,7 @@ function SpotGridTile({ onOpen, spot }) {
     <button
       type="button"
       aria-label={t("spots.openPost", { name: spot.place.name })}
-      className="group relative aspect-square min-w-0 overflow-hidden rounded-xl bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8661c]"
+      className="group relative aspect-square min-w-0 overflow-hidden rounded-xl bg-white shadow-[4px_4px_12px_rgba(52,50,53,0.06)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8661c]"
       onClick={() => onOpen(spot.id)}
     >
       <SpotPhoto
@@ -276,7 +276,7 @@ function DummySpotGridCard({ index }) {
     <article
       aria-label={t("spots.spotPlaceholder", { index })}
       data-testid="spot-placeholder"
-      className="aspect-square min-w-0 overflow-hidden rounded-xl bg-white p-2 shadow-[0_3px_12px_rgba(52,50,53,0.06)]"
+      className="aspect-square min-w-0 overflow-hidden rounded-xl bg-white p-2 shadow-[4px_4px_12px_rgba(52,50,53,0.06)]"
     >
       <div className="h-full w-full bg-[#f1eee9]" />
     </article>
@@ -290,7 +290,7 @@ function DummyRankingCard({ rank }) {
     <article
       aria-label={t("spots.rankingPlaceholder", { rank })}
       data-testid="ranking-placeholder"
-      className="flex min-h-28 items-center gap-3 rounded-xl bg-white p-3 shadow-[0_3px_12px_rgba(52,50,53,0.06)]"
+      className="flex min-h-28 items-center gap-3 rounded-xl bg-white p-3 shadow-[4px_4px_12px_rgba(52,50,53,0.06)]"
     >
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-black text-white">
         {rank}
@@ -736,7 +736,7 @@ export default function SpotsTab() {
         {errors.my && <p className="mb-3 text-sm font-bold text-brand-ink">{errors.my}</p>}
         <div className="space-y-2">
           {mySpots.map((spot) => (
-            <div key={spot.id} className="flex items-center gap-3 rounded-lg border border-[#e6ddd2] bg-white p-3">
+            <div key={spot.id} className="flex items-center gap-3 rounded-lg border border-[#e6ddd2] bg-white p-3 shadow-[4px_4px_12px_rgba(52,50,53,0.06)]">
               <MapPin size={17} className="shrink-0 text-[#b8661c]" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
