@@ -13,10 +13,11 @@ pwd_context = CryptContext(
 class UserAlreadyExistsError(Exception):
     pass
 
-
 class InvalidCredentialsError(Exception):
     pass
 
+class UserDeletedError(Exception):
+    pass
 
 def signup(
     connection: pymysql.Connection,
@@ -96,6 +97,7 @@ def signup(
         "nickname": nickname,
         "email": email,
         "country": country,
+        "birthDate": birth_date.isoformat() if birth_date else None,
         "languageCode": language_code,
         "message": "회원가입 성공",
     }
@@ -118,14 +120,14 @@ def login(
                 u.PROFILE_IMAGE AS profile_image,
                 u.LANGUAGE_CODE AS language_code,
                 u.COUNTRY AS country,
+                u.BIRTH_DATE AS birthDate,
                 u.STATUS AS status,
+                u.DELETED_AT AS deleted_at,
                 ua.PASSWORD_HASH AS password_hash
             FROM USERS u
             INNER JOIN USER_AUTH ua
                 ON ua.USER_NO = u.NO
             WHERE u.ID = %s
-              AND u.STATUS = 1
-              AND u.DELETED_AT IS NULL
               AND ua.PROVIDER = 1
             LIMIT 1
             """,
@@ -139,6 +141,13 @@ def login(
         raise InvalidCredentialsError
 
     password_hash = user["password_hash"]
+    
+    # 탈퇴한 사용자
+    if (
+        user["status"] != 1
+        or user["deleted_at"] is not None
+    ):
+        raise UserDeletedError
 
     # 비밀번호가 없는 계정
     if not password_hash:
@@ -476,20 +485,26 @@ def login_with_kakao(
                 u.PROFILE_IMAGE AS profile_image,
                 u.LANGUAGE_CODE AS language_code,
                 u.COUNTRY AS country,
+                u.DELETED_AT AS deleted_at,
                 u.STATUS AS status
             FROM USERS u
             INNER JOIN USER_AUTH ua
                 ON ua.USER_NO = u.NO
             WHERE ua.PROVIDER = 3
               AND ua.PROVIDER_ID = %s
-              AND u.STATUS = 1
-              AND u.DELETED_AT IS NULL
             LIMIT 1
             """,
             (provider_id,),
         )
 
         user = cursor.fetchone()
+        
+        # 탈퇴한 카카오 회원
+        if user and (
+            user["status"] != 1
+            or user["deleted_at"] is not None
+        ):
+            raise UserDeletedError
 
         # =====================================================
         # 2. 기존 카카오 회원이면 로그인
@@ -710,14 +725,13 @@ def login_with_google(
                 u.PROFILE_IMAGE AS profile_image,
                 u.LANGUAGE_CODE AS language_code,
                 u.COUNTRY AS country,
+                u.DELETED_AT AS deleted_at,
                 u.STATUS AS status
             FROM USERS u
             INNER JOIN USER_AUTH ua
                 ON ua.USER_NO = u.NO
             WHERE ua.PROVIDER = %s
               AND ua.PROVIDER_ID = %s
-              AND u.STATUS = 1
-              AND u.DELETED_AT IS NULL
             LIMIT 1
             """,
             (
@@ -727,6 +741,12 @@ def login_with_google(
         )
 
         user = cursor.fetchone()
+        
+        if user and (
+            user["status"] != 1
+            or user["deleted_at"] is not None
+        ):
+            raise UserDeletedError
 
         # =====================================================
         # 2. 기존 구글 회원이면 로그인

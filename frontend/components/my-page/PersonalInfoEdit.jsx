@@ -3,11 +3,14 @@ import {
   Mail,
   User,
   Globe2,
-  CalendarDays,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import Select from "react-select";
+import countryList from "react-select-country-list";
+
 import { useI18n } from "../i18n/LanguageProvider";
 import AppButton from "../ui/AppButton";
+
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
 
@@ -17,18 +20,57 @@ export default function PersonalInfoEdit({
   onClose,
   onNotice,
 }) {
-  const { t } = useI18n();
-  const [nickname, setNickname] = useState(user?.nickname ?? "");
-  const [country, setCountry] = useState(user?.country ?? "");
-  const [birthDate, setBirthDate] = useState(user?.birthDate ?? "");
-  const [email, setEmail] = useState(user?.email ?? "");
+  const { t, language } = useI18n();
+
+  const [nickname, setNickname] = useState(
+    user?.nickname ?? ""
+  );
+
+  const [country, setCountry] = useState(
+    user?.country ?? ""
+  );
+
+  const [email, setEmail] = useState(
+    user?.email ?? ""
+  );
+
+  // 회원가입 화면과 동일한 국가 목록
+  const countries = useMemo(() => {
+    const options = countryList().getData();
+
+    if (!Intl.DisplayNames) {
+      return options;
+    }
+
+    const displayNames = new Intl.DisplayNames(
+      [language === "ko"
+        ? "ko-KR"
+        : language === "en"
+        ? "en-US"
+        : language === "zh"
+        ? "zh-CN"
+        : "ja-JP"],
+      {
+        type: "region",
+      }
+    );
+
+    return options.map((item) => ({
+      ...item,
+      label:
+        displayNames.of(item.value) || item.label,
+    }));
+  }, [language]);
+
+  const selectedCountry = countries.find(
+    (item) => item.value === country
+  ) || null;
 
   const handleSave = async () => {
     try {
       const updateData = {
         nickname: nickname.trim(),
         country: country.trim(),
-        birthDate: birthDate || null,
         email: email.trim(),
       };
 
@@ -44,23 +86,36 @@ export default function PersonalInfoEdit({
         }
       );
 
-      if (!response.ok) {
-        throw new Error("개인정보 수정에 실패했습니다.");
-      }
+      const data = await response
+        .json()
+        .catch(() => ({}));
 
-      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(
+          data?.detail ||
+            "개인정보 수정에 실패했습니다."
+        );
+      }
 
       setUser((current) => ({
         ...current,
         ...(data?.user ?? updateData),
       }));
 
-      onNotice?.(t("myPage.personalInfo.updated"));
+      onNotice?.(
+        t("myPage.personalInfo.updated")
+      );
+
       onClose?.();
     } catch (error) {
-      console.error("개인정보 수정 실패:", error);
+      console.error(
+        "개인정보 수정 실패:",
+        error
+      );
+
       onNotice?.(
-        error.message || t("myPage.personalInfo.updateFailed")
+        error.message ||
+          t("myPage.personalInfo.updateFailed")
       );
     }
   };
@@ -113,19 +168,14 @@ export default function PersonalInfoEdit({
               text-[#343235]
             "
           >
-             {t("myPage.personalInfo.title")}
+            {t("myPage.personalInfo.title")}
           </h2>
-
-          <p className="mt-1 text-[11px] text-[#969087]">
-            {t("myPage.personalInfo.places")}
-          </p>
         </div>
       </div>
 
       {/* 기본 정보 카드 */}
       <div
         className="
-          overflow-hidden
           rounded-2xl
           border border-[#ebe5dc]
           bg-white
@@ -162,13 +212,16 @@ export default function PersonalInfoEdit({
                 size={14}
                 className="text-brand"
               />
+
               {t("myPage.personalInfo.nickname")}
             </label>
 
             <input
               type="text"
               value={nickname}
-              onChange={(e) => setNickname(e.target.value)}
+              onChange={(e) =>
+                setNickname(e.target.value)
+              }
               className="
                 h-[50px]
                 w-full
@@ -187,7 +240,9 @@ export default function PersonalInfoEdit({
                 focus:ring-4
                 focus:ring-[#bd8c31]/10
               "
-              placeholder={t("myPage.personalInfo.emailPlaceholder")}
+              placeholder={t(
+                "myPage.personalInfo.nickname"
+              )}
             />
           </div>
 
@@ -208,13 +263,16 @@ export default function PersonalInfoEdit({
                 size={14}
                 className="text-brand"
               />
+
               {t("myPage.personalInfo.email")}
             </label>
 
             <input
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) =>
+                setEmail(e.target.value)
+              }
               className="
                 h-[50px]
                 w-full
@@ -233,7 +291,9 @@ export default function PersonalInfoEdit({
                 focus:ring-4
                 focus:ring-[#bd8c31]/10
               "
-              placeholder={t('myPage.personalInfo.emailPlaceholder')}
+              placeholder={t(
+                "myPage.personalInfo.emailPlaceholder"
+              )}
             />
           </div>
 
@@ -254,76 +314,25 @@ export default function PersonalInfoEdit({
                 size={14}
                 className="text-brand"
               />
+
               {t("myPage.personalInfo.country")}
             </label>
 
-            <input
-              type="text"
-              value={country}
-              onChange={(e) => setCountry(e.target.value)}
-              className="
-                h-[50px]
-                w-full
-                rounded-xl
-                border border-[#e6e1d9]
-                bg-[#fcfbf9]
-                px-4
-                text-[13px]
-                text-[#393633]
-                outline-none
-                transition-all
-                placeholder:text-[#b5afa7]
-                hover:border-[#d8d0c4]
-                focus:border-[#c9a15a]
-                focus:bg-white
-                focus:ring-4
-                focus:ring-[#bd8c31]/10
-              "
-              placeholder={t('myPage.personalInfo.countryPlaceholder')}
-            />
-          </div>
-
-          {/* 생년월일 */}
-          <div>
-            <label
-              className="
-                mb-2
-                flex
-                items-center
-                gap-1.5
-                text-[12px]
-                font-semibold
-                text-[#55514c]
-              "
-            >
-              <CalendarDays
-                size={14}
-                className="text-brand"
-              />
-              {t("myPage.personalInfo.birthDate")}
-            </label>
-
-            <input
-              type="date"
-              value={birthDate}
-              onChange={(e) => setBirthDate(e.target.value)}
-              className="
-                h-[50px]
-                w-full
-                rounded-xl
-                border border-[#e6e1d9]
-                bg-[#fcfbf9]
-                px-4
-                text-[13px]
-                text-[#393633]
-                outline-none
-                transition-all
-                hover:border-[#d8d0c4]
-                focus:border-[#c9a15a]
-                focus:bg-white
-                focus:ring-4
-                focus:ring-[#bd8c31]/10
-              "
+            <Select
+              options={countries}
+              value={selectedCountry}
+              onChange={(selected) =>
+                setCountry(
+                  selected?.value || ""
+                )
+              }
+              placeholder={t(
+                "myPage.personalInfo.countryPlaceholder"
+              )}
+              isSearchable
+              isClearable={false}
+              className="text-sm"
+              classNamePrefix="country-select"
             />
           </div>
         </div>
@@ -360,7 +369,9 @@ export default function PersonalInfoEdit({
 
           <div>
             <p className="text-[12px] font-semibold text-[#625b53]">
-              {t("myPage.personalInfo.noticeTitle")}
+              {t(
+                "myPage.personalInfo.noticeTitle"
+              )}
             </p>
 
             <p
@@ -371,7 +382,9 @@ export default function PersonalInfoEdit({
                 text-[#958c82]
               "
             >
-              {t("myPage.personalInfo.noticeDescription")}
+              {t(
+                "myPage.personalInfo.noticeDescription"
+              )}
             </p>
           </div>
         </div>
@@ -394,7 +407,7 @@ export default function PersonalInfoEdit({
         "
         onClick={handleSave}
       >
-         {t("myPage.personalInfo.save")}
+        {t("myPage.personalInfo.save")}
       </AppButton>
     </section>
   );

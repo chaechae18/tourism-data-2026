@@ -20,6 +20,7 @@ from .routers.journey import router as journey_router
 from .routers.notifications import router as notifications_router
 from .routers.places import router as places_router
 from .routers.spots import router as spots_router
+from .routers.translations import router as translations_router
 from .routers.uploads import router as uploads_router
 from .routers.users import router as users_router
 
@@ -48,7 +49,7 @@ app.add_middleware(
 )
 app.add_middleware(
     SessionMiddleware,
-    secret_key="dev-session-secret-key-change-this",
+    secret_key=settings.session_secret_key,
     session_cookie="session",
     max_age=60 * 60 * 24,
     same_site="lax",
@@ -110,6 +111,7 @@ app.include_router(places_router)
 app.include_router(journey_router)
 app.include_router(spots_router)
 app.include_router(interactions_router)
+app.include_router(translations_router)
 app.include_router(notifications_router)
 app.include_router(admin_router)
 app.include_router(uploads_router)

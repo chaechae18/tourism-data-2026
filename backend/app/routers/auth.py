@@ -17,6 +17,7 @@ from ..auth import (
     login_with_google,
     UserAlreadyExistsError,
     InvalidCredentialsError,
+    UserDeletedError,
 )
 
 from ..mysql import get_mysql
@@ -39,8 +40,6 @@ def create_signup(
     database: pymysql.Connection = Depends(get_mysql),
 ) -> SignupResponse:
 
-    print("signup request:", request)
-
     try:
         user = signup(
             database,
@@ -61,6 +60,7 @@ def create_signup(
             "user_id": user["userId"],
             "nickname": user["nickname"],
             "country": user["country"],
+            "birthDate": user["birthDate"],
             "email": user["email"],
             "language_code": user["languageCode"],
         }
@@ -87,8 +87,6 @@ async def create_login(
     try:
         body = await request.json()
 
-        print("login body:", body)
-
         user_id = body.get("id")
         password = body.get("password")
 
@@ -103,12 +101,20 @@ async def create_login(
             user_id=user_id,
             password=password,
         )
-
+    except UserDeletedError:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "USER_DELETED",
+                "message": "탈퇴한 회원입니다.",
+            },
+    )
     except InvalidCredentialsError:
         raise HTTPException(
             status_code=401,
             detail="아이디 또는 비밀번호가 올바르지 않습니다.",
         )
+    
 
     request.session.clear()
 
@@ -152,6 +158,7 @@ def get_current_user(
                 NICKNAME AS nickname,
                 EMAIL AS email,
                 COUNTRY AS country,
+                BIRTH_DATE AS birthDate,
                 PROFILE_IMAGE AS profile_image,
                 LANGUAGE_CODE AS language_code
             FROM USERS
@@ -190,7 +197,6 @@ def check_id(
             SELECT NO
             FROM USERS
             WHERE ID = %s
-              AND DELETED_AT IS NULL
             LIMIT 1
             """,
             (id,),
@@ -346,6 +352,7 @@ async def naver_callback(
         "nickname": user["nickname"],
         "email": user["email"],
         "country": user["country"],
+        "birthDate": user["birthDate"],
         "profile_image": user["profile_image"],
         "language_code": user["language_code"],
     }
@@ -487,15 +494,51 @@ async def kakao_callback(
             state=state,
         )
 
+    except UserDeletedError as e:
+        connection.rollback()
+        
+        frontend_url = os.getenv("CORS_ORIGINS")
+        
+        if not frontend_url:
+                raise HTTPException(
+                    status_code=500,
+                    detail="CORS_ORIGINS이 설정되지 않았습니다.",
+                )
+        
+        print("🔥 KAKAO OTHER ERROR:", type(e))
+        raise HTTPException(
+            url=f"{frontend_url}?error=USER_DELETED",
+            status_code=302,
+        )
+
     except Exception as e:
+        connection.rollback()
+
         print(
-            "KAKAO OAUTH ERROR:",
+            "KAKAO DB LOGIN ERROR:",
             repr(e),
         )
 
-        raise HTTPException(
-            status_code=400,
-            detail="카카오 로그인에 실패했습니다.",
+        frontend_url = os.getenv("CORS_ORIGINS")
+        
+        if not frontend_url:
+                raise HTTPException(
+                    status_code=500,
+                    detail="CORS_ORIGINS이 설정되지 않았습니다.",
+                )
+        
+
+        # 탈퇴 회원
+        if isinstance(e, UserDeletedError):
+            return RedirectResponse(
+                url=f"{frontend_url}?error=USER_DELETED",
+                status_code=302,
+            )
+
+        # 그 외 모든 오류
+        return RedirectResponse(
+            url=f"{frontend_url}?error=KAKAO_LOGIN_ERROR",
+            status_code=302,
         )
 
     print("KAKAO USER:", kakao_user)
@@ -509,19 +552,28 @@ async def kakao_callback(
             kakao_user=kakao_user,
         )
 
+    except UserDeletedError:
+        connection.rollback()
+
+        print("🔥 KAKAO USER DELETED")
+
+        return RedirectResponse(
+            url=f"{frontend_url}?error=USER_DELETED",
+            status_code=302,
+        )
+
     except Exception as e:
         connection.rollback()
 
         print(
-            "KAKAO DB LOGIN ERROR:",
+            "🔥 KAKAO DB LOGIN ERROR:",
             repr(e),
         )
 
-        raise HTTPException(
-            status_code=500,
-            detail="카카오 회원 처리에 실패했습니다.",
+        return RedirectResponse(
+            url=f"{frontend_url}?error=KAKAO_LOGIN_ERROR",
+            status_code=302,
         )
-
     # =====================================================
     # 3. 기존 로그인과 동일하게 세션 저장
     # =====================================================
@@ -558,7 +610,6 @@ async def kakao_callback(
 # =========================================================
 @router.get("/google/login")
 def google_login(request: Request):
-
     client_id = os.getenv("GOOGLE_CLIENT_ID")
     redirect_uri = os.getenv("GOOGLE_REDIRECT_URI")
 
@@ -573,6 +624,17 @@ def google_login(request: Request):
             status_code=500,
             detail="GOOGLE_REDIRECT_URI가 설정되지 않았습니다.",
         )
+
+    # OAuth 시작 전 현재 프론트 페이지 저장
+    return_url = request.headers.get("referer")
+
+    if not return_url:
+        return_url = os.getenv(
+            "CORS_ORIGINS",
+            "http://localhost:3000",
+        )
+
+    request.session["oauth_return_url"] = return_url
 
     # OAuth state 생성
     state = secrets.token_urlsafe(32)
@@ -675,15 +737,28 @@ async def google_callback(
             state=state,
         )
 
+    except UserDeletedError:
+        connection.rollback()
+
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "USER_DELETED",
+                "message": "탈퇴한 회원입니다.",
+            },
+        )
+
     except Exception as e:
+        connection.rollback()
+
         print(
-            "GOOGLE OAUTH ERROR:",
+            "GOOGLE DB LOGIN ERROR:",
             repr(e),
         )
 
         raise HTTPException(
-            status_code=400,
-            detail="구글 로그인에 실패했습니다.",
+            status_code=500,
+            detail="구글 회원 처리에 실패했습니다.",
         )
 
     print("GOOGLE USER:", google_user)
@@ -794,7 +869,7 @@ def update_user(
                 NICKNAME AS nickname,
                 EMAIL AS email,
                 COUNTRY AS country,
-                BIRTH_DATE AS birth_date,
+                BIRTH_DATE AS birthDate,
                 PROFILE_IMAGE AS profile_image,
                 LANGUAGE_CODE AS language_code
             FROM USERS
@@ -807,6 +882,7 @@ def update_user(
         )
 
         user = cursor.fetchone()
+        print(user);
 
     if not user:
         raise HTTPException(
@@ -821,6 +897,7 @@ def update_user(
         "nickname": user["nickname"],
         "email": user["email"],
         "country": user["country"],
+        "birthDate": user["birthDate"],
         "profile_image": user["profile_image"],
         "language_code": user["language_code"],
     }
@@ -840,7 +917,14 @@ def get_visit_places(
 ):
     # 현재 로그인 사용자 확인
     session_user = request.session.get("user")
-    user_no = session_user.get("user_no") if session_user else None
+
+    if not session_user:
+        raise HTTPException(
+            status_code=401,
+            detail="로그인이 필요합니다.",
+        )
+
+    user_no = session_user.get("user_no")
 
     if not user_no:
         raise HTTPException(
@@ -848,38 +932,143 @@ def get_visit_places(
             detail="로그인이 필요합니다.",
         )
 
-    with database.cursor() as cursor:
+    with database.cursor(pymysql.cursors.DictCursor) as cursor:
+
+        # --------------------------------------------------
+        # 1. USER 테이블에서 현재 사용자의 언어 조회
+        # --------------------------------------------------
+        cursor.execute(
+            """
+            SELECT LANGUAGE_CODE
+            FROM USERS
+            WHERE NO = %s
+            """,
+            (user_no,),
+        )
+
+        user_info = cursor.fetchone()
+
+        if not user_info:
+            raise HTTPException(
+                status_code=404,
+                detail="사용자 정보를 찾을 수 없습니다.",
+            )
+
+        # 현재 사용자 언어
+        # 값이 없으면 한국어
+        language_code = user_info.get("LANGUAGE_CODE") or "ko"
+
+        print("user_no:", user_no)
+        print("language_code:", language_code)
+
+        # --------------------------------------------------
+        # 2. 내가 방문한 장소 조회
+        # --------------------------------------------------
         cursor.execute(
             """
             SELECT DISTINCT
                 p.IDX AS place_idx,
-                p.NAME AS name,
-                p.TEXT AS text,
+
+                -- -----------------------------------------
+                -- 이름
+                -- 현재 언어 → 한국어 → PLACE 원본
+                -- -----------------------------------------
+                COALESCE(
+                    NULLIF(t.NAME, ''),
+                    NULLIF(k.NAME, ''),
+                    p.NAME
+                ) AS name,
+
+                -- -----------------------------------------
+                -- 설명
+                -- 현재 언어 → 한국어 → PLACE 원본
+                -- -----------------------------------------
+                COALESCE(
+                    NULLIF(t.TEXT, ''),
+                    NULLIF(k.TEXT, ''),
+                    NULLIF(p.TEXT, '')
+                ) AS text,
+
+                -- -----------------------------------------
+                -- 주소
+                -- 현재 언어 → 한국어 → PLACE 원본
+                -- -----------------------------------------
+                COALESCE(
+                    NULLIF(t.ADDRESS, ''),
+                    NULLIF(k.ADDRESS, ''),
+                    p.ADDRESS
+                ) AS address,
+
+                -- -----------------------------------------
+                -- 운영시간
+                -- 현재 언어 → 한국어 → PLACE 원본
+                -- -----------------------------------------
+                COALESCE(
+                    NULLIF(t.OPERATING_HOURS, ''),
+                    NULLIF(k.OPERATING_HOURS, ''),
+                    p.OPERATING_HOURS
+                ) AS operating_hours,
+
+                -- -----------------------------------------
+                -- 입장료
+                -- 현재 언어 → 한국어 → PLACE 원본
+                -- -----------------------------------------
+                COALESCE(
+                    NULLIF(t.ADMISSION_FEE, ''),
+                    NULLIF(k.ADMISSION_FEE, ''),
+                    p.ADMISSION_FEE
+                ) AS admission_fee,
+
+                -- -----------------------------------------
+                -- PLACE 원본 데이터
+                -- -----------------------------------------
                 p.CONTENT AS content,
                 p.IMG AS img,
-                p.ADDRESS AS address,
                 p.LATITUDE AS latitude,
                 p.LONGITUDE AS longitude,
-                p.OPERATING_HOURS AS operating_hours,
-                p.ADMISSION_FEE AS admission_fee,
                 p.PARKING AS parking,
                 p.REST_DATE AS rest_date,
                 p.MENU AS menu,
                 p.CATEGORY_CODE AS category_code,
                 p.CATEGORY_MAIN AS category_main,
                 p.CATEGORY_SUB AS category_sub
+
             FROM USER_CHARACTER uc
+
             JOIN USER_QUEST uq
                 ON uq.USER_CHARACTER_IDX = uc.IDX
+
             JOIN QUEST q
                 ON q.IDX = uq.QUEST_IDX
+
             JOIN PLACE p
                 ON p.IDX = q.MAP_PLACE_IDX
+
+            -- -----------------------------------------
+            -- 현재 사용자 언어
+            -- -----------------------------------------
+            LEFT JOIN PLACE_I18N t
+                ON t.PLACE_IDX = p.IDX
+                AND t.LANGUAGE_CODE = %s
+
+            -- -----------------------------------------
+            -- 한국어 fallback
+            -- -----------------------------------------
+            LEFT JOIN PLACE_I18N k
+                ON k.PLACE_IDX = p.IDX
+                AND k.LANGUAGE_CODE = 'ko'
+
             WHERE uc.USER_NO = %s
               AND uq.STATUS = 2
-            ORDER BY p.NAME
+
+            ORDER BY
+                COALESCE(
+                    NULLIF(t.NAME, ''),
+                    NULLIF(k.NAME, ''),
+                    p.NAME
+                )
             """,
-            (user_no,),
+            (language_code, user_no),
         )
 
         places = cursor.fetchall()

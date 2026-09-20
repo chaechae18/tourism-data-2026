@@ -30,6 +30,7 @@ import {
 import { BLOCKED_WORDS, SPOT_REVIEW_LIMIT } from "../../lib/app-data";
 import { translateError } from "../../lib/i18n";
 import { useI18n } from "../i18n/LanguageProvider";
+import TranslatableText from "./TranslatableText";
 import AppButton, { IconButton } from "../ui/AppButton";
 import AppModal from "../ui/AppModal";
 import SectionHeading from "../ui/SectionHeading";
@@ -118,8 +119,15 @@ function SpotCard({
               @{spot.authorNickname}
             </span>
           </div>
-          <h2 className="mt-1 font-bold text-[#241b16]">{spot.place.name}</h2>
-          <p className="mt-2 text-sm leading-6 text-[#5f5044]">{spot.caption}</p>
+          <TranslatableText
+            targetType="spot"
+            targetId={spot.id}
+            sourceLanguage={spot.languageCode}
+            name={spot.place.name}
+            nameClassName="mt-1 font-bold text-[#241b16]"
+            text={spot.caption}
+            className="mt-2 text-sm leading-6 text-[#5f5044]"
+          />
         </div>
       </div>
       <div className="mt-4 flex items-center gap-1 border-t border-[#f0e8de] pt-3">
@@ -165,7 +173,13 @@ function SpotCard({
                   <span className="text-[10px] font-bold text-brand-ink">{t("spots.pending")}</span>
                 )}
               </div>
-              <p className="mt-1 text-sm text-[#5f5044]">{item.content}</p>
+              <TranslatableText
+                targetType="comment"
+                targetId={item.id}
+                sourceLanguage={item.languageCode}
+                text={item.content}
+                className="mt-1 text-sm text-[#5f5044]"
+              />
             </div>
           ))}
           {comments.length === 0 && (

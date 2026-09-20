@@ -41,6 +41,7 @@ class SpotResponse(CamelModel):
     place: SpotPlace
     photo_url: str | None = Field(alias="photoUrl")
     caption: str
+    language_code: str | None = Field(default=None, alias="languageCode")
     like_count: int = Field(alias="likeCount")
     comment_count: int = Field(default=0, alias="commentCount")
     is_liked: bool = Field(default=False, alias="isLiked")
@@ -77,6 +78,7 @@ class CommentResponse(CamelModel):
     user_no: int = Field(alias="userNo")
     author_nickname: str = Field(alias="authorNickname")
     content: str
+    language_code: str | None = Field(default=None, alias="languageCode")
     moderation_status: int = Field(alias="moderationStatus")
     is_owner: bool = Field(alias="isOwner")
     created_at: datetime = Field(alias="createdAt")

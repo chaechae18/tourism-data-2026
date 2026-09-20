@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Check, ChevronRight, Globe2, MapPin, Pencil, ShieldCheck } from "lucide-react";
+import {BookOpen,Check,ChevronRight,Globe2,LogOut,MapPin,Pencil,ShieldCheck,Trash2} from "lucide-react";
 import { LANGUAGES, PROFILE_MENU, QUESTS } from "../../lib/app-data";
 import { createTranslator } from "../../lib/i18n";
 import { useI18n } from "../i18n/LanguageProvider";
@@ -109,6 +109,7 @@ export default function MyPageTab({ completedQuestIds, onLogout, onNotice, onOpe
 
         <div className="divide-y divide-[#e6ddd2] border-y border-[#e6ddd2]">
 
+
           {PROFILE_MENU.map((item) => {
             const label = t(`myPage.${item.id}`);
 
@@ -117,7 +118,17 @@ export default function MyPageTab({ completedQuestIds, onLogout, onNotice, onOpe
                 key={item.id}
                 type="button"
                 onClick={() => {
-                  if (item.id === "privacy") {
+                  if (item.id === "logout") { onLogout?.(); return; }
+
+                  if (item.id === "contact") {
+                    window.open(
+                      "https://github.com/chaechae18/tourism-data-2026",
+                      "_blank",
+                      "noopener,noreferrer"
+                    );
+                    return;
+                  }
+                   if (item.id === "privacy") {
                     setShowPersonalInfo(true);
                     return;
                   }
@@ -141,16 +152,20 @@ export default function MyPageTab({ completedQuestIds, onLogout, onNotice, onOpe
                 className="flex w-full items-center gap-3 py-4 text-left transition-colors "
               >
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f8f3ed] text-[#7c6d61]">
-                  {item.id === "guide" ? (
+                 {item.id === "guide" ? (
                     <BookOpen size={16} />
                   ) : item.id === "privacy" ? (
                     <ShieldCheck size={16} />
                   ) : item.id === "contact" ? (
                     <Globe2 size={16} />
+                  ) : item.id === "logout" ? (
+                    <LogOut size={16} />
+                  ) : item.id === "withdraw" ? (
+                    <Trash2 size={16} />
                   ) : (
                     <ChevronRight size={16} />
                   )}
-                </span>
+                  </span>
 
                 <span className="flex-1 text-sm font-bold text-[#241b16]">
                   {label}
