@@ -1,6 +1,7 @@
 .stage {
   position: relative;
-  height: clamp(460px, 70svh, 580px);
+  /* 56px header minus 28px card overlap places the role card at 4/7 of the viewport. */
+  height: max(260px, calc(57.142857svh - 28px));
   width: 100%;
   isolation: isolate;
   background: #eee9dc;
