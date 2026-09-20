@@ -530,7 +530,6 @@ export default function SpotsTab() {
 
   return (
     <section className={activeView === "ranking" ? "flex min-h-0 flex-1 flex-col" : "min-h-0 flex-1 overflow-y-auto pb-6"}>
-      <h1 className="mb-3 shrink-0 text-lg font-semibold text-[#343235]">{t("spots.title")}</h1>
       <nav className="sticky top-0 z-20 -mx-4 shrink-0 bg-white px-4 py-1 backdrop-blur" aria-label={t("spots.navLabel")}>
         <div className="grid grid-cols-3 gap-2">
           {[

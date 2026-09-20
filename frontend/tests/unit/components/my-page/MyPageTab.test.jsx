@@ -36,7 +36,7 @@ describe("MyPageTab", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "English" }));
 
-    expect(screen.getByText("My travel settings")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "See the app guide again" })).toBeInTheDocument();
     await waitFor(() => expect(userApi.updateUserLanguage).toHaveBeenCalledWith("en"));
   });
 

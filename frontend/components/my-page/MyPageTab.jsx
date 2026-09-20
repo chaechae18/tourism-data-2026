@@ -4,7 +4,6 @@ import { LANGUAGES, PROFILE_MENU, QUESTS } from "../../lib/app-data";
 import { createTranslator } from "../../lib/i18n";
 import { useI18n } from "../i18n/LanguageProvider";
 import AppButton from "../ui/AppButton";
-import SectionHeading from "../ui/SectionHeading";
 import VisitedPlaces from "./VisitedPlaces";
 import PersonalInfoEdit from "./PersonalInfoEdit";
 
@@ -50,8 +49,6 @@ export default function MyPageTab({ completedQuestIds, onLogout, onNotice, onOpe
 
     
     <section className="space-y-8">
-      <SectionHeading eyebrow="My page" title={t("myPage.title")} />
-
       <button
         type="button"
         onClick={() => setShowVisitedPlaces(true)}

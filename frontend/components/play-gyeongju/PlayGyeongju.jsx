@@ -387,7 +387,7 @@ export default function PlayGyeongju() {
   return (
     <div className="min-h-[100svh] bg-white">
       <div className={`mx-auto w-full max-w-[430px] bg-white shadow-[0_0_32px_rgba(52,50,53,0.08)] ${activeTab === "spots" ? "flex h-[100dvh] flex-col overflow-hidden pb-[var(--bottom-nav-height)]" : "min-h-[100svh] pb-24"}`}>
-      <header className="relative z-30 shrink-0 bg-white/90 px-4 py-3 backdrop-blur">
+      <header className="relative z-30 shrink-0 bg-white/90 px-4 py-2 backdrop-blur">
         <div className="flex items-center justify-between gap-4">
           <button type="button" onClick={() => setActiveTab("home")} className="text-left font-semibold text-[#343235]">Play Gyeongju</button>
           <NotificationButton refreshKey={notificationVersion} />
@@ -401,7 +401,7 @@ export default function PlayGyeongju() {
         </p>
       )}
 
-      <main className={`w-full px-4 ${activeTab === "spots" ? "flex min-h-0 flex-1 flex-col pt-6" : "py-6"}`}>
+      <main className={`w-full px-4 ${activeTab === "map" ? "pt-0" : "pt-1"} ${activeTab === "spots" ? "flex min-h-0 flex-1 flex-col" : "pb-6"}`}>
         {activeTab === "home" && <HomeTab language={language} onMapOpen={() => setActiveTab("map")} popupHidden={guideOpen} />}
         {activeTab === "my-dg" && <MyDGTab availableItems={availableItems} completedQuestIds={completedQuestIds} onMapQuest={openQuestOnMap} onSaveOutfit={persistOutfit} outfit={outfit} places={places} setOutfit={setOutfit} />}
         {activeTab === "map" && <GyeongjuMap2D completedQuestIds={completedQuestIds} onComplete={completeQuest} onOpenRoles={() => setRoleOpen(true)} onSelect={(quest) => setSelectedQuestId(quest.id)} places={places} roleName={roleName} selectedPlace={selectedQuest} />}
