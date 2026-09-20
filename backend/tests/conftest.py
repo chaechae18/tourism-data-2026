@@ -8,7 +8,7 @@ import pytest
 from app.home import festival_cache, get_tour_api_client
 from app.main import app
 from app.mysql import connect, get_mysql, initialize_database
-from app.routers.spots import get_temporary_spot_approval_scheduler
+from app import content_guardrails
 
 
 TEST_DATABASE = os.getenv("TEST_DB_NAME", "play_gyeongju_test")
@@ -43,7 +43,8 @@ def mysql_database() -> Iterator[pymysql.Connection]:
 
 
 @pytest.fixture
-def database(mysql_database: pymysql.Connection) -> pymysql.Connection:
+def database(mysql_database: pymysql.Connection, monkeypatch) -> pymysql.Connection:
+    monkeypatch.setattr(content_guardrails, "check_content", lambda text, photo_url=None: content_guardrails.ContentApproval("test-moderation", {}, "test-model"))
     with mysql_database.cursor() as cursor:
         cursor.execute("SET FOREIGN_KEY_CHECKS = 0")
         cursor.execute("SHOW TABLES")
@@ -58,27 +59,17 @@ def database(mysql_database: pymysql.Connection) -> pymysql.Connection:
 
 
 @pytest.fixture
-def scheduled_spot_ids() -> list[int]:
-    return []
-
-
-@pytest.fixture
 def client(
     database: pymysql.Connection,
-    scheduled_spot_ids: list[int],
 ) -> Iterator[TestClient]:
     festival_cache.clear()
     app.dependency_overrides[get_mysql] = lambda: database
-    app.dependency_overrides[get_temporary_spot_approval_scheduler] = (
-        lambda: scheduled_spot_ids.append
-    )
     # 기본값은 TourAPI 없음. 실제 호출은 행사 테스트가 가짜 클라이언트로 덮어쓴다.
     app.dependency_overrides[get_tour_api_client] = lambda: None
     try:
         yield TestClient(app)
     finally:
         app.dependency_overrides.pop(get_mysql)
-        app.dependency_overrides.pop(get_temporary_spot_approval_scheduler)
         app.dependency_overrides.pop(get_tour_api_client)
 
 

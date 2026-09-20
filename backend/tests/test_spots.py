@@ -9,7 +9,6 @@ from app.spots import (
     list_public_spots,
     list_user_spots,
 )
-from app.temporary_spot_approval import approve_pending_spot
 
 
 def spot_request(caption: str) -> SpotCreateRequest:
@@ -76,49 +75,15 @@ def test_create_spot_keeps_snapshot_without_writing_place(
     ]
 
 
-def test_temporary_approval_publishes_pending_spot(
-    database: pymysql.Connection,
-) -> None:
-    spot = create_spot(database, user_no=1, request=spot_request("임시 승인 대상"))
-    ranking_time = datetime(2026, 8, 5, 12, 0)
-    assert list_daily_ranking(
-        database,
-        viewer_no=1,
-        limit=20,
-        now=ranking_time,
-    ) == []
-
-    assert approve_pending_spot(
-        database,
-        spot_id=spot.id,
-        now=ranking_time,
-    ) is True
+def test_guardrails_publish_spot_and_refresh_today_ranking(database):
+    ranking_time = datetime.now()
+    assert list_daily_ranking(database, viewer_no=1, limit=20, now=ranking_time) == []
+    spot = create_spot(database, user_no=1, request=spot_request("검수를 통과한 여행 후기"))
+    assert spot.moderation_status == 1
     with database.cursor() as cursor:
-        cursor.execute(
-            "SELECT MODERATION_STATUS FROM SPOTS WHERE IDX = %s",
-            (spot.id,),
-        )
-        moderation_status = cursor.fetchone()["MODERATION_STATUS"]
-        cursor.execute(
-            "SELECT PROVIDER, RESULT FROM MODERATION_LOG WHERE TARGET_IDX = %s",
-            (spot.id,),
-        )
-        moderation_log = cursor.fetchone()
-
-    assert moderation_status == 1
-    assert moderation_log == {
-        "PROVIDER": "TEMPORARY_AUTO_APPROVAL",
-        "RESULT": 1,
-    }
-    refreshed_ranking = list_daily_ranking(
-        database,
-        viewer_no=1,
-        limit=20,
-        now=ranking_time,
-    )
-    assert [(ranked.id, ranked.rank) for ranked in refreshed_ranking] == [
-        (spot.id, 1)
-    ]
+        cursor.execute("SELECT PROVIDER, RESULT FROM MODERATION_LOG WHERE TARGET_TYPE = 1 AND TARGET_IDX = %s", (spot.id,))
+        assert cursor.fetchone() == {"PROVIDER": "OPENAI", "RESULT": 1}
+    assert [item.id for item in list_daily_ranking(database, viewer_no=1, limit=20, now=ranking_time)] == [spot.id]
 
 
 def test_public_spots_support_like_and_newest_sort(

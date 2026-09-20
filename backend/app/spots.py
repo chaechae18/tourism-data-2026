@@ -4,6 +4,7 @@ from typing import Iterator, Literal
 
 import pymysql
 
+from . import content_guardrails
 from .models.spots import RankedSpotResponse, SpotCreateRequest, SpotResponse
 
 
@@ -88,6 +89,7 @@ def create_spot(
     request: SpotCreateRequest,
 ) -> SpotResponse:
     _require_active_user(connection, user_no)
+    approval = content_guardrails.check_content(request.caption, request.photo_url)
     place = request.place
     address = place.road_address or place.address
 
@@ -97,10 +99,10 @@ def create_spot(
             """
             INSERT INTO SPOTS (
                 USER_NO, MAP_PROVIDER, MAP_PLACE_ID, PLACE_TYPE,
-                PLACE_NAME, PLACE_ADDRESS, LAT, LNG, PHOTO_URL, CAPTION, LANGUAGE_CODE
+                PLACE_NAME, PLACE_ADDRESS, LAT, LNG, PHOTO_URL, CAPTION, LANGUAGE_CODE, MODERATION_STATUS
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                (SELECT LANGUAGE_CODE FROM USERS WHERE NO = %s))
+                (SELECT LANGUAGE_CODE FROM USERS WHERE NO = %s), 1)
             """,
             (
                 user_no,
@@ -116,6 +118,11 @@ def create_spot(
                 user_no,
             ),
         )
+
+        approval.log(connection, target_type=1, target_id=spot_id)
+        with connection.cursor() as cursor:
+            cursor.execute("DELETE FROM SPOT_RANKING_DAILY WHERE RANK_DATE = %s", (datetime.now().date(),))
+            cursor.execute("DELETE FROM SPOT_RANKING_RUN WHERE RANK_DATE = %s", (datetime.now().date(),))
 
     return get_spot(connection, spot_id=spot_id, viewer_no=user_no)
 

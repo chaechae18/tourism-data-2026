@@ -1,4 +1,3 @@
-from collections.abc import Callable
 from typing import Annotated, Literal
 import pymysql
 
@@ -24,14 +23,9 @@ from ..spots import (
     list_public_spots,
     list_user_spots,
 )
-from ..temporary_spot_approval import schedule_temporary_spot_approval
 
 
 router = APIRouter(prefix="/api/v1/spots", tags=["spots"])
-
-
-def get_temporary_spot_approval_scheduler() -> Callable[[int], None]:
-    return schedule_temporary_spot_approval
 
 
 @router.post(
@@ -44,14 +38,9 @@ def register_spot(
     request: SpotCreateRequest,
     user_no: UserNo,
     database: pymysql.Connection = Depends(get_mysql),
-    schedule_approval: Callable[[int], None] = Depends(
-        get_temporary_spot_approval_scheduler
-    ),
 ) -> SpotResponse:
     try:
-        spot = create_spot(database, user_no=user_no, request=request)
-        schedule_approval(spot.id)
-        return spot
+        return create_spot(database, user_no=user_no, request=request)
     except UserNotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

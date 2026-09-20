@@ -227,10 +227,22 @@ Content-Type: application/json
 ```
 
 `placeType`은 `TOUR` 또는 `FOOD`, `caption`은 공백 제외 1~350자입니다.
-신규 게시물은 검수 대기 상태(`moderationStatus: 0`)로 반환됩니다. 실제 검수
-연동 전까지는 서버가 실행 중인 경우에 한해 등록 10초 뒤 임시 승인(`1`)되며,
-`TEMPORARY_AUTO_APPROVAL` 제공자로 검수 이력을 남깁니다. 임시 승인 시 오늘의
-랭킹 스냅샷도 갱신하여 다음 랭킹 조회부터 승인된 스팟을 포함합니다.
+서버가 OpenAI 검수를 완료한 뒤 승인 상태(`moderationStatus: 1`)로 저장·반환합니다.
+별도 승인 타이머 없이 다음 공개 목록·랭킹 조회에 바로 포함됩니다. 검수 결과와
+게시물은 같은 트랜잭션으로 저장하며 `MODERATION_LOG.PROVIDER`는 `OPENAI`입니다.
+
+검수는 [OpenAI Moderation API](https://developers.openai.com/api/docs/guides/moderation)의
+`omni-moderation-latest`로 본문과 사진의 선정성·괴롭힘·혐오를 확인하고,
+`OPENAI_MODEL`의 구조화된 텍스트 판정으로 일반 욕설과 변형 욕설을 추가 확인합니다.
+역사 설명이나 단순한 부정적 여행 후기는 허용합니다. 서버의 `OPENAI_API_KEY`가 필요합니다.
+사진은 앱에서 업로드한 Vercel Blob의 `/spots/` URL 또는 로컬 `/uploads/` 파일이어야 합니다.
+로컬 이미지는 서버에서 읽어 Base64로 전달합니다.
+
+- `422 CONTENT_REJECTED`: 욕설·선정적인 내용 등으로 차단. 게시물·댓글을 저장하지 않습니다.
+- `503 MODERATION_UNAVAILABLE`: 키 누락·API 장애·잘못된 판정 응답. 저장하지 않고 재시도를 안내합니다.
+- `422 INVALID_MODERATION_IMAGE`: 사진 경로나 파일을 확인할 수 없음. 다시 업로드해야 합니다.
+
+검수 중에는 제출 버튼이 비활성화됩니다. 오류가 나면 입력 내용을 유지합니다.
 
 ### Spot response
 
@@ -255,7 +267,7 @@ Content-Type: application/json
   "isLiked": false,
   "isBookmarked": false,
   "isOwner": true,
-  "moderationStatus": 0,
+  "moderationStatus": 1,
   "createdAt": "2026-07-29T10:30:00"
 }
 ```
@@ -336,7 +348,8 @@ Content-Type: application/json
 }
 ```
 
-댓글은 1~1,000자이며 신규 댓글은 검수 대기 상태입니다.
+댓글은 1~1,000자이며 게시글과 같은 OpenAI 검수를 통과하면 즉시 승인 상태로 반환됩니다.
+등록 응답 이후 다른 사용자도 댓글을 볼 수 있으며 공개 댓글 수에도 반영됩니다.
 
 ```json
 {
@@ -345,7 +358,7 @@ Content-Type: application/json
   "userNo": 1,
   "authorNickname": "lotus_traveler",
   "content": "야경이 정말 좋아요.",
-  "moderationStatus": 0,
+  "moderationStatus": 1,
   "isOwner": true,
   "createdAt": "2026-07-29T10:35:00"
 }
@@ -384,9 +397,8 @@ Content-Type: application/json
 
 승인된 스팟을 좋아요 수, 작성 시각 순으로 정렬합니다. 매일 첫 조회에서 당일
 랭킹 스냅샷을 만들며 응답의 `rankingUpdatedAt`은 해당 날짜 00시입니다. 같은
-날에는 좋아요 수가 바뀌어도 순위가 다시 계산되지 않습니다. 단, 실제 검수 연동
-전의 10초 임시 승인이 발생하면 승인된 스팟 노출을 위해 당일 스냅샷을 한 번
-다시 생성합니다.
+날에는 좋아요 수가 바뀌어도 순위가 다시 계산되지 않습니다. 신규 스팟이 검수를
+통과하면 당일 스냅샷을 무효화하여 다음 조회에 새 게시물을 포함합니다.
 
 ## 10. 알림
 
@@ -417,3 +429,20 @@ Content-Type: application/json
 
 - [Kakao Local API](https://developers.kakao.com/docs/ko/local/dev-guide)
 - [Naver 지역 검색 API](https://developers.naver.com/docs/serviceapi/search/local/)
+
+
+## 기존 검수 대기 콘텐츠 재검수
+
+신규 등록 로직 변경만으로 과거의 대기 상태가 일괄 승인되지는 않습니다.
+서버 환경의 `OPENAI_API_KEY`와 DB 설정을 확인한 뒤 `backend`에서 실행합니다.
+먼저 `--apply` 없이 대상 개수만 확인할 수 있습니다.
+
+```bash
+python review_pending_spots.py --target comment --limit 100
+python review_pending_spots.py --target comment --limit 100 --apply
+python review_pending_spots.py --target spot --limit 100 --apply
+```
+
+각 항목에 같은 검수를 적용하여 허용은 승인, 위반은 반려로 바꿉니다.
+검수 장애 또는 확인 불가능한 사진은 `retry`로 남기고 승인하지 않습니다.
+이미 승인·반려되거나 삭제된 항목은 건너뜁니다. 출력에는 본문이나 키를 포함하지 않습니다.

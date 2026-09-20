@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
+from .content_guardrails import ContentRejectedError, ModerationUnavailableError, InvalidModerationImageError
 from .config import get_settings
 from .mysql import connect, initialize_database
 from .routers.admin import router as admin_router
@@ -75,6 +76,21 @@ def error_response(
         content={"error": {"code": code, "message": message}},
         headers=headers,
     )
+
+
+@app.exception_handler(ContentRejectedError)
+async def content_rejected_handler(_, __):
+    return error_response(422, "CONTENT_REJECTED", "욕설이나 선정적인 내용은 게시할 수 없습니다. 내용을 수정해 주세요.")
+
+
+@app.exception_handler(ModerationUnavailableError)
+async def moderation_unavailable_handler(_, __):
+    return error_response(503, "MODERATION_UNAVAILABLE", "검수를 완료하지 못했습니다. 잠시 후 다시 시도해 주세요.")
+
+
+@app.exception_handler(InvalidModerationImageError)
+async def invalid_moderation_image_handler(_, __):
+    return error_response(422, "INVALID_MODERATION_IMAGE", "검수할 사진을 확인할 수 없습니다. 사진을 다시 업로드해 주세요.")
 
 
 @app.exception_handler(RequestValidationError)
