@@ -164,104 +164,102 @@ export default function AuthModal({
   };
 
   const complete = async () => {
-    if (isSignup) {
-      if (!consented) {
-        return alert(
-          signupT("auth.consentRequired")
-        );
-      }
-
-      if (!idChecked || !idAvailable) {
-        return alert("아이디 중복확인을 해주세요.");
-      }
-
-      if (
-        !form.id ||
-        !form.nickname ||
-        !form.email ||
-        !form.password
-      ) {
-        return alert(
-          signupT("auth.requiredFields")
-        );
-      }
-
-      if (!validatePassword(form.password)) {
-        return alert(
-          "비밀번호는 영문자 4자 이상, 숫자 4자 이상, 특수문자 1개 이상을 포함해야 합니다."
-        );
-      }
-
-      if (form.password !== form.confirmPassword) {
-        return alert(
-          signupT("auth.passwordMismatch")
-        );
-      }
-    } else if (!form.id || !form.password) {
-      return alert(signupT("auth.loginRequired"));
+  if (isSignup) {
+    if (!consented) {
+      return alert(signupT("auth.consentRequired"));
     }
 
-    try {
-      const response = await fetch(
-        `${AUTH_API_BASE_URL}/${
-          isSignup ? "signup" : "login"
-        }`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          credentials: "include",
-          body: JSON.stringify(
-            isSignup
-              ? {
-                  id: form.id,
-                  nickname: form.nickname,
-                  email: form.email,
-                  password: form.password,
-                  country: form.country,
-                  languageCode: form.languageCode,
-                  birthDate: form.birthDate || null,
-                }
-              : {
-                  id: form.id,
-                  password: form.password,
-                }
-          ),
-        }
+    if (!idChecked || !idAvailable) {
+      return alert("아이디 중복확인을 해주세요.");
+    }
+
+    if (!form.id || !form.nickname || !form.email || !form.password) {
+      return alert(signupT("auth.requiredFields"));
+    }
+
+    if (!validatePassword(form.password)) {
+      return alert(
+        "비밀번호는 영문자 4자 이상, 숫자 4자 이상, 특수문자 1개 이상을 포함해야 합니다."
       );
-
-      const data = await response
-        .json()
-        .catch(() => ({}));
-
-      if (!response.ok) {
-
-         // 탈퇴한 회원
-        if (data?.detail?.code === "USER_DELETED") {
-          return alert("탈퇴한 회원입니다.");
-        }
-        return alert(
-          data?.detail ||
-            data?.error?.message ||
-            signupT(
-              isSignup
-                ? "auth.signupFailed"
-                : "auth.loginFailed"
-            )
-        );
-      }
-
-      onComplete(data);
-
-      setForm(INITIAL_FORM);
-      setConsented(false);
-      setIdChecked(false);
-      setIdAvailable(false);
-    } catch {
-      alert(signupT("common.networkError"));
     }
-  };
+
+    if (form.password !== form.confirmPassword) {
+      return alert(signupT("auth.passwordMismatch"));
+    }
+  } else if (!form.id || !form.password) {
+    return alert(signupT("auth.loginRequired"));
+  }
+
+  let response;
+
+  try {
+    response = await fetch(
+      `${AUTH_API_BASE_URL}/${isSignup ? "signup" : "login"}`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(
+          isSignup
+            ? {
+                id: form.id,
+                nickname: form.nickname,
+                email: form.email,
+                password: form.password,
+                country: form.country,
+                languageCode: form.languageCode,
+                birthDate: form.birthDate || null,
+              }
+            : {
+                id: form.id,
+                password: form.password,
+              }
+        ),
+      }
+    );
+  } catch (error) {
+    console.error("AUTH FETCH ERROR:", error);
+    alert(signupT("common.networkError"));
+    return;
+  }
+
+  const data = await response.json().catch(() => ({}));
+
+  console.log("AUTH RESPONSE:", response.status, data);
+
+  if (!response.ok) {
+    if (data?.detail?.code === "USER_DELETED") {
+      return alert("탈퇴한 회원입니다.");
+    }
+
+    return alert(
+      data?.detail ||
+        data?.error?.message ||
+        signupT(
+          isSignup
+            ? "auth.signupFailed"
+            : "auth.loginFailed"
+        )
+    );
+  }
+
+  // 서버 응답까지 정상적으로 받은 상태
+  console.log("회원가입/로그인 성공:", data);
+
+  try {
+    onComplete(data);
+  } catch (error) {
+    console.error("onComplete ERROR:", error);
+    return;
+  }
+
+  setForm(INITIAL_FORM);
+  setConsented(false);
+  setIdChecked(false);
+  setIdAvailable(false);
+};
 
   return (
     <AppModal
