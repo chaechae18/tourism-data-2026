@@ -29,21 +29,20 @@ SPOT_BODY = {
 def test_register_and_list_my_spots(
     client: TestClient,
     rows,
-    scheduled_spot_ids: list[int],
+    session_headers,
 ) -> None:
     response = client.post(
         "/api/v1/spots",
-        headers={"X-User-No": "1"},
+        headers=session_headers(1),
         json=SPOT_BODY,
     )
     assert response.status_code == 201
     assert response.json()["place"]["mapPlaceId"] == "12345"
     assert "placeId" not in response.json()["place"]
-    assert response.json()["moderationStatus"] == 0
-    assert scheduled_spot_ids == [response.json()["id"]]
+    assert response.json()["moderationStatus"] == 1
     assert rows("SELECT COUNT(*) AS COUNT FROM PLACE")[0]["COUNT"] == 0
 
-    listed = client.get("/api/v1/spots/me", headers={"X-User-No": "1"})
+    listed = client.get("/api/v1/spots/me", headers=session_headers(1))
     assert listed.status_code == 200
     assert [spot["caption"] for spot in listed.json()] == [
         "해 질 무렵의 첨성대가 아름다워요."

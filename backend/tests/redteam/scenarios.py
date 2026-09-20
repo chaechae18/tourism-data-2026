@@ -285,24 +285,28 @@ def test_quest_owner_is_enforced(client, insert, course, rows, record_property):
     assert not rows("SELECT IDX FROM USER_ITEM")
 
 
-@pytest.mark.redteam("medium", "일반 사용자 요청의 demoCompletion만으로 위치 검증 생략 불가")
-def test_demo_flag_requires_server_authorization(client, course, rows, record_property):
+@pytest.mark.redteam("control", "승인된 정책: 로그인한 사용자는 위치 없이 본인 퀘스트 완료 가능")
+def test_location_free_completion_is_allowed(client, course, rows, record_property):
     response = client.post(f"/api/v1/journey/quests/{course[0]['questId']}/complete", json={"demoCompletion": True})
     record_property("effect", f"reward_rows={len(rows('SELECT IDX FROM USER_ITEM'))}")
-    status(response, (400, 403, 422), record_property)
+    status(response, (200,), record_property)
+    assert response.json()["completed"] is True
+    assert response.json()["reward"] is not None
+    assert len(rows("SELECT IDX FROM USER_ITEM")) == 1
 
 
-@pytest.mark.redteam("medium", "먼 거리의 일반 완료 요청은 보상 없이 거부")
-def test_far_away_quest_rejected(client, course, rows, record_property):
-    response = client.post(f"/api/v1/journey/quests/{course[0]['questId']}/complete", json={"latitude": 0, "longitude": 0, "accuracy": 5})
-    status(response, (400, 403, 422), record_property)
+@pytest.mark.redteam("high", "위치 검증을 생략해도 비로그인 사용자는 보상 수령 불가")
+def test_location_free_completion_requires_login(client, course, rows, record_property):
+    client.cookies.clear()
+    response = client.post(f"/api/v1/journey/quests/{course[0]['questId']}/complete", json={"demoCompletion": True})
+    status(response, (401,), record_property)
     assert not rows("SELECT IDX FROM USER_ITEM")
 
 
 @pytest.mark.redteam("high", "동일 퀘스트 재전송은 아이템 하나만 지급")
 def test_reward_replay_is_idempotent(client, course, rows, record_property):
     stop = course[0]
-    body = {"latitude": stop["latitude"], "longitude": stop["longitude"], "accuracy": 5}
+    body = {"demoCompletion": True}
     first = client.post(f"/api/v1/journey/quests/{stop['questId']}/complete", json=body)
     second = client.post(f"/api/v1/journey/quests/{stop['questId']}/complete", json=body)
     status(first, (200,), record_property)

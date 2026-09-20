@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Bookmark,
   Heart,
@@ -25,7 +25,7 @@ import {
   setSpotReaction,
   uploadSpotImage,
 } from "../../lib/api/spots";
-import { BLOCKED_WORDS, SPOT_REVIEW_LIMIT } from "../../lib/app-data";
+import { SPOT_REVIEW_LIMIT } from "../../lib/app-data";
 import { translateError } from "../../lib/i18n";
 import { useI18n } from "../i18n/LanguageProvider";
 import TranslatableText from "./TranslatableText";
@@ -46,15 +46,8 @@ const INITIAL_ERRORS = {
   my: "",
 };
 
-// 백엔드의 10초 임시 승인 작업이 끝난 뒤 조회하도록 약간의 여유를 둔다.
-const TEMPORARY_APPROVAL_REFRESH_MS = 10_500;
-
 function getErrorMessage(error, t) {
   return translateError(error, t);
-}
-
-function containsBlockedWord(value) {
-  return BLOCKED_WORDS.some((word) => value.includes(word));
 }
 
 function inferPlaceType(place) {
@@ -96,7 +89,7 @@ function SpotCard({
   onReaction,
   spot,
   submittingComment,
-  className = "rounded-lg bg-white p-4",
+  className = "rounded-lg bg-white p-4 shadow-[4px_4px_12px_rgba(52,50,53,0.06)]",
   hidePhoto = false,
 }) {
   const { t } = useI18n();
@@ -205,7 +198,7 @@ function SpotGridTile({ onOpen, spot }) {
     <button
       type="button"
       aria-label={t("spots.openPost", { name: spot.place.name })}
-      className="group relative aspect-square min-w-0 overflow-hidden rounded-xl bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8661c]"
+      className="group relative aspect-square min-w-0 overflow-hidden rounded-xl bg-white shadow-[4px_4px_12px_rgba(52,50,53,0.06)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b8661c]"
       onClick={() => onOpen(spot.id)}
     >
       <SpotPhoto
@@ -276,7 +269,7 @@ function DummySpotGridCard({ index }) {
     <article
       aria-label={t("spots.spotPlaceholder", { index })}
       data-testid="spot-placeholder"
-      className="aspect-square min-w-0 overflow-hidden rounded-xl bg-white p-2 shadow-[0_3px_12px_rgba(52,50,53,0.06)]"
+      className="aspect-square min-w-0 overflow-hidden rounded-xl bg-white p-2 shadow-[4px_4px_12px_rgba(52,50,53,0.06)]"
     >
       <div className="h-full w-full bg-[#f1eee9]" />
     </article>
@@ -290,7 +283,7 @@ function DummyRankingCard({ rank }) {
     <article
       aria-label={t("spots.rankingPlaceholder", { rank })}
       data-testid="ranking-placeholder"
-      className="flex min-h-28 items-center gap-3 rounded-xl bg-white p-3 shadow-[0_3px_12px_rgba(52,50,53,0.06)]"
+      className="flex min-h-28 items-center gap-3 rounded-xl bg-white p-3 shadow-[4px_4px_12px_rgba(52,50,53,0.06)]"
     >
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-black text-white">
         {rank}
@@ -327,13 +320,6 @@ export default function SpotsTab() {
   const [errors, setErrors] = useState(INITIAL_ERRORS);
   const [refreshVersion, setRefreshVersion] = useState(0);
   const [detailSpotId, setDetailSpotId] = useState(null);
-  const approvalRefreshTimer = useRef(null);
-
-  useEffect(() => () => {
-    if (approvalRefreshTimer.current !== null) {
-      window.clearTimeout(approvalRefreshTimer.current);
-    }
-  }, []);
 
   useEffect(() => {
     setNotice("");
@@ -408,10 +394,6 @@ export default function SpotsTab() {
       setNotice(t("spots.selectPlace"));
       return;
     }
-    if (containsBlockedWord(review)) {
-      setNotice(t("spots.blockedReview"));
-      return;
-    }
 
     setSubmitting(true);
     try {
@@ -428,13 +410,7 @@ export default function SpotsTab() {
       setReview("");
       setPhotoFile(null);
       setNotice(t("spots.created"));
-      if (approvalRefreshTimer.current !== null) {
-        window.clearTimeout(approvalRefreshTimer.current);
-      }
-      approvalRefreshTimer.current = window.setTimeout(() => {
-        approvalRefreshTimer.current = null;
-        setRefreshVersion((current) => current + 1);
-      }, TEMPORARY_APPROVAL_REFRESH_MS);
+      setRefreshVersion((current) => current + 1);
     } catch (error) {
       setNotice(getErrorMessage(error, t));
     } finally {
@@ -499,10 +475,6 @@ export default function SpotsTab() {
 
   const submitComment = async (spotId) => {
     if (!comment.trim()) return;
-    if (containsBlockedWord(comment)) {
-      setNotice(t("spots.blockedComment"));
-      return;
-    }
     setSubmittingComment(true);
     try {
       const created = await createSpotComment(spotId, comment.trim());
@@ -512,6 +484,11 @@ export default function SpotsTab() {
       }));
       setComment("");
       setNotice(t("spots.commentCreated"));
+      const incrementCount = (items) => items.map((item) => item.id === spotId
+        ? { ...item, commentCount: (item.commentCount || 0) + 1 } : item);
+      setPublicSpots(incrementCount);
+      setRankingSpots(incrementCount);
+      setMySpots(incrementCount);
     } catch (error) {
       const target = activeView === "ranking" ? "ranking" : "list";
       setErrors((current) => ({ ...current, [target]: getErrorMessage(error, t) }));
@@ -736,7 +713,7 @@ export default function SpotsTab() {
         {errors.my && <p className="mb-3 text-sm font-bold text-brand-ink">{errors.my}</p>}
         <div className="space-y-2">
           {mySpots.map((spot) => (
-            <div key={spot.id} className="flex items-center gap-3 rounded-lg border border-[#e6ddd2] bg-white p-3">
+            <div key={spot.id} className="flex items-center gap-3 rounded-lg border border-[#e6ddd2] bg-white p-3 shadow-[4px_4px_12px_rgba(52,50,53,0.06)]">
               <MapPin size={17} className="shrink-0 text-[#b8661c]" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">

@@ -62,7 +62,7 @@ describe("SpotsTab", () => {
     api.listSpotRanking.mockResolvedValue([]);
     api.listMySpots.mockResolvedValue([]);
     api.searchPlaces.mockResolvedValue({ places: [PLACE] });
-    api.createSpot.mockResolvedValue({ ...SPOT, moderationStatus: 0 });
+    api.createSpot.mockResolvedValue(SPOT);
     api.deleteSpot.mockResolvedValue(null);
     api.listSpotComments.mockResolvedValue([]);
     api.createSpotComment.mockResolvedValue({
@@ -71,7 +71,7 @@ describe("SpotsTab", () => {
       userNo: 1,
       authorNickname: "lotus_traveler",
       content: "야경이 좋아요.",
-      moderationStatus: 0,
+      moderationStatus: 1,
       isOwner: true,
       createdAt: "2026-07-29T10:31:00",
     });
@@ -105,8 +105,9 @@ describe("SpotsTab", () => {
       caption: "고즈넉한 오후였습니다.",
       photoUrl: null,
     }));
-    expect(screen.getByText("스팟을 등록했어요. 10초 후 임시 승인되어 공개됩니다.")).toBeInTheDocument();
-    expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10_500);
+    expect(screen.getByText("스팟이 공개됐어요.")).toBeInTheDocument();
+    expect(setTimeoutSpy).not.toHaveBeenCalledWith(expect.any(Function), 10_500);
+    await waitFor(() => expect(api.listPublicSpots).toHaveBeenCalledTimes(2));
   });
 
   it("searches by name without requesting the user's location", async () => {
@@ -135,7 +136,8 @@ describe("SpotsTab", () => {
     }
   });
 
-  it("rejects a review containing a blocked expression", async () => {
+  it("shows server rejection and preserves the review for correction", async () => {
+    api.createSpot.mockRejectedValueOnce({ code: "CONTENT_REJECTED" });
     render(<SpotsTab />);
     fireEvent.click(screen.getByRole("button", { name: "나의 스팟 등록" }));
 
@@ -149,8 +151,9 @@ describe("SpotsTab", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "스팟 공유" }));
 
-    expect(api.createSpot).not.toHaveBeenCalled();
-    expect(screen.getByText("한줄평에 사용할 수 없는 표현이 있어요.")).toBeInTheDocument();
+    expect(await screen.findByText("욕설이나 선정적인 내용은 게시할 수 없어요. 내용을 수정해 주세요.")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("경주에서 발견한 순간을 350자 이내로 남겨 보세요.")).toHaveValue("바보 같은 글");
+    expect(screen.queryByText("스팟이 공개됐어요.")).not.toBeInTheDocument();
   });
 
   it("deletes the current user's spot", async () => {
@@ -186,6 +189,26 @@ describe("SpotsTab", () => {
       1,
       "야경이 좋아요.",
     ));
+    expect(await within(dialog).findByText("야경이 좋아요.")).toBeInTheDocument();
+    expect(within(dialog).queryByText("검수 대기")).not.toBeInTheDocument();
+    expect(await screen.findByText("댓글이 등록됐어요.")).toBeInTheDocument();
+  });
+
+  it("keeps a comment draft and shows a retry message when moderation is unavailable", async () => {
+    api.listPublicSpots.mockResolvedValue([SPOT]);
+    api.createSpotComment.mockRejectedValueOnce({ code: "MODERATION_UNAVAILABLE" });
+    render(<SpotsTab />);
+    fireEvent.click(screen.getByRole("button", { name: "스팟" }));
+    fireEvent.click(await screen.findByRole("button", { name: "첨성대 게시물 열기" }));
+    const dialog = screen.getByRole("dialog", { name: "스팟 게시물" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "댓글" }));
+    const input = await within(dialog).findByPlaceholderText("댓글을 남겨보세요");
+    fireEvent.change(input, { target: { value: "다음에 가볼게요." } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "등록" }));
+    expect(await screen.findByText("검수를 완료하지 못했어요. 잠시 후 다시 시도해 주세요.")).toBeInTheDocument();
+    expect(input).toHaveValue("다음에 가볼게요.");
+    expect(screen.queryByText("댓글이 등록됐어요.")).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "등록" })).toBeEnabled();
   });
 
   it("shows public spots as a three-column gallery and opens a large post", async () => {

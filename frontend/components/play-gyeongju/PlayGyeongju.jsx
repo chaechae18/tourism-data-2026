@@ -412,7 +412,7 @@ export default function PlayGyeongju() {
       {notice && <div className="fixed bottom-24 left-1/2 z-40 w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 rounded-lg bg-[#343235] px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">{notice}</div>}
       {guideOpen && <AppGuide onDone={finishGuide} onTabChange={setActiveTab} />}
       <RoleSelect onClose={() => setRoleOpen(false)} onSelect={selectRole} open={roleOpen} selectedKey={roleKey} />
-      {activeTab !== "home" && <p className="pb-24 text-center text-[12px] font-normal text-[#aaa59d]">출처: ⓒ한국관광공사</p>}
+      {activeTab === "map" && <p className="pb-24 text-center text-[12px] font-normal text-[#aaa59d]">출처: ⓒ한국관광공사</p>}
       <BottomNavigation activeTab={activeTab} onChange={setActiveTab} />
       </div>
     </div>
