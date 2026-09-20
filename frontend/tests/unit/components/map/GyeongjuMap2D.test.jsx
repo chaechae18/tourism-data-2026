@@ -1,5 +1,5 @@
 import { maps } from "../../../helpers/maplibre";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { vi } from "vitest";
 import { QUESTS } from "../../../../lib/app-data";
 import GyeongjuMap2D from "../../../../components/map/GyeongjuMap2D";
@@ -16,6 +16,23 @@ const PROPS = {
 };
 
 describe("GyeongjuMap2D", () => {
+  it.each([
+    [{ latitude: 35.839, longitude: 129.215 }, "현재 위치를 지도에 표시했어요."],
+    [{ latitude: 37.5, longitude: 127 }, "경주 관광권 밖이에요. 데모 위치를 유지합니다."],
+  ])("handles the current-location callback for %j", async (coords, message) => {
+    const getCurrentPosition = vi.fn();
+    vi.stubGlobal("navigator", { geolocation: { getCurrentPosition } });
+    try {
+      render(<GyeongjuMap2D {...PROPS} />);
+      await screen.findByRole("button", { name: "첨성대 선택" });
+      fireEvent.click(screen.getByRole("button", { name: "현재 위치 찾기" }));
+      act(() => getCurrentPosition.mock.calls[0][0]({ coords }));
+      expect(screen.getByRole("status")).toHaveTextContent(message);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("keeps category images consistent in the selected card and list, including completed places", () => {
     const restaurant = { ...QUESTS[0], id: "restaurant", name: "다인매운등갈비찜", icon: "food" };
     const places = [restaurant, QUESTS[1]];
@@ -190,16 +207,23 @@ describe("GyeongjuMap2D", () => {
   });
 
   it("opens the docent player for a place that has a description", async () => {
+    vi.stubGlobal("URL", class extends URL {
+      static createObjectURL = vi.fn(() => "blob:docent-audio");
+      static revokeObjectURL = vi.fn();
+    });
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve({
       ok: true,
+      blob: () => Promise.resolve(new Blob(["audio"], { type: "audio/mpeg" })),
       json: () => Promise.resolve({ placeId: 41, name: "첨성대", text: "별을 읽던 곳이다.", source: "한국관광공사" }),
     })));
     const place = { ...QUESTS[0], placeId: 41, docent: true };
-    render(<GyeongjuMap2D {...PROPS} places={[place]} selectedPlace={place} />);
+    const { unmount } = render(<GyeongjuMap2D {...PROPS} places={[place]} selectedPlace={place} />);
 
     fireEvent.click(screen.getByRole("button", { name: "도슨트 듣기" }));
 
     expect(await screen.findByRole("dialog", { name: "도슨트" })).toBeInTheDocument();
+    expect(await screen.findByTestId("docent-audio")).toBeInTheDocument();
+    unmount();
     vi.unstubAllGlobals();
   });
 

@@ -55,6 +55,27 @@ describe("QuestMapCanvas", () => {
     expect(maps[0].getSource("quest-location").setData.mock.lastCall[0].features).toEqual([]);
   });
 
+  it.each([false, true])("handles a late course response that expands the map bounds with route update=%s", async (updateRoute) => {
+    const { rerender } = render(<QuestMapCanvas {...props} />);
+    await ready();
+    const firstMap = maps[0];
+    const coastalPlace = { ...PLACES[0], id: "coast", name: "감포 해안", longitude: 129.5 };
+    const bounds = { ...props.bounds, east: 129.52 };
+    const route = updateRoute ? { coordinates: [DEFAULT_CURRENT_LOCATION, coastalPlace] } : null;
+    firstMap.getSource.mockClear();
+    firstMap.easeTo.mockClear();
+
+    rerender(<QuestMapCanvas {...props} bounds={bounds} visiblePlaces={[coastalPlace]} selectedPlace={coastalPlace} route={route} />);
+
+    expect(await screen.findByRole("button", { name: "감포 해안 선택" })).toBeInTheDocument();
+    expect(maps.at(-1).options.maxBounds[1][0]).toBe(129.52);
+    expect(maps.at(-1).getSource("quest-location").setData.mock.lastCall[0].features).toHaveLength(1);
+    expect(maps.at(-1).getSource("quest-route").setData).toHaveBeenLastCalledWith(routeFeature(route));
+    expect(firstMap.remove).toHaveBeenCalledOnce();
+    expect(firstMap.getSource).not.toHaveBeenCalled();
+    expect(firstMap.easeTo).not.toHaveBeenCalled();
+  });
+
   it("uses native zoom and never transforms the building image size", async () => {
     render(<QuestMapCanvas {...props} />);
     const building = await ready();

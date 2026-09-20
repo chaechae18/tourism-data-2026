@@ -12,7 +12,7 @@ vi.mock("maplibre-gl", () => ({
     this.addControl = vi.fn();
     this.addLayer = vi.fn();
     this.addSource = vi.fn((id, spec) => { sources[id] = { ...spec, setData: vi.fn() }; });
-    this.getSource = (id) => sources[id];
+    this.getSource = vi.fn((id) => sources[id]);
     this.on = (event, callback) => { handlers[event] = callback; };
     this.emit = (event) => handlers[event]?.();
     this.once = (event, callback) => { if (event === "load") queueMicrotask(callback); };
@@ -22,7 +22,7 @@ vi.mock("maplibre-gl", () => ({
     this.easeTo = vi.fn();
     this.fitBounds = vi.fn();
     this.resize = vi.fn();
-    this.remove = vi.fn();
+    this.remove = vi.fn(() => { Object.keys(sources).forEach((id) => delete sources[id]); });
     this.isStyleLoaded = () => true;
     maps.push(this);
   }),

@@ -32,6 +32,7 @@ function alignPlaceLabel(label) {
 export default function QuestMapCanvas({ bounds, completedQuestIds, currentLocation, onSelect, route, selectedPlace, visiblePlaces }) {
   const { language, t } = useI18n();
   const containerRef = useRef(null);
+  const runtimeRef = useRef(null);
   const draggedRef = useRef(false);
   const [runtime, setRuntime] = useState(null);
   const [entries, setEntries] = useState([]);
@@ -93,7 +94,9 @@ export default function QuestMapCanvas({ bounds, completedQuestIds, currentLocat
         map.addSource("quest-location", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
         map.addLayer({ id: "quest-location-halo", type: "circle", source: "quest-location", paint: { "circle-radius": 15, "circle-color": "#356b98", "circle-opacity": 0.16 } });
         map.addLayer({ id: "quest-location-dot", type: "circle", source: "quest-location", paint: { "circle-radius": 6, "circle-color": "#356b98", "circle-stroke-color": "#fff", "circle-stroke-width": 2 } });
-        setRuntime({ map, Marker });
+        const nextRuntime = { map, Marker };
+        runtimeRef.current = nextRuntime;
+        setRuntime(nextRuntime);
         setStatus("ready");
       });
       observer = new ResizeObserver(() => map.resize());
@@ -102,6 +105,8 @@ export default function QuestMapCanvas({ bounds, completedQuestIds, currentLocat
 
     return () => {
       disposed = true;
+      // 상태 갱신 전에도 다른 effect가 제거된 지도를 사용하지 않도록 즉시 무효화한다.
+      runtimeRef.current = null;
       window.clearTimeout(timer);
       observer?.disconnect();
       map?.remove();
@@ -109,7 +114,7 @@ export default function QuestMapCanvas({ bounds, completedQuestIds, currentLocat
   }, [attempt, west, south, east, north]);
 
   useEffect(() => {
-    if (!runtime) { setEntries([]); return undefined; }
+    if (!runtime || runtime !== runtimeRef.current) { setEntries([]); return undefined; }
     const next = visiblePlaces.map((place) => {
       const element = document.createElement("div");
       element.className = styles.marker;
@@ -126,12 +131,12 @@ export default function QuestMapCanvas({ bounds, completedQuestIds, currentLocat
   const selectedLongitude = selectedPlace?.longitude;
   const selectedLatitude = selectedPlace?.latitude;
   useEffect(() => {
-    if (!runtime || selectedLongitude == null || selectedLatitude == null) return;
+    if (!runtime || runtime !== runtimeRef.current || selectedLongitude == null || selectedLatitude == null) return;
     runtime.map.easeTo({ center: [selectedLongitude, selectedLatitude], zoom: Math.max(runtime.map.getZoom(), 13.6), duration: 450 });
   }, [runtime, selectedId, selectedLongitude, selectedLatitude]);
 
   useEffect(() => {
-    if (!runtime) return;
+    if (!runtime || runtime !== runtimeRef.current) return;
     runtime.map.getSource("quest-route").setData(routeFeature(route));
     if (route?.coordinates?.length >= 2) {
       const lngs = route.coordinates.map((point) => point.longitude);
@@ -141,7 +146,7 @@ export default function QuestMapCanvas({ bounds, completedQuestIds, currentLocat
   }, [runtime, route]);
 
   useEffect(() => {
-    if (!runtime) return;
+    if (!runtime || runtime !== runtimeRef.current) return;
     const inside = isWithinBounds(currentLocation, { west, south, east, north });
     runtime.map.getSource("quest-location").setData({
       type: "FeatureCollection",

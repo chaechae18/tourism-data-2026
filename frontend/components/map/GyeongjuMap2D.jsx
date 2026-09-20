@@ -9,6 +9,7 @@ import { getQuestAsset } from "../../lib/map/quest-assets";
 // 지도 "계산 엔진"에서 가져오는 함수/데이터들 (lib/map/gyeongju-map.js)
 import {
   DEFAULT_CURRENT_LOCATION,
+  MAP_SCOPES,
   formatDistance,
   getCourseBounds,
   getDistanceMeters,
