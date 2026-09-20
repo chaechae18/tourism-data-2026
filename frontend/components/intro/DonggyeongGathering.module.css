@@ -42,7 +42,7 @@
 }
 
 .play {
-  font-size: clamp(3.25rem, 20vw, 5.375rem);
+  font-size: clamp(2.75rem, 17vw, 4.5625rem);
 }
 
 .subtitle {

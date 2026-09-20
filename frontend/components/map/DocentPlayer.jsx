@@ -114,9 +114,10 @@ export default function DocentPlayer({ onClose, place }) {
               aria-label={`${SKIP_SECONDS}초 뒤로`}
               onClick={() => skip(-SKIP_SECONDS)}
               disabled={!ready}
-              className="flex h-11 w-11 items-center justify-center rounded-full text-[#626762] transition-colors disabled:opacity-40"
+              className="flex min-h-11 w-16 flex-col items-center justify-center gap-1 rounded-lg text-[#626762] transition-colors disabled:opacity-40"
             >
-              <RotateCcw size={20} />
+              <RotateCcw size={20} aria-hidden="true" />
+              <span className="text-[10px] font-semibold">{SKIP_SECONDS}초 뒤로</span>
             </button>
             <button
               type="button"
@@ -132,9 +133,10 @@ export default function DocentPlayer({ onClose, place }) {
               aria-label={`${SKIP_SECONDS}초 앞으로`}
               onClick={() => skip(SKIP_SECONDS)}
               disabled={!ready}
-              className="flex h-11 w-11 items-center justify-center rounded-full text-[#626762] transition-colors disabled:opacity-40"
+              className="flex min-h-11 w-16 flex-col items-center justify-center gap-1 rounded-lg text-[#626762] transition-colors disabled:opacity-40"
             >
-              <RotateCw size={20} />
+              <RotateCw size={20} aria-hidden="true" />
+              <span className="text-[10px] font-semibold">{SKIP_SECONDS}초 앞으로</span>
             </button>
           </div>
 

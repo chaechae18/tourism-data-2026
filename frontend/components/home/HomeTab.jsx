@@ -198,12 +198,17 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
 
   return (
     <section className="space-y-7">
-      <div className="overflow-hidden rounded-xl bg-[#2c1e19] px-6 py-4 text-[#fff8ec]">
-        <p className="text-xs font-bold text-[#e0b06a]">Gyeongju</p>
-        <h1 className="mt-1 text-xl font-bold leading-7">{t("home.title")}</h1>
-        <p className="mt-2 text-sm leading-6 text-[#f0dcc4]">{t("home.description")}</p>
-        <AppButton className="mt-3" icon={MapPinned} onClick={onMapOpen} variant="light">{t("home.nearby")}</AppButton>
-        {notice && <p className="mt-3 text-sm font-bold text-[#ffd4a0]">{notice}</p>}
+      <div>
+        <div className="relative isolate min-h-[300px] overflow-hidden rounded-xl bg-[#eef4f1] px-6 pb-28 pt-6 text-[#273f36]">
+          {/* Decorative artwork stays uncropped so the landmarks remain visible on mobile. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/home-gyeongju-landscape.webp" alt="" aria-hidden="true" width="1536" height="1024" fetchPriority="high" className="pointer-events-none absolute inset-x-0 bottom-0 -z-20 h-auto w-full" />
+          <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(180deg,#eef4f1_0%,rgba(238,244,241,0.9)_30%,rgba(238,244,241,0)_65%)]" />
+          <h1 className="mt-1 break-keep text-xl font-bold leading-7 [text-wrap:balance]">{t("home.title")}</h1>
+          <p className="mt-2 text-sm leading-6 text-[#4e645a]">{t("home.description")}</p>
+          <AppButton className="mt-3 shadow-sm" icon={MapPinned} onClick={onMapOpen}>{t("home.nearby")}</AppButton>
+          {notice && <p className="mt-3 text-sm font-bold text-[#843b23]">{notice}</p>}
+        </div>
       </div>
 
       <div>
@@ -214,12 +219,12 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
             const period = formatPeriod(festival.startDate, festival.endDate, t);
             const url = safeHref(festival.url);
             return (
-              <article className="flex gap-4 rounded-lg border border-[#e6ddd2] bg-white p-4" key={`${festival.name}-${index}`}>
+              <article className="flex gap-3 rounded-lg border border-[#e6ddd2] bg-white p-3" key={`${festival.name}-${index}`}>
                 {festival.img ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img alt="" aria-hidden="true" className="aspect-[5/7] w-[4.5rem] shrink-0 rounded-md object-cover" src={festival.img} />
+                  <img alt="" aria-hidden="true" className="aspect-[5/7] w-20 shrink-0 rounded-md object-cover" src={festival.img} />
                 ) : (
-                  <div className="aspect-[5/7] w-[4.5rem] shrink-0 rounded-md" style={{ background: ACCENTS[index % ACCENTS.length] }} />
+                  <div className="aspect-[5/7] w-20 shrink-0 rounded-md" style={{ background: ACCENTS[index % ACCENTS.length] }} />
                 )}
                 <div className="min-w-0">
                   {festival.location && <p className="text-xs font-bold text-[#8a7d71]">{festival.location}</p>}
@@ -298,6 +303,7 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
         </a>
       </div>
 
+      <p className="text-center text-xs text-[#747579]">출처: ⓒ한국관광공사</p>
       {!popupHidden && <NoticePopup popups={popups} t={t} />}
     </section>
   );

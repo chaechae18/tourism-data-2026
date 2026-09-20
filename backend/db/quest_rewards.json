@@ -1,0 +1,212 @@
+[
+  {
+    "id": "king_hat",
+    "role": "king",
+    "slot": "hat",
+    "name": "신라 금관",
+    "modelUrl": "/models/donggyeong/items/king/hat.glb"
+  },
+  {
+    "id": "king_hand",
+    "role": "king",
+    "slot": "hand",
+    "name": "옥 여의",
+    "modelUrl": "/models/donggyeong/items/king/hand.glb"
+  },
+  {
+    "id": "king_top",
+    "role": "king",
+    "slot": "top",
+    "name": "홍색 왕의 예복",
+    "modelUrl": "/models/donggyeong/items/king/top.glb"
+  },
+  {
+    "id": "king_bottom",
+    "role": "king",
+    "slot": "bottom",
+    "name": "홍색 금수 하상",
+    "modelUrl": "/models/donggyeong/items/king/bottom.glb"
+  },
+  {
+    "id": "king_effect",
+    "role": "king",
+    "slot": "effect",
+    "name": "동궁과 월지",
+    "modelUrl": "/models/donggyeong/items/king/effect.glb"
+  },
+  {
+    "id": "court_lady_hat",
+    "role": "court_lady",
+    "slot": "hat",
+    "name": "꽃비녀 쪽머리",
+    "modelUrl": "/models/donggyeong/items/court_lady/hat.glb"
+  },
+  {
+    "id": "court_lady_hand",
+    "role": "court_lady",
+    "slot": "hand",
+    "name": "매화 비단 부채",
+    "modelUrl": "/models/donggyeong/items/court_lady/hand.glb"
+  },
+  {
+    "id": "court_lady_top",
+    "role": "court_lady",
+    "slot": "top",
+    "name": "자색 저고리",
+    "modelUrl": "/models/donggyeong/items/court_lady/top.glb"
+  },
+  {
+    "id": "court_lady_bottom",
+    "role": "court_lady",
+    "slot": "bottom",
+    "name": "홍색 치마",
+    "modelUrl": "/models/donggyeong/items/court_lady/bottom.glb"
+  },
+  {
+    "id": "court_lady_effect",
+    "role": "court_lady",
+    "slot": "effect",
+    "name": "월정교",
+    "modelUrl": "/models/donggyeong/items/court_lady/effect.glb"
+  },
+  {
+    "id": "warrior_hat",
+    "role": "hwarang",
+    "slot": "hat",
+    "name": "붉은 깃 투구",
+    "modelUrl": "/models/donggyeong/items/warrior/hat.glb"
+  },
+  {
+    "id": "warrior_hand",
+    "role": "hwarang",
+    "slot": "hand",
+    "name": "장식 환두검",
+    "modelUrl": "/models/donggyeong/items/warrior/hand.glb"
+  },
+  {
+    "id": "warrior_top",
+    "role": "hwarang",
+    "slot": "top",
+    "name": "찰갑 상의",
+    "modelUrl": "/models/donggyeong/items/warrior/top.glb"
+  },
+  {
+    "id": "warrior_bottom",
+    "role": "hwarang",
+    "slot": "bottom",
+    "name": "갑상과 장화",
+    "modelUrl": "/models/donggyeong/items/warrior/bottom.glb"
+  },
+  {
+    "id": "warrior_effect",
+    "role": "hwarang",
+    "slot": "effect",
+    "name": "김유신묘",
+    "modelUrl": "/models/donggyeong/items/warrior/effect.glb"
+  },
+  {
+    "id": "monk_hat",
+    "role": "monk",
+    "slot": "hat",
+    "name": "접이식 승모",
+    "modelUrl": "/models/donggyeong/items/monk/hat.glb"
+  },
+  {
+    "id": "monk_hand",
+    "role": "monk",
+    "slot": "hand",
+    "name": "금환 석장",
+    "modelUrl": "/models/donggyeong/items/monk/hand.glb"
+  },
+  {
+    "id": "monk_top",
+    "role": "monk",
+    "slot": "top",
+    "name": "가사와 염주",
+    "modelUrl": "/models/donggyeong/items/monk/top.glb"
+  },
+  {
+    "id": "monk_bottom",
+    "role": "monk",
+    "slot": "bottom",
+    "name": "승복 하의",
+    "modelUrl": "/models/donggyeong/items/monk/bottom.glb"
+  },
+  {
+    "id": "monk_effect",
+    "role": "monk",
+    "slot": "effect",
+    "name": "불국사",
+    "modelUrl": "/models/donggyeong/items/monk/effect.glb"
+  },
+  {
+    "id": "scholar_hat",
+    "role": "scholar",
+    "slot": "hat",
+    "name": "검은 갓",
+    "modelUrl": "/models/donggyeong/items/scholar/hat.glb"
+  },
+  {
+    "id": "scholar_hand",
+    "role": "scholar",
+    "slot": "hand",
+    "name": "펼친 서책",
+    "modelUrl": "/models/donggyeong/items/scholar/hand.glb"
+  },
+  {
+    "id": "scholar_top",
+    "role": "scholar",
+    "slot": "top",
+    "name": "남색 도포 상의",
+    "modelUrl": "/models/donggyeong/items/scholar/top.glb"
+  },
+  {
+    "id": "scholar_bottom",
+    "role": "scholar",
+    "slot": "bottom",
+    "name": "도포 하의",
+    "modelUrl": "/models/donggyeong/items/scholar/bottom.glb"
+  },
+  {
+    "id": "scholar_effect",
+    "role": "scholar",
+    "slot": "effect",
+    "name": "첨성대",
+    "modelUrl": "/models/donggyeong/items/scholar/effect.glb"
+  },
+  {
+    "id": "merchant_hat",
+    "role": "merchant",
+    "slot": "hat",
+    "name": "상인 두건",
+    "modelUrl": "/models/donggyeong/items/merchant/hat.glb"
+  },
+  {
+    "id": "merchant_hand",
+    "role": "merchant",
+    "slot": "hand",
+    "name": "목제 주판",
+    "modelUrl": "/models/donggyeong/items/merchant/hand.glb"
+  },
+  {
+    "id": "merchant_top",
+    "role": "merchant",
+    "slot": "top",
+    "name": "저고리와 앞치마",
+    "modelUrl": "/models/donggyeong/items/merchant/top.glb"
+  },
+  {
+    "id": "merchant_bottom",
+    "role": "merchant",
+    "slot": "bottom",
+    "name": "바지와 전대",
+    "modelUrl": "/models/donggyeong/items/merchant/bottom.glb"
+  },
+  {
+    "id": "merchant_effect",
+    "role": "merchant",
+    "slot": "effect",
+    "name": "교촌마을",
+    "modelUrl": "/models/donggyeong/items/merchant/effect.glb"
+  }
+]

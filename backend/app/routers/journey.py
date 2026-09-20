@@ -286,6 +286,8 @@ def complete_course_quest(
         name=completion["name"],
         completed=completion["completed"],
         completedAt=completion["completed_at"],
+        reward=completion["reward"],
+        inventory=completion["inventory"],
     )
 
 

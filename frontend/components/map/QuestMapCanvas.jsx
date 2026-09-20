@@ -57,7 +57,7 @@ export default function QuestMapCanvas({ bounds, completedQuestIds, currentLocat
         style: GAME_MAP_STYLE,
         center: [129.2224, 35.8338],
         zoom: 13.6,
-        minZoom: 10.5,
+        minZoom: 9,
         maxZoom: 18,
         maxBounds: [[west, south], [east, north]],
         pitch: 0,
@@ -171,7 +171,7 @@ export default function QuestMapCanvas({ bounds, completedQuestIds, currentLocat
       ))}
       <div className={styles.tools}>
         <IconButton icon={Plus} label={t("map.zoomIn")} disabled={!runtime || zoom >= 18} onClick={() => runtime.map.zoomIn()} className="border-white/70 bg-white/90 shadow-sm" />
-        <IconButton icon={Minus} label={t("map.zoomOut")} disabled={!runtime || zoom <= 10.5} onClick={() => runtime.map.zoomOut()} className="border-white/70 bg-white/90 shadow-sm" />
+        <IconButton icon={Minus} label={t("map.zoomOut")} disabled={!runtime || zoom <= 9} onClick={() => runtime.map.zoomOut()} className="border-white/70 bg-white/90 shadow-sm" />
       </div>
       {status !== "ready" && <div className={styles.status} role="status">
         {status === "loading" ? loadingText : errorText}

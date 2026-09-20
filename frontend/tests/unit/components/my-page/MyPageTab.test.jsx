@@ -40,12 +40,14 @@ describe("MyPageTab", () => {
     await waitFor(() => expect(userApi.updateUserLanguage).toHaveBeenCalledWith("en"));
   });
 
-  it("logs the user out from the withdrawal action", () => {
+  it("calls the withdrawal handler from the withdrawal action", () => {
     const onLogout = vi.fn();
-    render(<MyPageTab {...PROPS} onLogout={onLogout} />);
+    const onWithdraw = vi.fn();
+    render(<MyPageTab {...PROPS} onLogout={onLogout} onWithdraw={onWithdraw} />);
 
     fireEvent.click(screen.getByRole("button", { name: "회원 탈퇴" }));
 
-    expect(onLogout).toHaveBeenCalledOnce();
+    expect(onWithdraw).toHaveBeenCalledOnce();
+    expect(onLogout).not.toHaveBeenCalled();
   });
 });

@@ -9,9 +9,9 @@ import { QUESTS } from "../../lib/app-data";
 import {
   DEFAULT_CURRENT_LOCATION,
   formatDistance,
+  getCourseBounds,
   getDistanceMeters,
   isWithinBounds,
-  MAP_SCOPES,
 } from "../../lib/map/gyeongju-map";
 // 지도 위 경로 그리기는 TMAP, 실제 길찾기 이동은 카카오맵을 쓴다.
 import { requestTmapPedestrianRoute } from "../../lib/tmap/pedestrian-route";
@@ -241,7 +241,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
   const [routeMessage, setRouteMessage] = useState("");  // 경로 관련 안내문구
 
   // --- 파생값(state로부터 계산) ---
-  const bounds = MAP_SCOPES.all.bounds;  // 지도는 경주 관광권 전체 하나만 쓴다
+  const bounds = useMemo(() => getCourseBounds(places), [places]);
   const selectedDistance = getDistanceMeters(currentLocation, selectedPlace);  // 선택 장소까지 거리
   const selectedNearby = selectedDistance <= NEARBY_DISTANCE_METERS;  // 가까운지
   const completed = completedQuestIds.includes(selectedPlace.id);  // 방문 완료했는지
@@ -286,7 +286,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
         return;
       }
       const saved = await onComplete(selectedPlace.id, position);
-      if (saved !== false) setQuestResult({ type: "success", name: selectedPlace.name });
+      if (saved !== false) setQuestResult({ type: "success", name: selectedPlace.name, reward: saved?.reward });
     } catch (error) {
       if (error.code === "QUEST_LOCATION_INVALID") {
         setQuestResult({ type: "nearby", name: selectedPlace.name });
@@ -307,7 +307,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
     setQuestResult(null);
     try {
       const saved = await onComplete(place.id, { demoCompletion: true });
-      if (saved !== false) setQuestResult({ type: "success", name: place.name, demo: true });
+      if (saved !== false) setQuestResult({ type: "success", name: place.name, demo: true, reward: saved?.reward });
     } catch (error) {
       setQuestResult({ type: "location", name: place.name, message: error.message || "체험 완료를 저장하지 못했어요. 다시 시도해 주세요." });
     } finally {

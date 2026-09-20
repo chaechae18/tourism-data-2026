@@ -3,6 +3,7 @@ from datetime import date, datetime
 from pydantic import Field, model_validator
 
 from .common import CamelModel
+from .donggyeong import InventoryResponse, QuestRewardItem
 
 
 class CourseStopResponse(CamelModel):
@@ -61,6 +62,8 @@ class QuestCompletionResponse(CamelModel):
     name: str | None = None
     completed: bool
     completed_at: datetime | None = Field(default=None, alias="completedAt")
+    reward: QuestRewardItem | None = None
+    inventory: InventoryResponse
 
 
 class QuestCompletionRequest(CamelModel):

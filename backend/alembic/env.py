@@ -43,7 +43,9 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    engine = create_engine(database_url(), pool_pre_ping=True)
+    settings = connection_settings()
+    connect_args = {"ssl": settings["ssl"]} if "ssl" in settings else {}
+    engine = create_engine(database_url(), pool_pre_ping=True, connect_args=connect_args)
     with engine.connect() as connection:
         context.configure(connection=connection, target_metadata=target_metadata)
         with context.begin_transaction():

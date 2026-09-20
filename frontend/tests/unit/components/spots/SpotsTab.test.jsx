@@ -10,7 +10,6 @@ const api = vi.hoisted(() => ({
   listPublicSpots: vi.fn(),
   listSpotRanking: vi.fn(),
   listSpotComments: vi.fn(),
-  searchNearbyPlaces: vi.fn(),
   searchPlaces: vi.fn(),
   setSpotReaction: vi.fn(),
   uploadSpotImage: vi.fn(),
@@ -63,9 +62,6 @@ describe("SpotsTab", () => {
     api.listSpotRanking.mockResolvedValue([]);
     api.listMySpots.mockResolvedValue([]);
     api.searchPlaces.mockResolvedValue({ places: [PLACE] });
-    api.searchNearbyPlaces.mockResolvedValue({
-      places: [{ ...PLACE, distance: 120 }],
-    });
     api.createSpot.mockResolvedValue({ ...SPOT, moderationStatus: 0 });
     api.deleteSpot.mockResolvedValue(null);
     api.listSpotComments.mockResolvedValue([]);
@@ -113,36 +109,30 @@ describe("SpotsTab", () => {
     expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 10_500);
   });
 
-  it("loads nearby places from the current location", async () => {
-    const getCurrentPosition = vi.fn((success) => success({
-      coords: {
-        latitude: 35.8347,
-        longitude: 129.2191,
-      },
-    }));
+  it("searches by name without requesting the user's location", async () => {
+    const geolocation = Object.getOwnPropertyDescriptor(navigator, "geolocation");
+    const getCurrentPosition = vi.fn();
+    const watchPosition = vi.fn();
     Object.defineProperty(navigator, "geolocation", {
       configurable: true,
-      value: { getCurrentPosition },
+      value: { getCurrentPosition, watchPosition },
     });
-    render(<SpotsTab />);
-    fireEvent.click(screen.getByRole("button", { name: "나의 스팟 등록" }));
-
-    fireEvent.click(screen.getByRole("button", { name: "내 주변 장소" }));
-
-    await waitFor(() => expect(api.searchNearbyPlaces).toHaveBeenCalledWith({
-      latitude: 35.8347,
-      longitude: 129.2191,
-    }));
-    expect(await screen.findByRole("button", { name: /첨성대.*120m/ })).toBeInTheDocument();
-    expect(getCurrentPosition).toHaveBeenCalledWith(
-      expect.any(Function),
-      expect.any(Function),
-      {
-        enableHighAccuracy: false,
-        maximumAge: 300_000,
-        timeout: 8_000,
-      },
-    );
+    try {
+      render(<SpotsTab />);
+      fireEvent.click(screen.getByRole("button", { name: "나의 스팟 등록" }));
+      expect(screen.queryByRole("button", { name: "내 주변 장소" })).not.toBeInTheDocument();
+      expect(screen.queryByText("현재 위치 기준 2km")).not.toBeInTheDocument();
+      fireEvent.change(screen.getByPlaceholderText("어디에서 발견했나요?"), {
+        target: { value: "첨성대" },
+      });
+      fireEvent.click(await screen.findByRole("button", { name: /첨성대/ }));
+      expect(api.searchPlaces).toHaveBeenLastCalledWith("첨성대", { signal: expect.any(AbortSignal) });
+      expect(getCurrentPosition).not.toHaveBeenCalled();
+      expect(watchPosition).not.toHaveBeenCalled();
+    } finally {
+      if (geolocation) Object.defineProperty(navigator, "geolocation", geolocation);
+      else delete navigator.geolocation;
+    }
   });
 
   it("rejects a review containing a blocked expression", async () => {

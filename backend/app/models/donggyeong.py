@@ -31,3 +31,20 @@ class DonggyeongItemResponse(CamelModel):
     model_url: str | None = Field(alias="modelUrl")
     model_extension: ModelFileExtension | None = Field(alias="modelExtension")
     description: str | None
+
+
+class QuestRewardItem(CamelModel):
+    id: str
+    role: str
+    slot: Literal["hat", "top", "bottom", "hand", "effect"]
+    name: str
+    model_url: str = Field(alias="modelUrl")
+
+
+class InventoryResponse(CamelModel):
+    items: list[QuestRewardItem]
+    outfit: dict[str, str]
+
+
+class OutfitRequest(CamelModel):
+    outfit: dict[str, str]

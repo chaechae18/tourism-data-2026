@@ -1,0 +1,428 @@
+{
+  "version": "v1-2026-09-20",
+  "generated_at": "2026-09-20T11:56:06.874498+00:00",
+  "git_head": "0c1e0ddd0caa43120c04fe0a59d8c591301cb193",
+  "working_tree_dirty": true,
+  "backend_source_sha256": "a2c1c024c0f7e1b6d54cdabd4c554d4cb58cf324720f6826afa530bfd188ce72",
+  "environment": "ASGI TestClient + disposable mysql:8.4; external network blocked; synthetic users only",
+  "pytest_exit_code": 1,
+  "counts": {
+    "PASS": 38,
+    "OPEN": 20,
+    "ERROR": 0,
+    "SKIP": 0
+  },
+  "scenarios": [
+    {
+      "scenario": "test_private_routes_reject_header_only_identity[GET-/api/v1/auth/me-None]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "로그인 없이 개인 API 호출 시 401",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_private_routes_reject_header_only_identity[GET-/api/v1/auth/visit-place-None]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "로그인 없이 개인 API 호출 시 401",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_private_routes_reject_header_only_identity[DELETE-/api/v1/auth/withdraw-None]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "로그인 없이 개인 API 호출 시 401",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_private_routes_reject_header_only_identity[GET-/api/v1/journey/course-None]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "로그인 없이 개인 API 호출 시 401",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_private_routes_reject_header_only_identity[GET-/api/v1/donggyeong/inventory?persona=king-None]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "로그인 없이 개인 API 호출 시 401",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_private_routes_reject_header_only_identity[PUT-/api/v1/donggyeong/outfit?persona=king-body5]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "로그인 없이 개인 API 호출 시 401",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_private_routes_reject_header_only_identity[GET-/api/v1/notifications-None]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "로그인 없이 개인 API 호출 시 401",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_private_routes_reject_header_only_identity[GET-/api/v1/users/me/preferences-None]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "로그인 없이 개인 API 호출 시 401",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_spot_routes_reject_anonymous_impersonation[create]",
+      "outcome": "OPEN",
+      "risk": "critical",
+      "expected": "서명된 세션 없이 사용자 번호만 보내면 401, 저장·삭제 없음",
+      "effect": "spots=2",
+      "observed": "HTTP 201"
+    },
+    {
+      "scenario": "test_spot_routes_reject_anonymous_impersonation[delete]",
+      "outcome": "OPEN",
+      "risk": "critical",
+      "expected": "서명된 세션 없이 사용자 번호만 보내면 401, 저장·삭제 없음",
+      "effect": "deleted=True",
+      "observed": "HTTP 204"
+    },
+    {
+      "scenario": "test_spot_routes_reject_anonymous_impersonation[mine]",
+      "outcome": "OPEN",
+      "risk": "critical",
+      "expected": "서명된 세션 없이 사용자 번호만 보내면 401, 저장·삭제 없음",
+      "observed": "HTTP 200"
+    },
+    {
+      "scenario": "test_spot_routes_reject_anonymous_impersonation[comment]",
+      "outcome": "OPEN",
+      "risk": "critical",
+      "expected": "서명된 세션 없이 사용자 번호만 보내면 401, 저장·삭제 없음",
+      "effect": "comments=1",
+      "observed": "HTTP 201"
+    },
+    {
+      "scenario": "test_spot_routes_reject_anonymous_impersonation[like]",
+      "outcome": "OPEN",
+      "risk": "critical",
+      "expected": "서명된 세션 없이 사용자 번호만 보내면 401, 저장·삭제 없음",
+      "effect": "reactions=1",
+      "observed": "HTTP 200"
+    },
+    {
+      "scenario": "test_spot_routes_reject_anonymous_impersonation[upload]",
+      "outcome": "OPEN",
+      "risk": "critical",
+      "expected": "서명된 세션 없이 사용자 번호만 보내면 401, 저장·삭제 없음",
+      "observed": "HTTP 201"
+    },
+    {
+      "scenario": "test_spot_routes_reject_anonymous_impersonation[translate]",
+      "outcome": "OPEN",
+      "risk": "critical",
+      "expected": "서명된 세션 없이 사용자 번호만 보내면 401, 저장·삭제 없음",
+      "effect": "provider_calls=1 (fake provider)",
+      "observed": "HTTP 200"
+    },
+    {
+      "scenario": "test_signed_in_user_cannot_delete_another_users_spot",
+      "outcome": "OPEN",
+      "risk": "critical",
+      "expected": "사용자 2의 세션에 사용자 1 헤더를 넣어도 타인 글 삭제 불가",
+      "effect": "deleted=True",
+      "observed": "HTTP 204"
+    },
+    {
+      "scenario": "test_pending_comment_cannot_be_read_by_spoofing_owner",
+      "outcome": "OPEN",
+      "risk": "high",
+      "expected": "비로그인 조회에서 헤더를 바꿔도 미승인 댓글 비공개",
+      "observed": "HTTP 200",
+      "effect": "pending_comment_disclosed=True"
+    },
+    {
+      "scenario": "test_forged_session_rejected[wrong-key]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "변조하거나 잘못 서명한 쿠키는 401",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_forged_session_rejected[]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "변조하거나 잘못 서명한 쿠키는 401",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_forged_session_rejected[dev-session-secret-key-change-this]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "변조하거나 잘못 서명한 쿠키는 401",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_withdrawn_account_cookie_rejected[/api/v1/auth/me]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "탈퇴 후 남은 쿠키로 개인정보·방문 기록에 접근 불가",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_withdrawn_account_cookie_rejected[/api/v1/auth/visit-place]",
+      "outcome": "OPEN",
+      "risk": "high",
+      "expected": "탈퇴 후 남은 쿠키로 개인정보·방문 기록에 접근 불가",
+      "observed": "HTTP 200"
+    },
+    {
+      "scenario": "test_withdrawn_account_cookie_rejected[/api/v1/journey/course]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "탈퇴 후 남은 쿠키로 개인정보·방문 기록에 접근 불가",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_logout_revokes_copied_cookie",
+      "outcome": "OPEN",
+      "risk": "medium",
+      "expected": "로그아웃 전에 복사된 세션 쿠키도 서버에서 무효화",
+      "observed": "HTTP 200"
+    },
+    {
+      "scenario": "test_oauth_state_validation[None-google]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "OAuth state 누락·불일치 요청은 외부 토큰 교환 전에 차단",
+      "observed": "HTTP 400"
+    },
+    {
+      "scenario": "test_oauth_state_validation[None-kakao]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "OAuth state 누락·불일치 요청은 외부 토큰 교환 전에 차단",
+      "observed": "HTTP 400"
+    },
+    {
+      "scenario": "test_oauth_state_validation[None-naver]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "OAuth state 누락·불일치 요청은 외부 토큰 교환 전에 차단",
+      "observed": "HTTP 400"
+    },
+    {
+      "scenario": "test_oauth_state_validation[attacker-state-google]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "OAuth state 누락·불일치 요청은 외부 토큰 교환 전에 차단",
+      "observed": "HTTP 400"
+    },
+    {
+      "scenario": "test_oauth_state_validation[attacker-state-kakao]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "OAuth state 누락·불일치 요청은 외부 토큰 교환 전에 차단",
+      "observed": "HTTP 400"
+    },
+    {
+      "scenario": "test_oauth_state_validation[attacker-state-naver]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "OAuth state 누락·불일치 요청은 외부 토큰 교환 전에 차단",
+      "observed": "HTTP 400"
+    },
+    {
+      "scenario": "test_https_session_cookie_flags",
+      "outcome": "OPEN",
+      "risk": "medium",
+      "expected": "HTTPS 서비스에서 발행한 로그인 쿠키는 Secure·HttpOnly·SameSite 설정",
+      "observed": "Secure=False, HttpOnly=True, SameSite=True"
+    },
+    {
+      "scenario": "test_empty_session_key_fails_closed",
+      "outcome": "OPEN",
+      "risk": "high",
+      "expected": "빈 SESSION_SECRET_KEY로 설정 로딩·서명 기능 시작 불가",
+      "observed": "empty_key_accepted=True"
+    },
+    {
+      "scenario": "test_signup_enforces_password_policy[]",
+      "outcome": "OPEN",
+      "risk": "medium",
+      "expected": "프론트를 우회한 빈 비밀번호·취약 비밀번호 가입 거부",
+      "observed": "HTTP 200"
+    },
+    {
+      "scenario": "test_signup_enforces_password_policy[a]",
+      "outcome": "OPEN",
+      "risk": "medium",
+      "expected": "프론트를 우회한 빈 비밀번호·취약 비밀번호 가입 거부",
+      "observed": "HTTP 200"
+    },
+    {
+      "scenario": "test_signup_enforces_password_policy[password123]",
+      "outcome": "OPEN",
+      "risk": "medium",
+      "expected": "프론트를 우회한 빈 비밀번호·취약 비밀번호 가입 거부",
+      "observed": "HTTP 200"
+    },
+    {
+      "scenario": "test_login_rejects_malformed_input[body0]",
+      "outcome": "OPEN",
+      "risk": "medium",
+      "expected": "로그인 JSON 타입 오류는 4xx, 내부 오류 500 없음",
+      "observed": "HTTP 500"
+    },
+    {
+      "scenario": "test_login_rejects_malformed_input[body1]",
+      "outcome": "PASS",
+      "risk": "medium",
+      "expected": "로그인 JSON 타입 오류는 4xx, 내부 오류 500 없음",
+      "observed": "HTTP 401"
+    },
+    {
+      "scenario": "test_login_attempts_are_throttled",
+      "outcome": "OPEN",
+      "risk": "medium",
+      "expected": "동일 클라이언트의 20회 연속 로그인 실패 중 요청 제한 적용",
+      "observed": "attempts=20, throttled=0, unauthorized=20"
+    },
+    {
+      "scenario": "test_cross_origin_plain_text_login_rejected",
+      "outcome": "OPEN",
+      "risk": "high",
+      "expected": "다른 Origin의 text/plain 로그인 요청 거부",
+      "observed": "HTTP 200"
+    },
+    {
+      "scenario": "test_admin_moderation_requires_key[headers0]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "관리자 키 누락·오류 요청은 데이터 변경 없이 차단",
+      "observed": "HTTP 422"
+    },
+    {
+      "scenario": "test_admin_moderation_requires_key[headers1]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "관리자 키 누락·오류 요청은 데이터 변경 없이 차단",
+      "observed": "HTTP 403"
+    },
+    {
+      "scenario": "test_sql_injection_in_id_check",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "아이디 SQL 인젝션 문자열은 일반 문자열로 처리",
+      "observed": "HTTP 200"
+    },
+    {
+      "scenario": "test_upload_rejects_active_content[<script>alert(1)</script>]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "확장자·MIME으로 위장한 비이미지 파일 거부",
+      "observed": "HTTP 422"
+    },
+    {
+      "scenario": "test_upload_rejects_active_content[<svg xmlns=\"http://www.w3.org/2000/svg\" onload=\"alert(1)\"/>]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "확장자·MIME으로 위장한 비이미지 파일 거부",
+      "observed": "HTTP 422"
+    },
+    {
+      "scenario": "test_upload_size_limit",
+      "outcome": "PASS",
+      "risk": "medium",
+      "expected": "업로드 용량 제한 및 경로 탈출 방지",
+      "observed": "HTTP 413"
+    },
+    {
+      "scenario": "test_upload_filename_cannot_escape",
+      "outcome": "PASS",
+      "risk": "medium",
+      "expected": "사용자 파일명 대신 서버 UUID와 실제 이미지 확장자로 저장",
+      "observed": "HTTP 201"
+    },
+    {
+      "scenario": "test_translation_cannot_disclose_pending_spot",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "미승인 글은 번역 API로도 내용 조회 불가",
+      "observed": "HTTP 404"
+    },
+    {
+      "scenario": "test_quest_owner_is_enforced",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "타인 퀘스트 ID를 알아도 보상 수령 불가",
+      "observed": "HTTP 404"
+    },
+    {
+      "scenario": "test_demo_flag_requires_server_authorization",
+      "outcome": "OPEN",
+      "risk": "medium",
+      "expected": "일반 사용자 요청의 demoCompletion만으로 위치 검증 생략 불가",
+      "effect": "reward_rows=1",
+      "observed": "HTTP 200"
+    },
+    {
+      "scenario": "test_far_away_quest_rejected",
+      "outcome": "PASS",
+      "risk": "medium",
+      "expected": "먼 거리의 일반 완료 요청은 보상 없이 거부",
+      "observed": "HTTP 400"
+    },
+    {
+      "scenario": "test_reward_replay_is_idempotent",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "동일 퀘스트 재전송은 아이템 하나만 지급",
+      "observed": "HTTP 200"
+    },
+    {
+      "scenario": "test_unowned_outfit_rejected[outfit0]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "미보유 아이템·다른 역할 아이템을 착장에 저장할 수 없음",
+      "observed": "HTTP 400"
+    },
+    {
+      "scenario": "test_unowned_outfit_rejected[outfit1]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "미보유 아이템·다른 역할 아이템을 착장에 저장할 수 없음",
+      "observed": "HTTP 400"
+    },
+    {
+      "scenario": "test_notification_owner_is_enforced",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "다른 사용자의 알림 읽음 상태 변경 불가",
+      "observed": "HTTP 404"
+    },
+    {
+      "scenario": "test_concurrent_reward_integrity[True]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "동시 완료 요청에서도 보상 중복·누락 없음"
+    },
+    {
+      "scenario": "test_concurrent_reward_integrity[False]",
+      "outcome": "PASS",
+      "risk": "high",
+      "expected": "동시 완료 요청에서도 보상 중복·누락 없음"
+    },
+    {
+      "scenario": "test_valid_signup_and_logout_control",
+      "outcome": "PASS",
+      "risk": "control",
+      "expected": "정상 회원가입·세션 조회·로그아웃은 정상 동작",
+      "observed": "HTTP 200"
+    },
+    {
+      "scenario": "test_external_network_guard",
+      "outcome": "PASS",
+      "risk": "control",
+      "expected": "레드팀 실행 중 외부 소켓 연결 차단"
+    }
+  ]
+}

@@ -203,11 +203,17 @@ def test_course_marks_places_that_can_be_read_aloud(
             "UPDATE PLACE SET TEXT = %s WHERE NAME = %s",
             ("동궁과 월지는 신라 왕궁의 별궁 터다.", "경주 동궁과 월지"),
         )
+        cursor.execute("SELECT IDX, TEXT FROM PLACE")
+        descriptions = {row["IDX"]: row["TEXT"] for row in cursor.fetchall()}
 
-    stops = client.get("/api/v1/journey/course", headers={"X-User-No": "1"}).json()["stops"]
+    response = client.get("/api/v1/journey/course", headers={"X-User-No": "1"})
+    assert response.status_code == 200
+    stops = response.json()["stops"]
 
-    # 설명이 있는 장소만 도슨트 버튼이 켜진다.
-    assert [stop["name"] for stop in stops if stop["docent"]] == ["경주 동궁과 월지"]
+    # 무작위로 뽑힌 장소마다 설명 유무에 맞게 도슨트 버튼이 켜진다.
+    assert stops
+    for stop in stops:
+        assert stop["docent"] is bool(descriptions[stop["placeId"]])
 
 
 def test_unknown_persona_is_rejected(client: TestClient) -> None:

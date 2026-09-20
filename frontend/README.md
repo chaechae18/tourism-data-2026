@@ -3,7 +3,8 @@ Next.js, React, Tailwind CSS로 만든 경주 여행 앱 MVP
 
 ## Docker Compose 실행
 
-프로젝트 루트에서 MySQL과 백엔드를 포함해 한 번에 실행합니다.
+프로젝트 루트에서 프론트엔드와 백엔드를 한 번에 실행합니다.
+백엔드는 `backend/.env`의 운영 DB에 연결합니다. [운영 DB 연결 안내](../docs/docker.md)를 먼저 확인하세요.
 
 ```bash
 docker compose up --build
