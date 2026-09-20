@@ -16,6 +16,21 @@ const PROPS = {
 };
 
 describe("GyeongjuMap2D", () => {
+  it("keeps category images consistent in the selected card and list, including completed places", () => {
+    const restaurant = { ...QUESTS[0], id: "restaurant", name: "다인매운등갈비찜", icon: "food" };
+    const places = [restaurant, QUESTS[1]];
+    const { rerender } = render(<GyeongjuMap2D {...PROPS} places={places} selectedPlace={restaurant} />);
+    expect(screen.getByRole("article").querySelector("img")).toHaveAttribute("src", "/images/map-quests/food-simple.svg");
+    fireEvent.click(screen.getByRole("button", { name: "리스트" }));
+    expect(screen.getByRole("button", { name: `${restaurant.name} 선택` }).querySelector("img"))
+      .toHaveAttribute("src", "/images/map-quests/food-simple.svg");
+
+    rerender(<GyeongjuMap2D {...PROPS} places={places} selectedPlace={QUESTS[1]} completedQuestIds={[QUESTS[1].id]} />);
+    const card = screen.getByRole("article");
+    expect(card.querySelector("img")).toHaveAttribute("src", "/images/map-quests/tower-simple.webp");
+    expect(card.querySelector('[aria-label="방문 완료"]')).toBeInTheDocument();
+  });
+
   it.each([true, false])("passes the saved reward to the celebration for demo=%s", async (demo) => {
     vi.stubGlobal("navigator", { geolocation: { getCurrentPosition: (resolve) => resolve({ coords: {
       latitude: QUESTS[0].latitude, longitude: QUESTS[0].longitude, accuracy: 10,

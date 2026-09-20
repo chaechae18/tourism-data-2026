@@ -20,6 +20,7 @@ describe("QuestMapCanvas", () => {
     const building = await ready();
     expect(building.querySelector("img")).toHaveAttribute("src", "/images/map-quests/tower-simple.webp");
     expect(building.querySelector("img")).toHaveAttribute("width", "40");
+    expect(screen.getByRole("button", { name: "한옥 식당 선택" }).querySelector("img")).toHaveAttribute("src", "/images/map-quests/food-simple.svg");
     expect(markers[0].coordinates).toEqual([129.219, 35.8347]);
     expect(markers[0].anchor).toBe("bottom");
     fireEvent.click(building);
@@ -111,7 +112,7 @@ describe("QuestMapCanvas", () => {
 });
 
 it("provides safe category fallbacks without interpolating arbitrary paths", () => {
-  expect(getQuestAsset("food")).toBe("/images/map-quests/hanok-simple.webp");
+  expect(getQuestAsset("food")).toBe("/images/map-quests/food-simple.svg");
   expect(getQuestAsset("palace")).toBe("/images/map-quests/temple-simple.webp");
   expect(getQuestAsset("grotto")).toBe("/images/map-quests/grotto-simple.webp");
   expect(getQuestAsset("unknown")).toBe("/images/map-quests/hanok-simple.webp");

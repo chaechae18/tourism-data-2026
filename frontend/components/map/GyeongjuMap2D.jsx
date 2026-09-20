@@ -5,6 +5,7 @@ import { useId, useMemo, useState } from "react";
 import { CalendarDays, Car, Check, ChevronRight, Clock, Crown, Footprints, Headphones, List, LocateFixed, Map as MapIcon, MapPin, Navigation, RefreshCw, Route, UtensilsCrossed } from "lucide-react";
 // 지도 범례 문구, 장소(퀘스트) 데이터
 import { QUESTS } from "../../lib/app-data";
+import { getQuestAsset } from "../../lib/map/quest-assets";
 // 지도 "계산 엔진"에서 가져오는 함수/데이터들 (lib/map/gyeongju-map.js)
 import {
   DEFAULT_CURRENT_LOCATION,
@@ -38,58 +39,6 @@ function formatDuration(durationSeconds, t) {
   return minutes >= 60
     ? t("map.hoursMinutes", { hours: Math.floor(minutes / 60), minutes: minutes % 60 })
     : t("map.minutes", { minutes });
-}
-
-// 지도 좌하단 "1km 축척 막대"의 픽셀 길이 계산
-function LandmarkGlyph({ icon }) {
-  if (icon === "tower") {
-    return (
-      <g>
-        <path d="M-5 7 L-4 -7 L4 -7 L6 7 Z" fill="#efe3c6" stroke="#685d51" strokeWidth="1.3" />
-        <path d="M-7 -8 L7 -8 L5 -11 L-5 -11 Z" fill="#d7c398" stroke="#685d51" strokeWidth="1.3" />
-        <rect x="-1.5" y="-3" width="3" height="4" rx="0.5" fill="#685d51" />
-      </g>
-    );
-  }
-
-  if (icon === "palace") {
-    return (
-      <g>
-        <path d="M-9 -5 Q0 -13 9 -5 L6 -3 L-6 -3 Z" fill="#426c6a" stroke="#304d4b" strokeWidth="1.2" />
-        <rect x="-7" y="-3" width="14" height="10" rx="1" fill="#f2d6a0" stroke="#685d51" strokeWidth="1.2" />
-        <path d="M-3 7 V1 M3 7 V1" stroke="#9f5c45" strokeWidth="2" />
-      </g>
-    );
-  }
-
-  // 밥집: 고봉밥이 담긴 밥그릇
-  if (icon === "food") {
-    return (
-      <g>
-        <path d="M-6.5 -2.5 Q0 -10.5 6.5 -2.5 Z" fill="#fdfaf1" stroke="#7d4630" strokeWidth="1.2" strokeLinejoin="round" />
-        <path d="M-9.5 -2.5 H9.5 L6.5 6.5 Q0 9.5 -6.5 6.5 Z" fill="#c9714e" stroke="#7d4630" strokeWidth="1.3" strokeLinejoin="round" />
-        <path d="M-7.5 0.5 Q0 3 7.5 0.5" fill="none" stroke="#f2e2c8" strokeLinecap="round" strokeWidth="1.4" opacity="0.75" />
-        <path d="M-3.5 10 H3.5" stroke="#7d4630" strokeLinecap="round" strokeWidth="1.8" />
-      </g>
-    );
-  }
-
-  if (icon === "grotto") {
-    return (
-      <g>
-        <path d="M-10 7 Q-8 -8 0 -10 Q8 -8 10 7 Z" fill="#a4b67d" stroke="#647151" strokeWidth="1.3" />
-        <path d="M-3 7 V0 Q0 -5 3 0 V7 Z" fill="#4f5049" />
-      </g>
-    );
-  }
-
-  return (
-    <g>
-      <path d="M-10 -3 L0 -11 L10 -3 Z" fill="#446d67" stroke="#304d4b" strokeWidth="1.2" />
-      <rect x="-7" y="-3" width="14" height="10" rx="1" fill="#f1d09a" stroke="#685d51" strokeWidth="1.2" />
-      <path d="M-3 7 V1 M3 7 V1" stroke="#9f5c45" strokeWidth="2" />
-    </g>
-  );
 }
 
 // 지도 위의 장소 마커 (클릭 가능). 상태에 따라 색/표시가 달라짐
@@ -143,7 +92,7 @@ function PlaceListItem({ active, completed, distance, nearby, onClick, order, pl
       >
         {/* 아이콘 + 방문 순서 번호 */}
         <span className={`relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full border ${completed ? "border-[#bfe0da] bg-[#e9f4f1]" : nearby ? "border-brand-border bg-brand-soft" : "border-[#e5e7e3] bg-[#f3f5f2]"}`}>
-          <svg viewBox="-14 -14 28 28" className="h-7 w-7" aria-hidden="true"><LandmarkGlyph icon={place.icon} /></svg>
+          <img src={getQuestAsset(place.icon)} width="28" height="28" className="h-7 w-7 object-contain" alt="" />
           <span className="absolute -left-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#343235] text-[10px] font-bold text-white shadow-sm">{order}</span>
         </span>
 
@@ -445,14 +394,13 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
 
         <article className="rounded-2xl bg-white p-4 shadow-[0_12px_30px_rgba(52,50,53,0.12)]">
           {/* 장소 이름 + 거리/상태 뱃지 + 설명 */}
-          <div className="flex items-start gap-3">
-            <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${completed ? "bg-[#e4f1ed] text-[#24746f]" : selectedNearby ? "bg-brand-soft text-brand-ink" : "bg-[#eef0ee] text-[#747579]"}`}>{completed ? <Check size={19} /> : <MapPin size={19} />}</div>
-            <div className="min-w-0 flex-1">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="font-bold text-[#343235]">{selectedPlace.name}</h2>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${selectedNearby ? "bg-brand-soft text-[#8a641f]" : "bg-[#eef0ee] text-[#686d69]"}`}>{selectedNearby ? t("map.near") : formatDistance(selectedDistance)}</span>
-              </div>
-            </div>
+          <div className="flex items-center gap-2">
+            <span className="relative h-7 w-7 shrink-0">
+              <img src={getQuestAsset(selectedPlace.icon)} width="28" height="28" className="h-7 w-7 object-contain" alt="" />
+              {completed && <span className="absolute -bottom-1 -right-1 rounded-full bg-[#e4f1ed] p-0.5 text-[#24746f]" aria-label={t("map.visited")}><Check size={10} /></span>}
+            </span>
+            <h2 className="min-w-0 break-keep font-bold text-[#343235]">{selectedPlace.name}</h2>
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold ${selectedNearby ? "bg-brand-soft text-[#8a641f]" : "bg-[#eef0ee] text-[#686d69]"}`}>{selectedNearby ? t("map.near") : formatDistance(selectedDistance)}</span>
           </div>
 
           {/* 시간대·분류 대신 가서 실제로 쓰이는 정보만 보여 준다. 없는 줄은 그리지 않는다. */}
