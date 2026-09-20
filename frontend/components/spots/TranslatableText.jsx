@@ -23,18 +23,20 @@ export default function TranslatableText({
 
   // 작성 언어를 남기기 전에 올라온 글은 한국어로 본다.
   const translatable = Boolean(text) && (sourceLanguage || "ko") !== language;
-  const showing = showingTranslation && translation;
+  // 화면 언어를 바꾸면 들고 있던 번역은 버리고 다시 받는다.
+  const translated = translation?.language === language ? translation : null;
+  const showing = showingTranslation && translated;
 
   async function toggleTranslation() {
     if (loading) return;
-    if (translation) {
+    if (translated) {
       setShowingTranslation(!showingTranslation);
       return;
     }
     setLoading(true);
     setFailed(false);
     try {
-      setTranslation(await translateText(targetType, targetId));
+      setTranslation(await translateText(targetType, targetId, language));
       setShowingTranslation(true);
     } catch {
       setFailed(true);
@@ -47,10 +49,10 @@ export default function TranslatableText({
     <>
       {name !== undefined && (
         <h2 className={nameClassName}>
-          {showing && translation.placeName ? translation.placeName : name}
+          {showing && translated.placeName ? translated.placeName : name}
         </h2>
       )}
-      <p className={className}>{showing ? translation.text : text}</p>
+      <p className={className}>{showing ? translated.text : text}</p>
       {translatable && (
         <button
           type="button"

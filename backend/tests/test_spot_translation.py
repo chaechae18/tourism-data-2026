@@ -41,7 +41,7 @@ def test_spot_translation_is_cached_and_refreshed_on_edit(
     client, calls = translations
     spot_id = add_spot(insert, CAPTION="すばらしい眺め", LANGUAGE_CODE="ja")
 
-    first = client.post(f"/api/v1/translations/spot/{spot_id}", headers={"X-User-No": "1"})
+    first = client.post(f"/api/v1/translations/spot/{spot_id}?lang=ko")
     assert first.status_code == 200
     assert first.json() == {
         "targetType": "spot",
@@ -56,18 +56,18 @@ def test_spot_translation_is_cached_and_refreshed_on_edit(
         "spot", "spot_name",
     }
 
-    client.post(f"/api/v1/translations/spot/{spot_id}", headers={"X-User-No": "1"})
+    client.post(f"/api/v1/translations/spot/{spot_id}?lang=ko")
     assert len(calls) == 1
 
     with database.cursor() as cursor:
         cursor.execute("UPDATE SPOTS SET CAPTION = %s WHERE IDX = %s", ("新しい眺め", spot_id))
-    again = client.post(f"/api/v1/translations/spot/{spot_id}", headers={"X-User-No": "1"})
+    again = client.post(f"/api/v1/translations/spot/{spot_id}?lang=ko")
     assert again.json()["text"] == "[ko] 新しい眺め"
     # 이름은 그대로라 본문만 다시 번역한다.
     assert calls[1] == ({"text": "新しい眺め"}, "ko")
 
 
-def test_comment_translation_follows_viewer_language(
+def test_comment_translation_follows_requested_language(
     translations, insert, database: pymysql.Connection
 ) -> None:
     client, calls = translations
@@ -80,12 +80,11 @@ def test_comment_translation_follows_viewer_language(
         LANGUAGE_CODE="ko",
         MODERATION_STATUS=1,
     )
+    # 저장된 사용자 언어가 아니라 요청 언어를 따라야 한다.
     with database.cursor() as cursor:
-        cursor.execute("UPDATE USERS SET LANGUAGE_CODE = 'en' WHERE NO = 1")
+        cursor.execute("UPDATE USERS SET LANGUAGE_CODE = 'ja' WHERE NO = 1")
 
-    response = client.post(
-        f"/api/v1/translations/comment/{comment_id}", headers={"X-User-No": "1"}
-    )
+    response = client.post(f"/api/v1/translations/comment/{comment_id}?lang=en")
     assert response.status_code == 200
     assert response.json()["language"] == "en"
     # 댓글에는 장소 이름이 없다.
@@ -97,7 +96,7 @@ def test_same_language_target_is_rejected(translations, insert) -> None:
     client, calls = translations
     spot_id = add_spot(insert, CAPTION="여기 좋아요", LANGUAGE_CODE="ko")
 
-    response = client.post(f"/api/v1/translations/spot/{spot_id}", headers={"X-User-No": "1"})
+    response = client.post(f"/api/v1/translations/spot/{spot_id}?lang=ko")
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "TRANSLATION_NOT_NEEDED"
     assert calls == []

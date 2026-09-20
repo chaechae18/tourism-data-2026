@@ -45,6 +45,11 @@ def cache_type(target_type: TranslationTarget, field: str) -> str:
     return target_type.value if field == "text" else f"{target_type.value}_{field}"
 
 
+def _echoed_source(results: dict, pending: dict) -> bool:
+    source = pending.get("text")
+    return source is not None and (results.get("text") or "").strip() == source.strip()
+
+
 def translate_target(
     connection: pymysql.Connection,
     *,
@@ -81,10 +86,17 @@ def translate_target(
     if pending:
         # 이름과 본문을 한 번의 호출로 같이 번역한다.
         results, model = translate_text(pending, language)
+        # 모델이 원문을 그대로 돌려주는 입력이 있다. 한 번만 다시 부른다.
+        if _echoed_source(results, pending):
+            results, model = translate_text(pending, language)
         for field, source in pending.items():
             value = (results.get(field) or "").strip()
             if not value:
                 raise TranslationFailedError(f"{field} 번역 결과가 비어 있습니다.")
+            # 본문이 원문 그대로면 번역이 안 된 것이다.
+            # 장소 이름은 한자가 겹쳐 원문과 같을 수 있어 검사하지 않는다 (瞻星台 → 瞻星台).
+            if field == "text" and value == source.strip():
+                raise TranslationFailedError("본문이 원문 그대로 돌아왔습니다.")
             _save_translation(
                 connection, target_type, target_id, language, field,
                 source_hash(source), value, model,
@@ -153,7 +165,9 @@ def openai_translate(fields: dict, language: str) -> tuple[dict, str]:
         "'text' is a traveler's short caption or comment about that place: keep the casual "
         "tone, emoji and line breaks. Preserve numbers and prices. "
         "Do not add, explain or summarize anything. "
-        "Return only JSON with exactly the input keys."
+        "Return only JSON with exactly the input keys. "
+        f"Every value you return must be written in {LANGUAGE_NAMES[language]}. "
+        "Never copy the source text unchanged."
     )
     body = {
         "model": settings.openai_model,

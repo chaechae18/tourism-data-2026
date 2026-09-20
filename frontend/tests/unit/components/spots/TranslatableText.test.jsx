@@ -27,10 +27,15 @@ describe("TranslatableText", () => {
   });
 
   it("translates the place name with the text and toggles both back", async () => {
-    translationApi.translateText.mockResolvedValue({ text: "멋진 풍경", placeName: "첨성대" });
+    translationApi.translateText.mockResolvedValue({
+      language: "ko",
+      text: "멋진 풍경",
+      placeName: "첨성대",
+    });
     renderText({ sourceLanguage: "ja", name: "瞻星台", nameClassName: "title" });
 
     fireEvent.click(await screen.findByRole("button", { name: "번역하기" }));
+    expect(translationApi.translateText).toHaveBeenCalledWith("spot", 7, "ko");
 
     expect(await screen.findByText("멋진 풍경")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "첨성대" })).toBeInTheDocument();
