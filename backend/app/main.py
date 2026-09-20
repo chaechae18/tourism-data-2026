@@ -27,7 +27,10 @@ from .routers.users import router as users_router
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    initialize_database()
+
+    if not os.getenv("VERCEL"):
+        initialize_database()
+
     yield
 
 
