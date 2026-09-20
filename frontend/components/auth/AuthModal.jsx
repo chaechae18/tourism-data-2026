@@ -668,7 +668,7 @@ export default function AuthModal({
               </button>
               */}
 
-              {/* Google */}
+              {/* Google 
               <button
                 type="button"
                 onClick={() => {
@@ -710,7 +710,7 @@ export default function AuthModal({
                 </span>
 
                 <span>Google로 로그인</span>
-              </button>
+              </button>*/}
             </div>
           </div>
         )}
