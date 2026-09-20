@@ -40,8 +40,6 @@ def create_signup(
     database: pymysql.Connection = Depends(get_mysql),
 ) -> SignupResponse:
 
-    print("signup request:", request)
-
     try:
         user = signup(
             database,
@@ -199,7 +197,6 @@ def check_id(
             SELECT NO
             FROM USERS
             WHERE ID = %s
-              AND DELETED_AT IS NULL
             LIMIT 1
             """,
             (id,),

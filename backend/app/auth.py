@@ -97,7 +97,7 @@ def signup(
         "nickname": nickname,
         "email": email,
         "country": country,
-        "birthDate": birth_date,
+        "birthDate": birth_date.isoformat() if birth_date else None,
         "languageCode": language_code,
         "message": "회원가입 성공",
     }
