@@ -384,7 +384,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
 
   // --- 화면(JSX) ---
   return (
-    <section className="-mx-4 -mt-6 pb-2">
+    <section className="-mx-4 pb-2">
       {/* 지도 영역 (둥근 하단 카드) */}
       <div className="relative overflow-hidden rounded-b-[2rem] bg-[#dceab2] shadow-[0_12px_28px_rgba(69,76,59,0.14)]">
         {/* 현재위치 버튼 */}
