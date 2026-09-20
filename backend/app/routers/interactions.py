@@ -1,9 +1,10 @@
 from typing import Annotated
 import pymysql
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from ..mysql import get_mysql
+from ..spot_session import UserNo, ViewerNo
 from ..interactions import create_comment, list_comments, set_reaction
 from ..models.common import ReactionType
 from ..models.spots import (
@@ -25,7 +26,7 @@ router = APIRouter(prefix="/api/v1/spots", tags=["spot interactions"])
 def add_reaction(
     spot_id: int,
     reaction_type: ReactionType,
-    user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
+    user_no: UserNo,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> ReactionResponse:
     return _set_reaction(
@@ -45,7 +46,7 @@ def add_reaction(
 def remove_reaction(
     spot_id: int,
     reaction_type: ReactionType,
-    user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
+    user_no: UserNo,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> ReactionResponse:
     return _set_reaction(
@@ -100,7 +101,7 @@ def _set_reaction(
 def add_comment(
     spot_id: int,
     request: CommentCreateRequest,
-    user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
+    user_no: UserNo,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> CommentResponse:
     try:
@@ -135,10 +136,7 @@ def add_comment(
 )
 def get_comments(
     spot_id: int,
-    user_no: Annotated[
-        int | None,
-        Header(alias="X-User-No", ge=1),
-    ] = None,
+    user_no: ViewerNo,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> list[CommentResponse]:

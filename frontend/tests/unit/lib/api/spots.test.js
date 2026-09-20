@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { searchPlaces } from "../../../../lib/api/spots";
+import { searchPlaces, createSpot, listMySpots, uploadSpotImage } from "../../../../lib/api/spots";
 
 const BASE = "http://localhost:8001";
 
@@ -30,4 +30,37 @@ describe("spots api", () => {
     vi.stubGlobal("fetch", vi.fn().mockRejectedValue(aborted));
     await expect(searchPlaces("첨성대")).rejects.toMatchObject({ name: "AbortError" });
   });
+});
+
+vi.mock("@vercel/blob/client", () => ({ upload: vi.fn() }));
+
+afterEach(() => vi.unstubAllGlobals());
+
+it("sends session cookies without a hardcoded identity", async () => {
+  const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => [] });
+  vi.stubGlobal("fetch", fetchMock);
+  await listMySpots();
+  await createSpot({ caption: "test" });
+  for (const [, options] of fetchMock.mock.calls) {
+    expect(options.credentials).toBe("include");
+    expect(options.headers).not.toHaveProperty("X-User-No");
+  }
+});
+
+it("uploads large images directly to Blob and returns its persistent URL", async () => {
+  const { upload } = await import("@vercel/blob/client");
+  upload.mockResolvedValue({ url: "https://store.public.blob.vercel-storage.com/spot.png" });
+  const file = new File([new Uint8Array(5 * 1024 * 1024)], "photo.png", { type: "image/png" });
+  const result = await uploadSpotImage(file);
+  expect(upload).toHaveBeenCalledWith(expect.stringMatching(/^spots\/.*\.png$/), file, {
+    access: "public", handleUploadUrl: "/api/spot-images/upload", contentType: "image/png",
+  });
+  expect(result.url).toContain("blob.vercel-storage.com");
+});
+
+it("rejects unsupported and oversized images before upload", async () => {
+  const { upload } = await import("@vercel/blob/client");
+  await expect(uploadSpotImage(new File(["x"], "x.svg", { type: "image/svg+xml" }))).rejects.toMatchObject({ code: "UNSUPPORTED_IMAGE_TYPE" });
+  await expect(uploadSpotImage({ type: "image/png", size: 10 * 1024 * 1024 + 1 })).rejects.toMatchObject({ code: "IMAGE_TOO_LARGE" });
+  expect(upload).not.toHaveBeenCalled();
 });

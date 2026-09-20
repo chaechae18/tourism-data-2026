@@ -1,6 +1,5 @@
 const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
-const LOCAL_USER_NO = 1;
 
 export class ApiError extends Error {
   constructor(message, code, status) {
@@ -14,7 +13,7 @@ export class ApiError extends Error {
 async function request(path, options = {}) {
   let response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, options);
+    response = await fetch(`${API_BASE_URL}${path}`, { ...options, credentials: "include" });
   } catch (error) {
     if (error.name === "AbortError") throw error;
     throw new ApiError("서버에 연결하지 못했습니다.", "NETWORK_ERROR", null);
@@ -33,7 +32,6 @@ async function request(path, options = {}) {
 
 function userHeaders(json = false) {
   return {
-    "X-User-No": String(LOCAL_USER_NO),
     ...(json ? { "Content-Type": "application/json" } : {}),
   };
 }
@@ -44,13 +42,23 @@ export async function searchPlaces(query, { signal } = {}) {
 }
 
 export async function uploadSpotImage(file) {
-  const formData = new FormData();
-  formData.append("file", file);
-  return request("/api/v1/uploads/images", {
-    method: "POST",
-    headers: userHeaders(),
-    body: formData,
-  });
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    throw new ApiError("JPEG, PNG, WebP 이미지만 업로드할 수 있습니다.", "UNSUPPORTED_IMAGE_TYPE", 415);
+  }
+  if (file.size > 10 * 1024 * 1024) {
+    throw new ApiError("이미지는 10MB 이하만 업로드할 수 있습니다.", "IMAGE_TOO_LARGE", 413);
+  }
+  try {
+    const { upload } = await import("@vercel/blob/client");
+    const extension = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" }[file.type];
+    return await upload(`spots/${crypto.randomUUID()}.${extension}`, file, {
+      access: "public",
+      handleUploadUrl: "/api/spot-images/upload",
+      contentType: file.type,
+    });
+  } catch {
+    throw new ApiError("사진 업로드에 실패했습니다. 로그인 상태를 확인하고 다시 시도해 주세요.", "IMAGE_UPLOAD_FAILED", null);
+  }
 }
 
 export async function createSpot(body) {

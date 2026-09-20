@@ -5,7 +5,6 @@ import pymysql
 from fastapi import (
     APIRouter,
     Depends,
-    Header,
     HTTPException,
     Query,
     Response,
@@ -13,6 +12,7 @@ from fastapi import (
 )
 
 from ..mysql import get_mysql
+from ..spot_session import UserNo, ViewerNo
 from ..models.spots import RankedSpotResponse, SpotCreateRequest, SpotResponse
 from ..spots import (
     SpotForbiddenError,
@@ -42,7 +42,7 @@ def get_temporary_spot_approval_scheduler() -> Callable[[int], None]:
 )
 def register_spot(
     request: SpotCreateRequest,
-    user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
+    user_no: UserNo,
     database: pymysql.Connection = Depends(get_mysql),
     schedule_approval: Callable[[int], None] = Depends(
         get_temporary_spot_approval_scheduler
@@ -68,10 +68,7 @@ def register_spot(
     response_model_by_alias=True,
 )
 def get_public_spots(
-    user_no: Annotated[
-        int | None,
-        Header(alias="X-User-No", ge=1),
-    ] = None,
+    user_no: ViewerNo,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     before_id: Annotated[
         int | None,
@@ -95,7 +92,7 @@ def get_public_spots(
     response_model_by_alias=True,
 )
 def get_spot_ranking(
-    user_no: Annotated[int | None, Header(alias="X-User-No", ge=1)] = None,
+    user_no: ViewerNo,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> list[RankedSpotResponse]:
@@ -112,7 +109,7 @@ def get_spot_ranking(
     response_model_by_alias=True,
 )
 def get_my_spots(
-    user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
+    user_no: UserNo,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> list[SpotResponse]:
@@ -131,7 +128,7 @@ def get_my_spots(
 @router.delete("/{spot_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_spot(
     spot_id: int,
-    user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
+    user_no: UserNo,
     database: pymysql.Connection = Depends(get_mysql),
 ) -> Response:
     try:
