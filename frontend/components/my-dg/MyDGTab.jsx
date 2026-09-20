@@ -48,11 +48,11 @@ export default function MyDGTab({ availableItems = [], completedQuestIds, onMapQ
 
   return (
     <section className="space-y-8">
-      <div>
-        <SectionHeading eyebrow="My Donggyeong" title={t("donggyeong.title")} className="mb-3" />
-        <div className="flex flex-wrap justify-end gap-2">
-          <AppButton icon={Save} size="sm" onClick={onSaveOutfit}>{t("donggyeong.save")}</AppButton>
-          <AppButton icon={Camera} size="sm" variant="outline" onClick={() => setCameraOpen(true)}>{t("donggyeong.photo")}</AppButton>
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="min-w-0 break-keep text-lg font-semibold text-[#343235]">{t("donggyeong.title")}</h1>
+        <div className="flex shrink-0 gap-2">
+          <AppButton className="whitespace-nowrap max-[359px]:!gap-1 max-[359px]:!px-2" icon={Save} size="sm" onClick={onSaveOutfit}>{t("donggyeong.save")}</AppButton>
+          <AppButton className="whitespace-nowrap max-[359px]:!gap-1 max-[359px]:!px-2" icon={Camera} size="sm" variant="outline" onClick={() => setCameraOpen(true)}>{t("donggyeong.photo")}</AppButton>
         </div>
       </div>
       <div className="grid grid-cols-[72px_minmax(0,1fr)_72px] gap-3">
@@ -69,7 +69,7 @@ export default function MyDGTab({ availableItems = [], completedQuestIds, onMapQ
       </div>
 
       <div>
-        <SectionHeading eyebrow="Quest" title={t("donggyeong.quests")} />
+        <SectionHeading title={t("donggyeong.quests")} />
         <div className="space-y-2">
           {places.map((quest) => {
             const done = completedQuestIds.includes(quest.id);
