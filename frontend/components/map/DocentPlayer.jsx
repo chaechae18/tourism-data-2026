@@ -6,34 +6,34 @@ import { docentAudioUrl, fetchDocentScript } from "../../lib/api/docent";
 import AppModal from "../ui/AppModal";
 import { useI18n } from "../i18n/LanguageProvider";
 
-// 건너뛰기 버튼 한 번에 움직이는 초
 const SKIP_SECONDS = 15;
 const SPEEDS = [1, 1.25, 1.5];
 
-// 초를 "1:05" 형태로
 function formatTime(seconds) {
   if (!Number.isFinite(seconds)) return "0:00";
   const whole = Math.max(0, Math.floor(seconds));
   return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
 }
 
-// 장소 설명(PLACE.TEXT)을 읽어 주는 재생 시트.
-// 음성은 서버가 요청받은 그 자리에서 만들어 보내 주고, 파일로 저장되지 않는다.
 export default function DocentPlayer({ onClose, place }) {
-  const { language } = useI18n();
+  const { t,language } = useI18n();
   const audioRef = useRef(null);
+  const animFrameRef = useRef(null);
+
   const [script, setScript] = useState(null);
   const [scriptError, setScriptError] = useState("");
   const [audioError, setAudioError] = useState("");
   const [playing, setPlaying] = useState(false);
-  const [ready, setReady] = useState(false);  // 음성이 만들어져 재생할 수 있는 상태
+  const [ready, setReady] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
+  const [volume, setVolume] = useState(1);
+  const [audioSrc, setAudioSrc] = useState(""); // 🟢 Blob URL 상태
 
   const placeId = place?.placeId;
 
-  // 원고 불러오기 (장소가 바뀌면 다시)
+  // 원고 불러오기
   useEffect(() => {
     if (!placeId) return undefined;
 
@@ -49,27 +49,122 @@ export default function DocentPlayer({ onClose, place }) {
     return () => controller.abort();
   }, [language, placeId]);
 
-  // 재생 속도는 <audio> 에 직접 반영해야 한다.
+// 🟢 재시도 로직이 포함된 안전한 오디오 로드 함수
   useEffect(() => {
-    if (audioRef.current) audioRef.current.playbackRate = speed;
-  }, [speed, ready]);
+    if (!placeId) return;
 
-  const togglePlay = () => {
+    let objectUrl = "";
+    const controller = new AbortController();
+
+    setReady(false);
+    setAudioError("음성을 준비하고 있어요…");
+    setAudioSrc("");
+
+    const loadAudioWithRetry = async (retries = 2, delay = 1000) => {
+      for (let attempt = 0; attempt <= retries; attempt++) {
+        if (controller.signal.aborted) return;
+
+        try {
+          const response = await fetch(docentAudioUrl(placeId, language), {
+            signal: controller.signal,
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+
+          const blob = await response.blob();
+          if (controller.signal.aborted) return;
+
+          objectUrl = URL.createObjectURL(blob);
+          setAudioSrc(objectUrl);
+          return; // 성공 시 종료
+        } catch (error) {
+          if (error.name === "AbortError") return; // 취소된 경우 무시
+
+          console.warn(`음성 로드 시도 ${attempt + 1}회 실패:`, error);
+
+          // 마지막 시도까지 실패한 경우
+          if (attempt === retries) {
+            if (!controller.signal.aborted) {
+              setAudioError("음성을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+            }
+          } else {
+            // 재시도 전 잠시 대기 (서버가 TTS를 만들 시간 벌기)
+            await new Promise((resolve) => setTimeout(resolve, delay));
+          }
+        }
+      }
+    };
+
+    loadAudioWithRetry();
+
+    return () => {
+      controller.abort();
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
+    };
+  }, [placeId, language]);
+
+  // 볼륨 및 재생 속도 반영
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+      audioRef.current.playbackRate = speed;
+    }
+  }, [volume, speed, ready]);
+
+  const startProgressLoop = () => {
+    cancelAnimationFrame(animFrameRef.current);
+
+    const update = () => {
+      const audio = audioRef.current;
+      if (audio && !audio.paused && !audio.ended) {
+        setCurrentTime(audio.currentTime);
+        if (Number.isFinite(audio.duration) && audio.duration > duration) {
+          setDuration(audio.duration);
+        }
+        animFrameRef.current = requestAnimationFrame(update);
+      }
+    };
+
+    animFrameRef.current = requestAnimationFrame(update);
+  };
+
+  const stopProgressLoop = () => {
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+    }
+  };
+
+  useEffect(() => {
+    return () => stopProgressLoop();
+  }, []);
+
+  const togglePlay = async () => {
     const audio = audioRef.current;
-    if (!audio) return;
-    if (audio.paused) {
-      // 음성을 만드는 데 몇 초 걸릴 수 있어 실패해도 조용히 멈춘다.
-      audio.play().then(() => setPlaying(true)).catch(() => setPlaying(false));
-    } else {
-      audio.pause();
+    if (!audio || !ready) return;
+
+    try {
+      if (audio.paused) {
+        await audio.play();
+      } else {
+        audio.pause();
+      }
+    } catch (error) {
+      console.error("도슨트 재생 실패:", error);
       setPlaying(false);
+      setAudioError("음성을 재생하지 못했어요.");
     }
   };
 
   const skip = (seconds) => {
     const audio = audioRef.current;
     if (!audio) return;
-    audio.currentTime = Math.min(Math.max(0, audio.currentTime + seconds), audio.duration || 0);
+    const targetTime = Math.min(Math.max(0, audio.currentTime + seconds), audio.duration || 0);
+    audio.currentTime = targetTime;
+    setCurrentTime(targetTime);
   };
 
   const seek = (event) => {
@@ -80,30 +175,74 @@ export default function DocentPlayer({ onClose, place }) {
     setCurrentTime(next);
   };
 
+  const changeVolume = (event) => {
+    const next = Number(event.target.value);
+    setVolume(next);
+    if (audioRef.current) {
+      audioRef.current.volume = next;
+    }
+  };
+
   return (
-    <AppModal open={Boolean(place)} onClose={onClose} title="도슨트">
+    <AppModal open={Boolean(place)} onClose={onClose} title={t("map.docentTitle2")}>
       <div className="space-y-5">
         <div>
-          <p className="text-[10px] font-bold tracking-[0.12em] text-[#a09a8c]">지금 듣는 곳</p>
+          <p className="text-[10px] font-bold tracking-[0.12em] text-[#a09a8c]">{t("map.currentPlace")}</p>
           <p className="mt-0.5 text-lg font-bold text-[#343235]">{place?.name}</p>
         </div>
 
         {/* 재생 컨트롤 */}
         <div className="rounded-2xl border border-[#e7e0cf] bg-[#fdfaf3] p-4">
-          {placeId && (
+          {audioSrc && (
             <audio
+              key={audioSrc}
               ref={audioRef}
-              src={docentAudioUrl(placeId, language)}
+              src={audioSrc}
               preload="auto"
               data-testid="docent-audio"
-              onCanPlay={() => setReady(true)}
-              onLoadedMetadata={(event) => setDuration(event.currentTarget.duration || 0)}
-              onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-              onEnded={() => setPlaying(false)}
-              onError={() => {
-                setReady(false);
+              
+              onLoadedMetadata={(event) => {
+                const audio = event.currentTarget;
+                if (Number.isFinite(audio.duration) && audio.duration > 0) {
+                  setDuration(audio.duration);
+                }
+              }}
+
+              onCanPlayThrough={() => {
+                setReady(true);
+                setAudioError("");
+              }}
+
+              onPlay={() => {
+                setPlaying(true);
+                setAudioError("");
+                startProgressLoop();
+              }}
+
+              onPause={() => {
                 setPlaying(false);
-                setAudioError("음성을 만들지 못했어요. 잠시 후 다시 시도해 주세요.");
+                stopProgressLoop();
+              }}
+
+              onTimeUpdate={(event) => {
+                const audio = event.currentTarget;
+                setCurrentTime(audio.currentTime);
+                if (Number.isFinite(audio.duration) && audio.duration > duration) {
+                  setDuration(audio.duration);
+                }
+              }}
+
+              onEnded={() => {
+                setPlaying(false);
+                setCurrentTime(0);
+                stopProgressLoop();
+              }}
+
+              onError={(e) => {
+                console.error("오디오 로딩/재생 에러:", e);
+                setAudioError("음성을 불러오지 못했어요.");
+                setReady(false);
+                stopProgressLoop();
               }}
             />
           )}
@@ -142,13 +281,15 @@ export default function DocentPlayer({ onClose, place }) {
 
           {/* 진행바 */}
           <div className="mt-4 flex items-center gap-2">
-            <span className="w-9 text-right text-[11px] font-semibold tabular-nums text-[#8a8d89]">{formatTime(currentTime)}</span>
+            <span className="w-9 text-right text-[11px] font-semibold tabular-nums text-[#8a8d89]">
+              {formatTime(currentTime)}
+            </span>
             <input
               type="range"
               aria-label="재생 위치"
               min="0"
-              max={duration || 0}
-              step="1"
+              max={duration > 0 ? duration : 100}
+              step="0.1"
               value={currentTime}
               onChange={seek}
               disabled={!ready}
@@ -157,13 +298,40 @@ export default function DocentPlayer({ onClose, place }) {
             <span className="w-9 text-[11px] font-semibold tabular-nums text-[#8a8d89]">{formatTime(duration)}</span>
           </div>
 
-          <div className="mt-3 flex items-center justify-between">
-            <p className="text-[11px] font-semibold text-[#8a8d89]" role="status">
+          <div className="mt-3 flex items-center gap-3">
+            <p
+              className="min-w-0 flex-1 text-[11px] font-semibold text-[#8a8d89]"
+              role="status"
+            >
               {audioError || (ready ? "" : "음성을 준비하고 있어요…")}
             </p>
+
+            {/* 볼륨 */}
+            <div className="flex items-center gap-2">
+              <span className="text-[13px]" aria-hidden="true">
+                {volume === 0 ? "🔇" : "🔊"}
+              </span>
+
+              <input
+                type="range"
+                aria-label="볼륨"
+                min="0"
+                max="1"
+                step="0.05"
+                value={volume}
+                onChange={changeVolume}
+                className="h-1.5 w-20 cursor-pointer appearance-none rounded-full bg-[#e5e2d7] accent-brand"
+              />
+            </div>
+
+            {/* 재생 속도 */}
             <button
               type="button"
-              onClick={() => setSpeed(SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length])}
+              onClick={() =>
+                setSpeed(
+                  SPEEDS[(SPEEDS.indexOf(speed) + 1) % SPEEDS.length]
+                )
+              }
               className="rounded-full bg-white px-2.5 py-1 text-[11px] font-bold text-[#626762] shadow-sm"
             >
               {speed}x
@@ -171,17 +339,55 @@ export default function DocentPlayer({ onClose, place }) {
           </div>
         </div>
 
-        {/* 원고 (소리를 못 켜는 곳에서도 읽을 수 있게) */}
-        <div>
-          <p className="mb-2 text-[10px] font-bold tracking-[0.12em] text-[#a09a8c]">도슨트 원고</p>
-          {scriptError && <p className="text-sm text-[#9f4a2c]">{scriptError}</p>}
-          {!scriptError && !script && <p className="text-sm text-[#8a8d89]">원고를 불러오는 중이에요…</p>}
-          {script && (
-            <>
-              <p className="whitespace-pre-line text-sm leading-7 text-[#4f504f]">{script.text}</p>
-              <p className="mt-3 text-[11px] text-[#a09a8c]">출처: {script.source}</p>
-            </>
-          )}
+        {/* 원고 카드 */}
+        <div className="mt-1">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#f5ead8]">
+                <span className="text-sm">📖</span>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-[#343235]">{t("map.docentTitle")}</p>
+                <p className="mt-0.5 text-[10px] text-[#aaa397]">{t("map.docentSubtitle")}</p>
+              </div>
+            </div>
+            <span className="rounded-full bg-[#f7f3ea] px-2.5 py-1 text-[10px] font-semibold text-[#a09a8c]">
+              TEXT
+            </span>
+          </div>
+
+          <div className="relative overflow-hidden rounded-2xl border border-[#ebe4d5] bg-white shadow-[0_4px_16px_rgba(80,65,40,0.04)]">
+            <div className="absolute bottom-0 left-0 top-0 w-1 bg-brand/60" />
+            <div className="max-h-[70vh] overflow-y-auto px-5 py-5 pl-6">
+              {scriptError && (
+                <div className="rounded-xl bg-[#fff4ef] px-4 py-3 text-sm leading-6 text-[#9f4a2c]">
+                  {scriptError}
+                </div>
+              )}
+
+              {!scriptError && !script && (
+                <div className="flex items-center gap-2 py-5 text-sm text-[#8a8d89]">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
+                  원고를 불러오는 중이에요…
+                </div>
+              )}
+
+              {script && (
+                <>
+                  <div className="mb-3 text-2xl leading-none text-[#d9c9ad]">“</div>
+                  <p className="whitespace-pre-line text-[14px] leading-[1.9] tracking-[-0.01em] text-[#4f504f]">
+                    {script.text}
+                  </p>
+                  <div className="mt-5 flex items-center justify-between border-t border-[#f0ece4] pt-3">
+                    <span className="text-[10px] font-medium text-[#b0aa9e]">출처</span>
+                    <span className="rounded-full bg-[#faf7f0] px-2.5 py-1 text-[10px] font-medium text-[#918b80]">
+                      {script.source}
+                    </span>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </AppModal>
