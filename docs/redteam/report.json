@@ -1,14 +1,14 @@
 {
-  "version": "v1-2026-09-20",
-  "generated_at": "2026-09-20T11:56:06.874498+00:00",
-  "git_head": "0c1e0ddd0caa43120c04fe0a59d8c591301cb193",
+  "version": "v2-2026-09-20",
+  "generated_at": "2026-09-20T14:18:13.173285+00:00",
+  "git_head": "3980289c6e0f7dbf3260f2161d516727affaf2e3",
   "working_tree_dirty": true,
-  "backend_source_sha256": "a2c1c024c0f7e1b6d54cdabd4c554d4cb58cf324720f6826afa530bfd188ce72",
+  "backend_source_sha256": "e9220ef34394b9dedddeb063383ce4eccee1af74495b13ffdd45553a66a58e0f",
   "environment": "ASGI TestClient + disposable mysql:8.4; external network blocked; synthetic users only",
   "pytest_exit_code": 1,
   "counts": {
-    "PASS": 38,
-    "OPEN": 20,
+    "PASS": 47,
+    "OPEN": 11,
     "ERROR": 0,
     "SKIP": 0
   },
@@ -71,49 +71,49 @@
     },
     {
       "scenario": "test_spot_routes_reject_anonymous_impersonation[create]",
-      "outcome": "OPEN",
+      "outcome": "PASS",
       "risk": "critical",
       "expected": "서명된 세션 없이 사용자 번호만 보내면 401, 저장·삭제 없음",
-      "effect": "spots=2",
-      "observed": "HTTP 201"
+      "effect": "spots=1",
+      "observed": "HTTP 401"
     },
     {
       "scenario": "test_spot_routes_reject_anonymous_impersonation[delete]",
-      "outcome": "OPEN",
+      "outcome": "PASS",
       "risk": "critical",
       "expected": "서명된 세션 없이 사용자 번호만 보내면 401, 저장·삭제 없음",
-      "effect": "deleted=True",
-      "observed": "HTTP 204"
+      "effect": "deleted=False",
+      "observed": "HTTP 401"
     },
     {
       "scenario": "test_spot_routes_reject_anonymous_impersonation[mine]",
-      "outcome": "OPEN",
+      "outcome": "PASS",
       "risk": "critical",
       "expected": "서명된 세션 없이 사용자 번호만 보내면 401, 저장·삭제 없음",
-      "observed": "HTTP 200"
+      "observed": "HTTP 401"
     },
     {
       "scenario": "test_spot_routes_reject_anonymous_impersonation[comment]",
-      "outcome": "OPEN",
+      "outcome": "PASS",
       "risk": "critical",
       "expected": "서명된 세션 없이 사용자 번호만 보내면 401, 저장·삭제 없음",
-      "effect": "comments=1",
-      "observed": "HTTP 201"
+      "effect": "comments=0",
+      "observed": "HTTP 401"
     },
     {
       "scenario": "test_spot_routes_reject_anonymous_impersonation[like]",
-      "outcome": "OPEN",
+      "outcome": "PASS",
       "risk": "critical",
       "expected": "서명된 세션 없이 사용자 번호만 보내면 401, 저장·삭제 없음",
-      "effect": "reactions=1",
-      "observed": "HTTP 200"
+      "effect": "reactions=0",
+      "observed": "HTTP 401"
     },
     {
       "scenario": "test_spot_routes_reject_anonymous_impersonation[upload]",
-      "outcome": "OPEN",
+      "outcome": "PASS",
       "risk": "critical",
       "expected": "서명된 세션 없이 사용자 번호만 보내면 401, 저장·삭제 없음",
-      "observed": "HTTP 201"
+      "observed": "HTTP 401"
     },
     {
       "scenario": "test_spot_routes_reject_anonymous_impersonation[translate]",
@@ -125,19 +125,19 @@
     },
     {
       "scenario": "test_signed_in_user_cannot_delete_another_users_spot",
-      "outcome": "OPEN",
+      "outcome": "PASS",
       "risk": "critical",
       "expected": "사용자 2의 세션에 사용자 1 헤더를 넣어도 타인 글 삭제 불가",
-      "effect": "deleted=True",
-      "observed": "HTTP 204"
+      "effect": "deleted=False",
+      "observed": "HTTP 403"
     },
     {
       "scenario": "test_pending_comment_cannot_be_read_by_spoofing_owner",
-      "outcome": "OPEN",
+      "outcome": "PASS",
       "risk": "high",
       "expected": "비로그인 조회에서 헤더를 바꿔도 미승인 댓글 비공개",
       "observed": "HTTP 200",
-      "effect": "pending_comment_disclosed=True"
+      "effect": "pending_comment_disclosed=False"
     },
     {
       "scenario": "test_forged_session_rejected[wrong-key]",
@@ -357,19 +357,19 @@
       "observed": "HTTP 404"
     },
     {
-      "scenario": "test_demo_flag_requires_server_authorization",
-      "outcome": "OPEN",
-      "risk": "medium",
-      "expected": "일반 사용자 요청의 demoCompletion만으로 위치 검증 생략 불가",
+      "scenario": "test_location_free_completion_is_allowed",
+      "outcome": "PASS",
+      "risk": "control",
+      "expected": "승인된 정책: 로그인한 사용자는 위치 없이 본인 퀘스트 완료 가능",
       "effect": "reward_rows=1",
       "observed": "HTTP 200"
     },
     {
-      "scenario": "test_far_away_quest_rejected",
+      "scenario": "test_location_free_completion_requires_login",
       "outcome": "PASS",
-      "risk": "medium",
-      "expected": "먼 거리의 일반 완료 요청은 보상 없이 거부",
-      "observed": "HTTP 400"
+      "risk": "high",
+      "expected": "위치 검증을 생략해도 비로그인 사용자는 보상 수령 불가",
+      "observed": "HTTP 401"
     },
     {
       "scenario": "test_reward_replay_is_idempotent",

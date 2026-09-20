@@ -19,7 +19,7 @@ import xml.etree.ElementTree as ET
 ROOT = Path(__file__).resolve().parents[2]
 BACKEND = ROOT / "backend"
 REPORT_DIR = ROOT / "docs" / "redteam"
-VERSION = "v1-2026-09-20"
+VERSION = "v2-2026-09-20"
 
 
 def source_digest():
