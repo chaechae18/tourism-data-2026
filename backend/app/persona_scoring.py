@@ -7,6 +7,7 @@ import httpx
 import pymysql
 
 from .personas import PERSONA_KEYS, PERSONA_PROFILES
+from .openai_chat import chat_options, log_failure, read_content
 
 
 logger = logging.getLogger(__name__)
@@ -125,8 +126,7 @@ def request_scores(
 
     body = {
         "model": model,
-        # 매번 같은 답이 나오도록 무작위성을 없앤다.
-        "temperature": 0,
+        **chat_options(model, effort="low", max_completion_tokens=8192),
         "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": SYSTEM_PROMPT},
@@ -143,13 +143,19 @@ def request_scores(
                 response = http.post(OPENAI_CHAT_URL, json=body, headers=headers)
         response.raise_for_status()
     except httpx.HTTPStatusError as error:
+        log_failure("persona_scoring", model, error)
         raise PersonaScoringError(
             f"OpenAI 응답 {error.response.status_code}: {error.response.text[:200]}"
         ) from error
     except httpx.HTTPError as error:
+        log_failure("persona_scoring", model, error)
         raise PersonaScoringError(f"OpenAI 연결 실패: {error}") from error
 
-    content = response.json()["choices"][0]["message"]["content"]
+    try:
+        content = read_content(response)
+    except (KeyError, IndexError, TypeError, ValueError) as error:
+        log_failure("persona_scoring", model, error)
+        raise PersonaScoringError("채점 응답이 비어 있거나 완료되지 않았습니다.") from error
     return parse_scores(content)
 
 

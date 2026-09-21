@@ -6,6 +6,7 @@ import httpx
 import pymysql
 
 from .config import get_settings
+from .openai_chat import chat_options, log_failure, read_content
 from .models.translations import TranslationResponse, TranslationTarget
 from .models.users import LanguageCode
 
@@ -171,8 +172,7 @@ def openai_translate(fields: dict, language: str) -> tuple[dict, str]:
     )
     body = {
         "model": settings.openai_model,
-        # 같은 글은 늘 같은 번역이 나오도록 무작위성을 없앤다.
-        "temperature": 0,
+        **chat_options(settings.openai_model, effort="none", max_completion_tokens=4096),
         "response_format": {"type": "json_object"},
         "messages": [
             {"role": "system", "content": system},
@@ -187,20 +187,22 @@ def openai_translate(fields: dict, language: str) -> tuple[dict, str]:
                 headers={"Authorization": f"Bearer {settings.openai_api_key}"},
             )
         response.raise_for_status()
-        content = response.json()["choices"][0]["message"]["content"]
+        content = read_content(response)
         results = json.loads(content)
     except httpx.HTTPStatusError as error:
+        log_failure("spot_translation", settings.openai_model, error)
         raise TranslationFailedError(
             f"OpenAI 응답 {error.response.status_code}"
         ) from error
     except httpx.HTTPError as error:
+        log_failure("spot_translation", settings.openai_model, error)
         raise TranslationFailedError(f"OpenAI 연결 실패: {error}") from error
-    except (KeyError, TypeError, ValueError) as error:
+    except (KeyError, IndexError, TypeError, ValueError) as error:
+        log_failure("spot_translation", settings.openai_model, error)
         raise TranslationFailedError(f"번역 결과를 읽지 못했습니다: {error}") from error
     if not isinstance(results, dict):
         raise TranslationFailedError("번역 결과를 읽지 못했습니다.")
     return {
         field: value for field, value in results.items() if isinstance(value, str)
     }, settings.openai_model
-
 
