@@ -157,6 +157,34 @@ function NoticePopup({ popups, t }) {
 }
 
 
+// 응답을 기다리는 동안 카드 자리를 잡아 둔다. "없어요" 문구가 먼저 뜨지 않게 한다.
+function FestivalSkeleton() {
+  return [0, 1].map((index) => (
+    <article className="flex gap-3 rounded-lg border border-[#e6ddd2] bg-white p-3" key={index}>
+      <div className="aspect-[5/7] w-20 shrink-0 animate-pulse rounded-md bg-[#eee6da]" />
+      <div className="min-w-0 flex-1 space-y-2 py-1">
+        <div className="h-3 w-24 animate-pulse rounded bg-[#eee6da]" />
+        <div className="h-4 w-40 animate-pulse rounded bg-[#eee6da]" />
+        <div className="h-3 w-28 animate-pulse rounded bg-[#eee6da]" />
+      </div>
+    </article>
+  ));
+}
+
+function PlaceSkeleton() {
+  return [0, 1].map((index) => (
+    <li key={index}>
+      <article className="rounded-lg border border-[#e6ddd2] bg-white p-4">
+        <div className="h-5 w-32 animate-pulse rounded bg-[#eee6da]" />
+        <div className="mt-3 space-y-2">
+          <div className="h-3 w-full animate-pulse rounded bg-[#eee6da]" />
+          <div className="h-3 w-2/3 animate-pulse rounded bg-[#eee6da]" />
+        </div>
+      </article>
+    </li>
+  ));
+}
+
 export default function HomeTab({ onMapOpen, language: languageProp, popupHidden }) {
   const { language: contextLanguage } = useI18n();
   const language = languageProp || contextLanguage;
@@ -167,9 +195,13 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
   const [places, setPlaces] = useState([]);
   const [placePage, setPlacePage] = useState(0);
   const [notice, setNotice] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [festivalsError, setFestivalsError] = useState(false);
+  const [placesError, setPlacesError] = useState(false);
 
   const loadHome = useCallback(async () => {
     // 한 섹션이 실패해도 나머지는 그대로 보여준다.
+    setLoading(true);
     const results = await Promise.allSettled([
       SHOW_NEWS_BANNERS ? listBanners(language) : [],
       listPopups(language),
@@ -183,10 +215,14 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
     setPopups(popupItems);
     setFestivals(festivalItems);
     setPlaces(placeItems);
+    // 요청 완료 후에만 데이터 없음/오류를 판단한다. (results: 배너, 팝업, 행사, 추천 순)
+    setFestivalsError(results[2].status === "rejected");
+    setPlacesError(results[3].status === "rejected");
     setPlacePage(0);
 
     const failed = results.find((result) => result.status === "rejected");
     setNotice(failed ? translateError(failed.reason, t) : "");
+    setLoading(false);
   }, [language, t]);
 
   useEffect(() => {
@@ -214,8 +250,14 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
       <div>
         <SectionHeading title={t("home.festivals")} />
         <div className="space-y-3">
-          {festivals.length === 0 && <p className="text-sm text-[#7c6d61]">{t("home.noFestival")}</p>}
-          {festivals.map((festival, index) => {
+          {loading ? (
+            <FestivalSkeleton />
+          ) : festivalsError ? (
+            <p className="text-sm text-[#7c6d61]">{t("common.requestError")}</p>
+          ) : festivals.length === 0 ? (
+            <p className="text-sm text-[#7c6d61]">{t("home.noFestival")}</p>
+          ) : (
+            festivals.map((festival, index) => {
             const period = formatPeriod(festival.startDate, festival.endDate, t);
             const url = safeHref(festival.url);
             return (
@@ -238,15 +280,22 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
                 </div>
               </article>
             );
-          })}
+          })
+          )}
         </div>
       </div>
 
       <div>
         <SectionHeading title={t("home.recommended")} />
         <ul className="space-y-3">
-          {places.length === 0 && <li className="text-sm text-[#7c6d61]">{t("home.noRecommended")}</li>}
-          {pagedPlaces.map((place, index) => (
+          {loading ? (
+            <PlaceSkeleton />
+          ) : placesError ? (
+            <li className="text-sm text-[#7c6d61]">{t("common.requestError")}</li>
+          ) : places.length === 0 ? (
+            <li className="text-sm text-[#7c6d61]">{t("home.noRecommended")}</li>
+          ) : (
+            pagedPlaces.map((place, index) => (
             <li key={`${place.name}-${index}`}>
               <article className="rounded-lg border border-[#e6ddd2] bg-white p-4">
                 <div className="flex items-start justify-between gap-3">
@@ -262,9 +311,10 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
                 {place.address && <PlaceAddress place={place} />}
               </article>
             </li>
-          ))}
+            ))
+          )}
         </ul>
-        {placePageCount > 1 && (
+        {!loading && !placesError && placePageCount > 1 && (
           <div className="mt-4 flex justify-center gap-2">
             {Array.from({ length: placePageCount }, (_, page) => (
               <button
