@@ -367,7 +367,7 @@ def test_place_fields_name_the_category_and_join_the_menu() -> None:
 def test_place_fields_map_the_api_item() -> None:
     fields = place_fields(
         PLACE_ITEM,
-        detail_common={"overview": "<p>동양 최고의  <br/>천문대</p>"},
+        detail_common={"overview": "<p>동양 최고의  <br/>천문대. <삼국유사>에 기록이 있다</p>"},
         detail_intro={"usetime": "상시"},
     )
     restaurant = place_fields(
@@ -381,7 +381,7 @@ def test_place_fields_map_the_api_item() -> None:
     assert fields["LONGITUDE"] == "129.2190247127"
     assert fields["ADDRESS"] == "경상북도 경주시 첨성로 169-5 (인왕동)"
     assert fields["IMG"] == "http://tong.visitkorea.or.kr/cms/a.jpg"
-    assert fields["TEXT"] == "동양 최고의 천문대"
+    assert fields["TEXT"] == "동양 최고의 천문대. 『삼국유사』에 기록이 있다"
     assert fields["OPERATING_HOURS"] == "상시"
     assert restaurant["NAME"] == "가" * PLACE_NAME_MAX
     assert restaurant["OPERATING_HOURS"] == "11:00 - 21:00"

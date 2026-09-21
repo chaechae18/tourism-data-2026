@@ -2,12 +2,14 @@ import { ApiError } from "./spots";
 import { createTranslator } from "../i18n";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
 
 // 코스 API 응답을 지도 컴포넌트가 쓰는 장소 모양으로 바꾼다.
 // (id / name / description / distance / latitude / longitude / icon / docent)
 function toPlace(stop, t) {
-  const details = [stop.timeSlot, stop.category].filter(Boolean).join(" · ");
+  const slotKey = `timeSlots.${stop.timeSlot}`;
+  const slot = stop.timeSlot && t(slotKey) !== slotKey ? t(slotKey) : stop.timeSlot;
+  const details = [slot, stop.category].filter(Boolean).join(" · ");
   const notice = stop.hoursUnknown ? t("map.closedNotice") : "";
   return {
     id: `place-${stop.placeId}`,

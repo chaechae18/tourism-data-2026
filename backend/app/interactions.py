@@ -78,11 +78,15 @@ def set_reaction(connection: pymysql.Connection, *, spot_id: int, user_no: int, 
 def create_comment(connection: pymysql.Connection, *, spot_id: int, user_no: int, request: CommentCreateRequest) -> CommentResponse:
     require_active_user(connection, user_no)
     require_approved_spot(connection, spot_id)
-    approval = content_guardrails.check_content(request.content)
+    try:
+        approval = content_guardrails.check_content(request.content)
+    except content_guardrails.ModerationUnavailableError:
+        approval = None
     # 승인 결과와 댓글을 함께 저장해 검수되지 않은 댓글이 공개되지 않도록 한다.
     with transaction(connection):
-        comment_id = _execute(connection, "INSERT INTO SPOT_COMMENT (SPOT_IDX, USER_NO, CONTENT, LANGUAGE_CODE, MODERATION_STATUS) VALUES (%s, %s, %s, (SELECT LANGUAGE_CODE FROM USERS WHERE NO = %s), 1)", (spot_id, user_no, request.content, user_no))
-        approval.log(connection, target_type=2, target_id=comment_id)
+        comment_id = _execute(connection, "INSERT INTO SPOT_COMMENT (SPOT_IDX, USER_NO, CONTENT, LANGUAGE_CODE, MODERATION_STATUS) VALUES (%s, %s, %s, (SELECT LANGUAGE_CODE FROM USERS WHERE NO = %s), %s)", (spot_id, user_no, request.content, user_no, 1 if approval else 0))
+        if approval:
+            approval.log(connection, target_type=2, target_id=comment_id)
     return get_comment(connection, comment_id=comment_id, viewer_no=user_no)
 
 

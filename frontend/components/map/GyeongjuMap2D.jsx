@@ -31,8 +31,8 @@ const NEARBY_DISTANCE_METERS = 1000;
 const TMAP_APP_KEY = process.env.NEXT_PUBLIC_TMAP_APP_KEY || "";
 // 지도 화면 위쪽 전환 탭 (지도 그림 / 방문 순서 리스트)
 const MAP_VIEWS = [
-  { id: "map", label: "지도", icon: MapIcon },
-  { id: "list", label: "리스트", icon: List },
+  { id: "map", labelKey: "map.viewMap", icon: MapIcon },
+  { id: "list", labelKey: "map.viewList", icon: List },
 ];
 // 초 단위 시간을 "35분" / "1시간 20분" 형태로 변환
 function formatDuration(durationSeconds, t) {
@@ -77,12 +77,12 @@ function PlaceFacts({ place, t }) {
 //  - 왼쪽: 방문 순서 번호 + 마커와 같은 아이콘
 //  - 가운데: 이름 / 설명 / 거리·도슨트 배지
 //  - 오른쪽: 방문 완료 체크 또는 화살표
-function PlaceListItem({ active, completed, distance, nearby, onClick, order, place }) {
+function PlaceListItem({ active, completed, distanceLabel, nearby, onClick, order, place, t }) {
   return (
     <li>
       <button
         type="button"
-        aria-label={`${place.name} 선택`}  // 지도 마커와 같은 이름으로 찾을 수 있게
+        aria-label={t("map.selectPlace", { name: place.name })}  // 지도 마커와 같은 이름으로 찾을 수 있게
         aria-pressed={active}
         onClick={onClick}
         className={`relative flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition-colors ${
@@ -101,16 +101,16 @@ function PlaceListItem({ active, completed, distance, nearby, onClick, order, pl
         <span className="min-w-0 flex-1">
           <span className="flex items-center gap-1.5">
             <span className="truncate font-bold text-[#343235]">{place.name}</span>
-            {completed && <span className="shrink-0 rounded-full bg-[#e4f1ed] px-2 py-0.5 text-[10px] font-bold text-[#24746f]">방문 완료</span>}
+            {completed && <span className="shrink-0 rounded-full bg-[#e4f1ed] px-2 py-0.5 text-[10px] font-bold text-[#24746f]">{t("map.visited")}</span>}
           </span>
           <span className="mt-0.5 block truncate text-xs leading-5 text-[#7c7d81]">{place.description}</span>
           <span className="mt-1.5 flex flex-wrap items-center gap-1.5">
             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${nearby ? "bg-brand-soft text-[#8a641f]" : "bg-[#eef0ee] text-[#686d69]"}`}>
-              <MapPin size={10} />{nearby ? "가까워요" : formatDistance(distance)}
+              <MapPin size={10} />{distanceLabel}
             </span>
             {place.docent && (
               <span className="inline-flex items-center gap-1 rounded-full bg-[#edf4f7] px-2 py-0.5 text-[10px] font-bold text-[#315d7f]">
-                <Headphones size={10} />도슨트
+                <Headphones size={10} />{t("map.docentTitle2")}
               </span>
             )}
           </span>
@@ -126,8 +126,10 @@ function PlaceListItem({ active, completed, distance, nearby, onClick, order, pl
 }
 
 // 지도 그림 대신 보여주는 코스 리스트. 지도에 찍힌 장소들을 방문 순서대로 나열한다.
-function PlaceList({ completedQuestIds, currentLocation, onSelect, places, selectedPlace }) {
+function PlaceList({ completedQuestIds, currentLocation, onSelect, places, selectedPlace, t }) {
   const completedCount = places.filter((place) => completedQuestIds.includes(place.id)).length;
+  const legs = places.map((place, index) => (index === 0 ? 0 : getDistanceMeters(places[index - 1], place)));
+  const totalMeters = legs.reduce((sum, meters) => sum + (Number.isFinite(meters) ? meters : 0), 0);
 
   return (
     <div className="min-h-[26rem] px-4 pb-14 pt-[7.75rem]">
@@ -135,10 +137,13 @@ function PlaceList({ completedQuestIds, currentLocation, onSelect, places, selec
         {/* 리스트 머리말 + 방문 진행 상황 */}
         <div className="flex items-center justify-between gap-3 px-1.5 pb-2.5 pt-1">
           <div className="min-w-0">
-            <p className="text-[10px] font-bold tracking-[0.12em] text-[#a09a8c]">추천 방문 순서</p>
-            <p className="truncate text-sm font-bold text-[#343235]">오늘의 코스 {places.length}곳</p>
+            <p className="text-[10px] font-bold tracking-[0.12em] text-[#a09a8c]">
+              {t("map.courseOrder")}
+              {places.length > 1 && ` · ${t("map.totalDistance", { distance: formatDistance(totalMeters) })}`}
+            </p>
+            <p className="truncate text-sm font-bold text-[#343235]">{t("map.courseCount", { count: places.length })}</p>
           </div>
-          <span className="shrink-0 rounded-full bg-[#f2f4f1] px-2.5 py-1 text-[11px] font-bold text-[#626762]">{completedCount}/{places.length} 방문</span>
+          <span className="shrink-0 rounded-full bg-[#f2f4f1] px-2.5 py-1 text-[11px] font-bold text-[#626762]">{t("map.visitedCount", { done: completedCount, total: places.length })}</span>
         </div>
 
         {/* 코스 순서를 잇는 점선 + 장소 줄들 */}
@@ -146,23 +151,28 @@ function PlaceList({ completedQuestIds, currentLocation, onSelect, places, selec
           <span aria-hidden="true" className="absolute left-[1.9rem] top-8 bottom-8 border-l border-dashed border-[#d9d4c5]" />
           {places.map((place, index) => {
             const distance = getDistanceMeters(currentLocation, place);
+            const nearby = distance <= NEARBY_DISTANCE_METERS;
+            const distanceLabel = index === 0
+              ? (nearby ? t("map.near") : t("map.fromHere", { distance: formatDistance(distance) }))
+              : t("map.fromPrevious", { distance: formatDistance(legs[index]) });
             return (
               <PlaceListItem
                 key={place.id}
                 active={place.id === selectedPlace.id}
                 completed={completedQuestIds.includes(place.id)}
-                distance={distance}
-                nearby={distance <= NEARBY_DISTANCE_METERS}
+                distanceLabel={distanceLabel}
+                nearby={nearby}
                 onClick={() => onSelect(place)}
                 order={index + 1}
                 place={place}
+                t={t}
               />
             );
           })}
         </ol>
 
         {places.length === 0 && (
-          <p className="px-1.5 py-6 text-center text-xs text-[#7c7d81]">보여줄 장소가 아직 없어요.</p>
+          <p className="px-1.5 py-6 text-center text-xs text-[#7c7d81]">{t("map.noPlaces")}</p>
         )}
       </div>
     </div>
@@ -175,7 +185,6 @@ function PlaceList({ completedQuestIds, currentLocation, onSelect, places, selec
 // ===================================================================
 export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRoles, onSelect, places = QUESTS, roleName, selectedPlace }) {
   const { t } = useI18n();
-  const currentRoleName = roleName || t("roles.king.name");
 
   // --- 화면 상태(state)들 ---
   const [completing, setCompleting] = useState(false);
@@ -214,7 +223,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
     if (completed || completing) return;
     const showLocationHelp = (message) => setQuestResult({ type: "location", name: selectedPlace.name, message });
     if (!navigator.geolocation) {
-      showLocationHelp("현재 위치를 사용할 수 없어 퀘스트를 완료할 수 없어요.");
+      showLocationHelp(t("map.noGeolocation"));
       return;
     }
     setCompleting(true);
@@ -227,7 +236,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
       );
       const position = { latitude: coords.latitude, longitude: coords.longitude, accuracy: coords.accuracy };
       if (!Object.values(position).every(Number.isFinite) || coords.accuracy < 0 || coords.accuracy > 100) {
-        showLocationHelp("위치가 부정확해요. 탁 트인 곳에서 다시 시도해 주세요.");
+        showLocationHelp(t("map.inaccurate"));
         return;
       }
       const distance = getDistanceMeters(position, selectedPlace, false);
@@ -243,8 +252,8 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
         return;
       }
       showLocationHelp(error.code === 1
-        ? "퀘스트를 완료하려면 위치 권한을 허용해 주세요."
-        : error.message || "현재 위치를 확인하지 못했어요. 다시 시도해 주세요.");
+        ? t("map.locationDenied")
+        : error.message || t("map.locationFailed"));
     } finally {
       setCompleting(false);
     }
@@ -259,7 +268,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
       const saved = await onComplete(place.id, { demoCompletion: true });
       if (saved !== false) setQuestResult({ type: "success", name: place.name, demo: true, reward: saved?.reward });
     } catch (error) {
-      setQuestResult({ type: "location", name: place.name, message: error.message || "체험 완료를 저장하지 못했어요. 다시 시도해 주세요." });
+      setQuestResult({ type: "location", name: place.name, message: error.message || t("map.demoSaveFailed") });
     } finally {
       setCompleting(false);
     }
@@ -329,7 +338,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
       userAgent: navigator.userAgent,
     });
     window.open(url, "_blank", "noopener,noreferrer");
-    setRouteMessage(`카카오맵에서 ${selectedPlace.name}까지 길찾기를 열었어요.`);
+    setRouteMessage(t("map.kakaoOpened", { name: selectedPlace.name }));
   };
 
   // --- 화면(JSX) ---
@@ -342,7 +351,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
           <IconButton className="border-white/70 bg-white/90 shadow-sm" icon={LocateFixed} label={t("map.findLocation")} onClick={findCurrentLocation} />
         </div>
         {/* 보기 전환 버튼 (지도 / 리스트) */}
-        <div className="absolute inset-x-4 top-3 z-10 grid grid-cols-2 rounded-full bg-white/80 p-1 shadow-sm backdrop-blur" aria-label="지도 보기 방식">
+        <div className="absolute inset-x-4 top-3 z-10 grid grid-cols-2 rounded-full bg-white/80 p-1 shadow-sm backdrop-blur" aria-label={t("map.viewLabel")}>
             {MAP_VIEWS.map((item) => (
               <button
                 key={item.id}
@@ -352,7 +361,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
                 className={`inline-flex h-9 items-center justify-center gap-1.5 rounded-full text-xs font-semibold transition-colors ${viewId === item.id ? "bg-[#343235] text-white shadow-sm" : "text-[#626762]"}`}
               >
                 <item.icon size={14} />
-                {item.label}
+                {t(item.labelKey)}
               </button>
             ))}
         </div>
@@ -374,6 +383,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
             onSelect={selectPlace}
             places={visiblePlaces}
             selectedPlace={selectedPlace}
+            t={t}
           />
         )}
       </div>
@@ -388,7 +398,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
         >
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-soft text-brand-ink"><Crown size={18} /></span>
           <span className="min-w-0 flex-1">
-            <span className="block text-sm font-bold text-[#343235]">{t("map.followingRole", { name: currentRoleName })}</span>
+            <span className="block text-sm font-bold text-[#343235]">{roleName ? t("map.followingRole", { name: roleName }) : t("map.noRole")}</span>
           </span>
           <span className="shrink-0 rounded-full bg-[#f2f4f1] px-2.5 py-1 text-[11px] font-bold text-[#626762]">{t("common.change")}</span>
         </button>
@@ -417,25 +427,25 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
 
           {/* 하단 액션 버튼들: 카카오맵 길찾기 / 퀘스트 완료 / 도슨트 듣기 */}
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <AppButton className="col-span-2" icon={Navigation} onClick={openKakaoRoute}>카카오맵으로 길찾기</AppButton>
-            <AppButton className="!border-0" icon={completed ? Check : MapPin} variant={completed ? "outline" : "secondary"} disabled={completed || completing} onClick={completeAtCurrentLocation}>{completed ? t("map.visited") : completing ? "위치 확인 중…" : t("map.complete")}</AppButton>
+            <AppButton className="col-span-2" icon={Navigation} onClick={openKakaoRoute}>{t("map.kakaoRoute")}</AppButton>
+            <AppButton className="!border-0" icon={completed ? Check : MapPin} variant={completed ? "outline" : "secondary"} disabled={completed || completing} onClick={completeAtCurrentLocation}>{completed ? t("map.visited") : completing ? t("map.checkingLocation") : t("map.complete")}</AppButton>
             <AppButton className="!border-0" disabled={!docentReady} icon={Headphones} variant="outline" onClick={() => setDocentPlace(selectedPlace)}>{docentReady ? t("map.docent") : t("map.pending")}</AppButton>
           </div>
 
           <div className="relative mt-3 rounded-xl border border-dashed border-[#d6c9ab] bg-[#faf7ef] p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold text-[#826b39]">심사·시연용 예비 버튼</span>
-              <button type="button" aria-label="예비 버튼을 만든 이유" aria-expanded={demoHelpOpen}
+              <span className="text-[11px] font-bold text-[#826b39]">{t("map.demoTitle")}</span>
+              <button type="button" aria-label={t("map.demoHelpLabel")} aria-expanded={demoHelpOpen}
                 aria-controls={demoHelpId} onClick={() => setDemoHelpOpen((open) => !open)}
-                className="text-xs text-[#826b39] underline underline-offset-2">왜 필요한가요?</button>
+                className="text-xs text-[#826b39] underline underline-offset-2">{t("map.demoHelpButton")}</button>
             </div>
             <div className="group">
               <AppButton variant="outline" size="sm" className="w-full" disabled={completed || completing}
                 aria-describedby={demoHelpId} onClick={completeForDemo}>
-                {completed ? "방문 완료" : "예비용 · 방문 완료 체험"}
+                {completed ? t("map.visited") : t("map.demoButton")}
               </AppButton>
               <p id={demoHelpId} role="tooltip" className={`${demoHelpOpen ? "block" : "hidden group-hover:block group-focus-within:block"} mt-2 text-xs leading-5 text-[#776b54]`}>
-                실제 방문 완료는 장소 100m 이내에서만 가능해요. 현장 방문이 어려운 심사위원도 기능을 확인할 수 있도록 마련한 예비 버튼이에요. 위치 확인 없이 현재 코스에 완료 상태가 저장됩니다.
+                {t("map.demoHelp")}
               </p>
             </div>
           </div>
@@ -449,7 +459,7 @@ export default function GyeongjuMap2D({ completedQuestIds, onComplete, onOpenRol
               className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-bold text-[#626762] transition-colors disabled:cursor-not-allowed disabled:opacity-45"
             >
               <span className="text-[#8a8d89]">{route ? <Route size={14} /> : <Footprints size={14} />}</span>
-              {routeLoading ? "경로 불러오는 중" : route ? "지도 경로 다시 계산" : "지도에 도보 경로 표시"}
+              {routeLoading ? t("map.routeLoading") : route ? t("map.routeRecalc") : t("map.routePreview")}
             </button>
           )}
         </article>

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
+import logging
 import pymysql
 import os
 import httpx
@@ -20,7 +21,10 @@ from ..auth import (
     UserDeletedError,
 )
 
+from ..config import get_settings
 from ..mysql import get_mysql
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/v1/auth",
@@ -313,14 +317,12 @@ async def naver_callback(
         )
 
     except Exception as e:
-        print("NAVER OAUTH ERROR:", e)
+        logger.warning("네이버 토큰/프로필 조회 실패: %r", e)
 
         raise HTTPException(
             status_code=400,
             detail="네이버 로그인에 실패했습니다.",
         )
-
-    print("NAVER USER:", naver_user)
 
     # =====================================================
     # 2. DB에서 네이버 회원 조회 / 신규 회원 생성
@@ -334,7 +336,7 @@ async def naver_callback(
     except Exception as e:
         connection.rollback()
 
-        print("NAVER DB LOGIN ERROR:", e)
+        logger.warning("네이버 회원 처리 실패: %r", e)
 
         raise HTTPException(
             status_code=500,
@@ -352,7 +354,7 @@ async def naver_callback(
         "nickname": user["nickname"],
         "email": user["email"],
         "country": user["country"],
-        "birthDate": user["birthDate"],
+        "birthDate": str(user["birthDate"]) if user["birthDate"] else None,
         "profile_image": user["profile_image"],
         "language_code": user["language_code"],
     }
@@ -360,19 +362,11 @@ async def naver_callback(
     # =====================================================
     # 4. 프론트엔드로 이동
     # =====================================================
-    frontend_url = os.getenv("CORS_ORIGINS")
-
-    if not frontend_url:
-        raise HTTPException(
-            status_code=500,
-            detail="CORS_ORIGINS이 설정되지 않았습니다.",
-        )
-
     return RedirectResponse(
-        url=frontend_url,
+        url=get_settings().frontend_url,
         status_code=302,
     )
-    
+
 
 # =========================================================
 # 카카오 로그인 시작
@@ -431,24 +425,17 @@ async def kakao_callback(
     code = request.query_params.get("code")
     state = request.query_params.get("state")
     error = request.query_params.get("error")
+    frontend_url = get_settings().frontend_url
 
     # -----------------------------------------------------
-    # 카카오 인증 실패
+    # 카카오 인증 실패 (사용자가 동의 화면에서 취소한 경우 포함)
     # -----------------------------------------------------
     if error:
-        error_description = request.query_params.get(
-            "error_description"
-        )
+        logger.info("카카오 인증 취소/실패: %s", error)
 
-        print(
-            "KAKAO OAUTH ERROR:",
-            error,
-            error_description,
-        )
-
-        raise HTTPException(
-            status_code=400,
-            detail="카카오 로그인이 취소되었거나 실패했습니다.",
+        return RedirectResponse(
+            url=f"{frontend_url}?error=KAKAO_LOGIN_ERROR",
+            status_code=302,
         )
 
     # -----------------------------------------------------
@@ -494,19 +481,10 @@ async def kakao_callback(
             state=state,
         )
 
-    except UserDeletedError as e:
+    except UserDeletedError:
         connection.rollback()
-        
-        frontend_url = os.getenv("CORS_ORIGINS")
-        
-        if not frontend_url:
-                raise HTTPException(
-                    status_code=500,
-                    detail="CORS_ORIGINS이 설정되지 않았습니다.",
-                )
-        
-        print("🔥 KAKAO OTHER ERROR:", type(e))
-        raise HTTPException(
+
+        return RedirectResponse(
             url=f"{frontend_url}?error=USER_DELETED",
             status_code=302,
         )
@@ -514,34 +492,12 @@ async def kakao_callback(
     except Exception as e:
         connection.rollback()
 
-        print(
-            "KAKAO DB LOGIN ERROR:",
-            repr(e),
-        )
+        logger.warning("카카오 토큰/프로필 조회 실패: %r", e)
 
-        frontend_url = os.getenv("CORS_ORIGINS")
-        
-        if not frontend_url:
-                raise HTTPException(
-                    status_code=500,
-                    detail="CORS_ORIGINS이 설정되지 않았습니다.",
-                )
-        
-
-        # 탈퇴 회원
-        if isinstance(e, UserDeletedError):
-            return RedirectResponse(
-                url=f"{frontend_url}?error=USER_DELETED",
-                status_code=302,
-            )
-
-        # 그 외 모든 오류
         return RedirectResponse(
             url=f"{frontend_url}?error=KAKAO_LOGIN_ERROR",
             status_code=302,
         )
-
-    print("KAKAO USER:", kakao_user)
 
     # =====================================================
     # 2. DB에서 카카오 회원 조회 / 신규 회원 생성
@@ -555,8 +511,6 @@ async def kakao_callback(
     except UserDeletedError:
         connection.rollback()
 
-        print("🔥 KAKAO USER DELETED")
-
         return RedirectResponse(
             url=f"{frontend_url}?error=USER_DELETED",
             status_code=302,
@@ -565,10 +519,7 @@ async def kakao_callback(
     except Exception as e:
         connection.rollback()
 
-        print(
-            "🔥 KAKAO DB LOGIN ERROR:",
-            repr(e),
-        )
+        logger.warning("카카오 회원 처리 실패: %r", e)
 
         return RedirectResponse(
             url=f"{frontend_url}?error=KAKAO_LOGIN_ERROR",
@@ -592,16 +543,8 @@ async def kakao_callback(
     # =====================================================
     # 4. 프론트엔드로 이동
     # =====================================================
-    frontend_url = os.getenv("CORS_ORIGINS")
-
-    if not frontend_url:
-        raise HTTPException(
-            status_code=500,
-            detail="CORS_ORIGINS이 설정되지 않았습니다.",
-        )
-
     return RedirectResponse(
-        url=frontend_url,
+        url=get_settings().frontend_url,
         status_code=302,
     )
 
@@ -629,10 +572,7 @@ def google_login(request: Request):
     return_url = request.headers.get("referer")
 
     if not return_url:
-        return_url = os.getenv(
-            "CORS_ORIGINS",
-            "http://localhost:3000",
-        )
+        return_url = get_settings().frontend_url
 
     request.session["oauth_return_url"] = return_url
 
@@ -683,11 +623,7 @@ async def google_callback(
             "error_description"
         )
 
-        print(
-            "GOOGLE OAUTH ERROR:",
-            error,
-            error_description,
-        )
+        logger.info("구글 인증 취소/실패: %s %s", error, error_description)
 
         raise HTTPException(
             status_code=400,
@@ -751,17 +687,12 @@ async def google_callback(
     except Exception as e:
         connection.rollback()
 
-        print(
-            "GOOGLE DB LOGIN ERROR:",
-            repr(e),
-        )
+        logger.warning("구글 토큰/프로필 조회 실패: %r", e)
 
         raise HTTPException(
             status_code=500,
             detail="구글 회원 처리에 실패했습니다.",
         )
-
-    print("GOOGLE USER:", google_user)
 
     # =====================================================
     # 2. DB에서 구글 회원 조회 / 신규 회원 생성
@@ -775,10 +706,7 @@ async def google_callback(
     except Exception as e:
         connection.rollback()
 
-        print(
-            "GOOGLE DB LOGIN ERROR:",
-            repr(e),
-        )
+        logger.warning("구글 회원 처리 실패: %r", e)
 
         raise HTTPException(
             status_code=500,
@@ -803,16 +731,8 @@ async def google_callback(
     # =====================================================
     # 4. 프론트엔드로 이동
     # =====================================================
-    frontend_url = os.getenv("CORS_ORIGINS")
-
-    if not frontend_url:
-        raise HTTPException(
-            status_code=500,
-            detail="CORS_ORIGINS이 설정되지 않았습니다.",
-        )
-
     return RedirectResponse(
-        url=frontend_url,
+        url=get_settings().frontend_url,
         status_code=302,
     )
     
@@ -842,7 +762,7 @@ def update_user(
             SET
                 NICKNAME = %s,
                 COUNTRY = %s,
-                BIRTH_DATE = %s,
+                BIRTH_DATE = COALESCE(%s, BIRTH_DATE),
                 EMAIL = %s
             WHERE NO = %s
               AND STATUS = 1
@@ -882,7 +802,6 @@ def update_user(
         )
 
         user = cursor.fetchone()
-        print(user);
 
     if not user:
         raise HTTPException(
@@ -897,7 +816,7 @@ def update_user(
         "nickname": user["nickname"],
         "email": user["email"],
         "country": user["country"],
-        "birthDate": user["birthDate"],
+        "birthDate": str(user["birthDate"]) if user["birthDate"] else None,
         "profile_image": user["profile_image"],
         "language_code": user["language_code"],
     }
@@ -957,9 +876,6 @@ def get_visit_places(
         # 현재 사용자 언어
         # 값이 없으면 한국어
         language_code = user_info.get("LANGUAGE_CODE") or "ko"
-
-        print("user_no:", user_no)
-        print("language_code:", language_code)
 
         # --------------------------------------------------
         # 2. 내가 방문한 장소 조회

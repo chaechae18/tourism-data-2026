@@ -12,7 +12,7 @@ import { useI18n } from "../i18n/LanguageProvider";
 import AppButton from "../ui/AppButton";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
 
 export default function PersonalInfoEdit({
   user,
@@ -92,8 +92,8 @@ export default function PersonalInfoEdit({
 
       if (!response.ok) {
         throw new Error(
-          data?.detail ||
-            "개인정보 수정에 실패했습니다."
+          data?.error?.message ||
+            t("myPage.personalInfo.updateFailed")
         );
       }
 

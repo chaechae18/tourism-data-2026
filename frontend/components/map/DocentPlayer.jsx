@@ -7,6 +7,15 @@ import AppModal from "../ui/AppModal";
 import { useI18n } from "../i18n/LanguageProvider";
 
 const SKIP_SECONDS = 15;
+
+// iOS 는 audio.volume 을 무시한다(항상 1). 그런 기기에서는 Web Audio 의 GainNode 로 음량을 낮춘다.
+function volumeMode() {
+  if (typeof Audio === "undefined") return "element";
+  const probe = new Audio();
+  probe.volume = 0.5;
+  if (probe.volume === 0.5) return "element";
+  return window.AudioContext || window.webkitAudioContext ? "webaudio" : "none";
+}
 const SPEEDS = [1, 1.25, 1.5];
 
 function formatTime(seconds) {
@@ -29,6 +38,8 @@ export default function DocentPlayer({ onClose, place }) {
   const [duration, setDuration] = useState(0);
   const [speed, setSpeed] = useState(1);
   const [volume, setVolume] = useState(1);
+  const [volumeControl] = useState(volumeMode);
+  const webAudioRef = useRef(null);
   const [audioSrc, setAudioSrc] = useState(""); // 🟢 Blob URL 상태
 
   const placeId = place?.placeId;
@@ -44,7 +55,7 @@ export default function DocentPlayer({ onClose, place }) {
       .then(setScript)
       .catch((error) => {
         if (error.name === "AbortError") return;
-        setScriptError(error.message || "도슨트를 불러오지 못했어요.");
+        setScriptError(t("map.scriptFailed"));
       });
     return () => controller.abort();
   }, [language, placeId]);
@@ -57,7 +68,7 @@ export default function DocentPlayer({ onClose, place }) {
     const controller = new AbortController();
 
     setReady(false);
-    setAudioError("음성을 준비하고 있어요…");
+    setAudioError("");
     setAudioSrc("");
 
     const loadAudioWithRetry = async (retries = 2, delay = 1000) => {
@@ -87,7 +98,7 @@ export default function DocentPlayer({ onClose, place }) {
           // 마지막 시도까지 실패한 경우
           if (attempt === retries) {
             if (!controller.signal.aborted) {
-              setAudioError("음성을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.");
+              setAudioError(t("map.audioFailed"));
             }
           } else {
             // 재시도 전 잠시 대기 (서버가 TTS를 만들 시간 벌기)
@@ -110,10 +121,35 @@ export default function DocentPlayer({ onClose, place }) {
   // 볼륨 및 재생 속도 반영
   useEffect(() => {
     if (audioRef.current) {
-      audioRef.current.volume = volume;
+      if (volumeControl === "element") audioRef.current.volume = volume;
       audioRef.current.playbackRate = speed;
     }
-  }, [volume, speed, ready]);
+    if (webAudioRef.current) webAudioRef.current.gain.gain.value = volume;
+  }, [volume, speed, ready, volumeControl]);
+
+  useEffect(() => () => { webAudioRef.current?.context.close(); }, []);
+
+  // 재생 버튼을 누른 순간(사용자 동작 안)에 연결해야 iOS 가 소리를 낸다.
+  const connectGain = (audio) => {
+    if (volumeControl !== "webaudio") return;
+    let graph = webAudioRef.current;
+    if (!graph) {
+      // 무음 모드인 아이폰에서도 일반 audio 처럼 들리게 재생용 세션으로 둔다(iOS 16.4+).
+      if (navigator.audioSession) navigator.audioSession.type = "playback";
+      const Context = window.AudioContext || window.webkitAudioContext;
+      const context = new Context();
+      const gain = context.createGain();
+      gain.connect(context.destination);
+      graph = { context, gain, element: null };
+      webAudioRef.current = graph;
+    }
+    if (graph.element !== audio) {
+      graph.context.createMediaElementSource(audio).connect(graph.gain);
+      graph.element = audio;
+    }
+    graph.gain.gain.value = volume;
+    if (graph.context.state !== "running") graph.context.resume();
+  };
 
   const startProgressLoop = () => {
     cancelAnimationFrame(animFrameRef.current);
@@ -148,6 +184,7 @@ export default function DocentPlayer({ onClose, place }) {
 
     try {
       if (audio.paused) {
+        connectGain(audio);
         await audio.play();
       } else {
         audio.pause();
@@ -155,7 +192,7 @@ export default function DocentPlayer({ onClose, place }) {
     } catch (error) {
       console.error("도슨트 재생 실패:", error);
       setPlaying(false);
-      setAudioError("음성을 재생하지 못했어요.");
+      setAudioError(t("map.audioPlayFailed"));
     }
   };
 
@@ -178,9 +215,8 @@ export default function DocentPlayer({ onClose, place }) {
   const changeVolume = (event) => {
     const next = Number(event.target.value);
     setVolume(next);
-    if (audioRef.current) {
-      audioRef.current.volume = next;
-    }
+    if (webAudioRef.current) webAudioRef.current.gain.gain.value = next;
+    else if (audioRef.current) audioRef.current.volume = next;
   };
 
   return (
@@ -240,7 +276,7 @@ export default function DocentPlayer({ onClose, place }) {
 
               onError={(e) => {
                 console.error("오디오 로딩/재생 에러:", e);
-                setAudioError("음성을 불러오지 못했어요.");
+                setAudioError(t("map.audioFailed"));
                 setReady(false);
                 stopProgressLoop();
               }}
@@ -250,17 +286,17 @@ export default function DocentPlayer({ onClose, place }) {
           <div className="flex items-center justify-center gap-4">
             <button
               type="button"
-              aria-label={`${SKIP_SECONDS}초 뒤로`}
+              aria-label={t("map.skipBack", { seconds: SKIP_SECONDS })}
               onClick={() => skip(-SKIP_SECONDS)}
               disabled={!ready}
               className="flex min-h-11 w-16 flex-col items-center justify-center gap-1 rounded-lg text-[#626762] transition-colors disabled:opacity-40"
             >
               <RotateCcw size={20} aria-hidden="true" />
-              <span className="text-[10px] font-semibold">{SKIP_SECONDS}초 뒤로</span>
+              <span className="text-[10px] font-semibold">{t("map.skipBack", { seconds: SKIP_SECONDS })}</span>
             </button>
             <button
               type="button"
-              aria-label={playing ? "일시정지" : "도슨트 재생"}
+              aria-label={t(playing ? "map.pause" : "map.play")}
               onClick={togglePlay}
               disabled={!ready}
               className="flex h-16 w-16 items-center justify-center rounded-full bg-brand text-white shadow-[0_8px_20px_rgb(var(--color-brand)/0.35)] transition-colors disabled:opacity-45"
@@ -269,13 +305,13 @@ export default function DocentPlayer({ onClose, place }) {
             </button>
             <button
               type="button"
-              aria-label={`${SKIP_SECONDS}초 앞으로`}
+              aria-label={t("map.skipForward", { seconds: SKIP_SECONDS })}
               onClick={() => skip(SKIP_SECONDS)}
               disabled={!ready}
               className="flex min-h-11 w-16 flex-col items-center justify-center gap-1 rounded-lg text-[#626762] transition-colors disabled:opacity-40"
             >
               <RotateCw size={20} aria-hidden="true" />
-              <span className="text-[10px] font-semibold">{SKIP_SECONDS}초 앞으로</span>
+              <span className="text-[10px] font-semibold">{t("map.skipForward", { seconds: SKIP_SECONDS })}</span>
             </button>
           </div>
 
@@ -286,7 +322,7 @@ export default function DocentPlayer({ onClose, place }) {
             </span>
             <input
               type="range"
-              aria-label="재생 위치"
+              aria-label={t("map.seek")}
               min="0"
               max={duration > 0 ? duration : 100}
               step="0.1"
@@ -303,26 +339,30 @@ export default function DocentPlayer({ onClose, place }) {
               className="min-w-0 flex-1 text-[11px] font-semibold text-[#8a8d89]"
               role="status"
             >
-              {audioError || (ready ? "" : "음성을 준비하고 있어요…")}
+              {audioError || (ready ? "" : t("map.audioPreparing"))}
             </p>
 
             {/* 볼륨 */}
-            <div className="flex items-center gap-2">
-              <span className="text-[13px]" aria-hidden="true">
-                {volume === 0 ? "🔇" : "🔊"}
-              </span>
+            {volumeControl !== "none" ? (
+              <div className="flex items-center gap-2">
+                <span className="text-[13px]" aria-hidden="true">
+                  {volume === 0 ? "🔇" : "🔊"}
+                </span>
 
-              <input
-                type="range"
-                aria-label="볼륨"
-                min="0"
-                max="1"
-                step="0.05"
-                value={volume}
-                onChange={changeVolume}
-                className="h-1.5 w-20 cursor-pointer appearance-none rounded-full bg-[#e5e2d7] accent-brand"
-              />
-            </div>
+                <input
+                  type="range"
+                  aria-label={t("map.volume")}
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={volume}
+                  onChange={changeVolume}
+                  className="h-1.5 w-20 cursor-pointer appearance-none rounded-full bg-[#e5e2d7] accent-brand"
+                />
+              </div>
+            ) : (
+              <span className="text-[10px] font-medium text-[#a09a8c]">🔊 {t("map.volumeHint")}</span>
+            )}
 
             {/* 재생 속도 */}
             <button
@@ -368,7 +408,7 @@ export default function DocentPlayer({ onClose, place }) {
               {!scriptError && !script && (
                 <div className="flex items-center gap-2 py-5 text-sm text-[#8a8d89]">
                   <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-                  원고를 불러오는 중이에요…
+                  {t("map.scriptLoading")}
                 </div>
               )}
 
@@ -379,9 +419,9 @@ export default function DocentPlayer({ onClose, place }) {
                     {script.text}
                   </p>
                   <div className="mt-5 flex items-center justify-between border-t border-[#f0ece4] pt-3">
-                    <span className="text-[10px] font-medium text-[#b0aa9e]">출처</span>
+                    <span className="text-[10px] font-medium text-[#b0aa9e]">{t("map.source")}</span>
                     <span className="rounded-full bg-[#faf7f0] px-2.5 py-1 text-[10px] font-medium text-[#918b80]">
-                      {script.source}
+                      {t("map.kto")}
                     </span>
                   </div>
                 </>

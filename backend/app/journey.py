@@ -1,5 +1,6 @@
 from datetime import date
 import math
+import re
 
 import pymysql
 
@@ -9,6 +10,8 @@ from .quest_rewards import grant_next_reward, inventory
 
 
 QUEST_TYPE_VISIT = 1
+# 공사 일본어 서비스 이름은 "慶州 鶏林（경주 계림）" 처럼 끝에 한국어 병기가 괄호로 붙어 온다.
+KOREAN_GLOSS = re.compile(r"\s*[（(][^（）()]*[가-힣][^（）()]*[）)]\s*$")
 # USER_QUEST.STATUS (0: 미진행, 1: 진행중, 2: 완료)
 QUEST_STATUS_DONE = 2
 
@@ -185,7 +188,7 @@ def load_course(
                 order=row["QUEST_ORDER"],
                 time_slot=row["TIME_SLOT"] or "",
                 place_idx=row["PLACE_IDX"],
-                name=row["NAME"],
+                name=row["NAME"] if language == "ko" else (KOREAN_GLOSS.sub("", row["NAME"]) or row["NAME"]),
                 route_name=row["ROUTE_NAME"],
                 category=row["CATEGORY_SUB"],
                 address=row["ADDRESS"],

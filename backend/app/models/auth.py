@@ -50,13 +50,13 @@ class LoginResponse(CamelModel):
     user: dict
     
 class UpdateUserRequest(CamelModel):
-    nickname: str
-    country: str
+    nickname: str = Field(min_length=1, max_length=100)
+    country: str = Field(max_length=10)
     birth_date: date | None = Field(
         default=None,
         alias="birthDate",
     )
-    email: str
+    email: str = Field(max_length=255, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
     @field_validator(
         "nickname",

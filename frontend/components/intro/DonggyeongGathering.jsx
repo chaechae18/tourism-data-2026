@@ -37,6 +37,7 @@ export default function DonggyeongGathering() {
         <span aria-hidden="true">GYEONGJU</span>
       </p>
       <h1 className={styles.subtitle}>{t("intro.title")}</h1>
+      <p className="mx-auto mt-3 max-w-[300px] break-keep px-6 text-center text-sm leading-6 text-[#6f6256]">{t("intro.description")}</p>
       <div className={styles.portraits} role="img" aria-label={t("intro.gatheringLabel")}>
         {COMPANIONS.map(({ role, turn, lift, duration, phase }, index) => (
           <div key={role} className={styles.companion} style={{

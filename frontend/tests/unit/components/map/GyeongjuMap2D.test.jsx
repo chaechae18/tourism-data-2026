@@ -192,6 +192,9 @@ describe("GyeongjuMap2D", () => {
 
     expect(screen.getByText(`오늘의 코스 ${QUESTS.length}곳`)).toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(QUESTS.length);
+    // 두 번째 장소부터는 앞 장소와의 거리, 역할을 고르지 않았으면 왕으로 가정하지 않는다
+    expect(screen.getAllByText(/^이전 장소에서 /)).toHaveLength(QUESTS.length - 1);
+    expect(screen.getByText("역할을 고르면 하루 코스를 만들어 드려요")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "석굴암 선택" }));
 

@@ -333,7 +333,9 @@ INTRO_FIELDS.update({
 
 _HREF = re.compile(r'href=["\']([^"\']+)["\']', re.IGNORECASE)
 _BARE_URL = re.compile(r"https?://[^\s\"'<>]+")
-_TAG = re.compile(r"<[^>]+>")
+# 공사 원문은 <삼국사기> 처럼 책·프로그램 제목에도 홑화살괄호를 쓴다. 영문 태그만 지우고 제목은 『』로 바꾼다.
+_TAG = re.compile(r"</?[a-zA-Z][^>]*>")
+_TITLE = re.compile(r"<([^<>]{1,40})>")
 
 ALWAYS_OPEN = "연중무휴"
 WEEKDAYS = "월화수목금토일"
@@ -345,6 +347,7 @@ def clean(value: object, limit: int | None = None) -> str | None:
     if value is None:
         return None
     text = _TAG.sub(" ", str(value))
+    text = _TITLE.sub(r"『\1』", text)
     text = " ".join(text.split())
     if not text:
         return None

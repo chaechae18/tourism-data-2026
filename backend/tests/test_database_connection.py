@@ -62,3 +62,24 @@ def test_startup_connection_failure_is_not_reported_as_ready(monkeypatch):
     with pytest.raises(ConnectionError):
         asyncio.run(start())
     migrate.assert_not_called()
+
+
+def test_request_connections_are_reused_and_left_clean(monkeypatch):
+    import pymysql
+    monkeypatch.setattr(mysql, "_idle", [])
+    monkeypatch.setattr(mysql, "connect", lambda: MagicMock(open=True, server_status=0))
+
+    def request(in_transaction=False, error=None):
+        dependency = mysql.get_mysql()
+        connection = next(dependency)
+        connection.server_status = 1 if in_transaction else 0
+        with pytest.raises(type(error) if error else StopIteration):
+            dependency.throw(error) if error else next(dependency)
+        return connection
+
+    first = request(in_transaction=True)
+    assert request() is first
+    first.rollback.assert_called_once()
+    broken = request(error=pymysql.err.OperationalError())
+    broken.close.assert_called()
+    assert request() is not broken

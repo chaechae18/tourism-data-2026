@@ -1,6 +1,9 @@
 from collections.abc import Callable, Iterator
 import os
 
+# 설정은 빈 세션 키를 거부하므로 앱을 불러오기 전에 채워 둔다.
+os.environ.setdefault("SESSION_SECRET_KEY", "test-only-session-secret")
+
 from fastapi.testclient import TestClient
 import pymysql
 import pytest

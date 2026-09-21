@@ -18,7 +18,7 @@ import AppButton from "../ui/AppButton";
 import AppModal from "../ui/AppModal";
 
 const AUTH_API_BASE_URL = `${
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001"
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001"
 }/api/v1/auth`;
 
 const INITIAL_FORM = {
@@ -129,16 +129,13 @@ export default function AuthModal({
       const data = await response.json().catch(() => ({}));
 
       if (!response.ok) {
-        return alert(
-          data?.detail ||
-            "아이디 중복확인에 실패했습니다."
-        );
+        return alert(signupT("auth.idCheckFailed"));
       }
 
       setIdChecked(true);
       setIdAvailable(data.available);
 
-      alert(data.message);
+      alert(signupT(data.available ? "auth.idAvailable" : "auth.idTaken"));
     } catch {
       alert(signupT("common.networkError"));
     }
@@ -170,7 +167,7 @@ export default function AuthModal({
     }
 
     if (!idChecked || !idAvailable) {
-      return alert("아이디 중복확인을 해주세요.");
+      return alert(signupT("auth.idCheckRequired"));
     }
 
     if (!form.id || !form.nickname || !form.email || !form.password) {
@@ -178,9 +175,7 @@ export default function AuthModal({
     }
 
     if (!validatePassword(form.password)) {
-      return alert(
-        "비밀번호는 영문자 4자 이상, 숫자 4자 이상, 특수문자 1개 이상을 포함해야 합니다."
-      );
+      return alert(signupT("auth.passwordRule"));
     }
 
     if (form.password !== form.confirmPassword) {
@@ -227,16 +222,13 @@ export default function AuthModal({
 
   const data = await response.json().catch(() => ({}));
 
-  console.log("AUTH RESPONSE:", response.status, data);
-
   if (!response.ok) {
-    if (data?.detail?.code === "USER_DELETED") {
-      return alert("탈퇴한 회원입니다.");
+    if (data?.error?.code === "USER_DELETED") {
+      return alert(signupT("auth.userDeleted"));
     }
 
     return alert(
-      data?.detail ||
-        data?.error?.message ||
+      data?.error?.message ||
         signupT(
           isSignup
             ? "auth.signupFailed"
@@ -244,9 +236,6 @@ export default function AuthModal({
         )
     );
   }
-
-  // 서버 응답까지 정상적으로 받은 상태
-  console.log("회원가입/로그인 성공:", data);
 
   try {
     onComplete(data);
@@ -295,7 +284,7 @@ export default function AuthModal({
                 onClick={checkId}
                 className="shrink-0 whitespace-nowrap rounded-md bg-[#343235] px-3 py-2 text-xs font-semibold text-white"
               >
-                중복확인
+                {signupT("auth.checkId")}
               </button>
             )}
           </div>
@@ -308,9 +297,7 @@ export default function AuthModal({
                   : "text-red-500"
               }`}
             >
-              {idAvailable
-                ? "사용 가능한 아이디입니다."
-                : "이미 사용 중인 아이디입니다."}
+              {signupT(idAvailable ? "auth.idAvailable" : "auth.idTaken")}
             </p>
           )}
         </label>
@@ -387,7 +374,7 @@ export default function AuthModal({
                     : "text-red-500"
                 }
               >
-                {`영문자 4자 이상 ${
+                {`${signupT("auth.ruleLetters")} ${
                   (form.password.match(/[A-Za-z]/g) || []).length >= 4
                     ? "✓"
                     : ""
@@ -401,7 +388,7 @@ export default function AuthModal({
                     : "text-red-500"
                 }
               >
-                {`숫자 4자 이상 ${
+                {`${signupT("auth.ruleNumbers")} ${
                   (form.password.match(/[0-9]/g) || []).length >= 4
                     ? "✓"
                     : ""
@@ -415,7 +402,7 @@ export default function AuthModal({
                     : "text-red-500"
                 }
               >
-                {`특수문자 1개 이상 ${
+                {`${signupT("auth.ruleSpecial")} ${
                   (form.password.match(/[^A-Za-z0-9]/g) || []).length >= 1
                     ? "✓"
                     : ""
@@ -465,8 +452,8 @@ export default function AuthModal({
                   }`}
                 >
                   {form.password === form.confirmPassword
-                    ? "비밀번호가 일치합니다. ✓"
-                    : "비밀번호가 일치하지 않습니다."}
+                    ? `${signupT("auth.passwordMatch")} ✓`
+                    : signupT("auth.passwordMismatch")}
                 </p>
               )}
             </label>
@@ -501,7 +488,7 @@ export default function AuthModal({
             {/* 언어 */}
             <div>
               <p className="mb-3 text-sm font-bold text-[#241b16]">
-                언어
+                {signupT("auth.language")}
               </p>
 
               <div className="grid grid-cols-2 gap-2">
@@ -597,7 +584,7 @@ export default function AuthModal({
               <div className="h-px flex-1 bg-[#e7e8e4]" />
 
               <span className="whitespace-nowrap text-[11px] font-medium tracking-wide text-[#9a9b97]">
-                간편 로그인
+                {signupT("auth.socialLogin")}
               </span>
 
               <div className="h-px flex-1 bg-[#e7e8e4]" />
@@ -633,7 +620,7 @@ export default function AuthModal({
                   </svg>
                 </span>
 
-                <span>카카오로 로그인</span>
+                <span>{signupT("auth.kakaoLogin")}</span>
               </button>
 
               {/* 네이버 */}
