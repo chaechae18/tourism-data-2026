@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import httpx
 
 from .config import get_settings
+from .openai_chat import chat_options, log_failure, read_content
 
 
 MODERATION_MODEL = "omni-moderation-latest"
@@ -73,6 +74,7 @@ def check_content(text: str, photo_url: str | None = None) -> ContentApproval:
     inputs = [{"type": "text", "text": text}]
     if photo_url:
         inputs.append({"type": "image_url", "image_url": {"url": image_input(photo_url)}})
+    stage_model = MODERATION_MODEL
     try:
         with httpx.Client(timeout=15.0, headers={"Authorization": f"Bearer {settings.openai_api_key}"}) as http:
             response = http.post("https://api.openai.com/v1/moderations", json={"model": MODERATION_MODEL, "input": inputs})
@@ -85,10 +87,10 @@ def check_content(text: str, photo_url: str | None = None) -> ContentApproval:
             if any(categories[key] for key in BLOCKED_CATEGORIES):
                 raise ContentRejectedError
             # Moderation has no standalone profanity category. Classify that policy explicitly.
+            stage_model = settings.openai_model
             response = http.post("https://api.openai.com/v1/chat/completions", json={
                 "model": settings.openai_model,
-                "temperature": 0,
-                "max_tokens": 30,
+                **chat_options(settings.openai_model, effort="none", max_completion_tokens=256),
                 "response_format": {"type": "json_schema", "json_schema": {
                     "name": "profanity_check", "strict": True,
                     "schema": {"type": "object", "properties": {"profanity": {"type": "boolean"}},
@@ -106,7 +108,7 @@ def check_content(text: str, photo_url: str | None = None) -> ContentApproval:
                 ],
             })
             response.raise_for_status()
-            profanity = json.loads(response.json()["choices"][0]["message"]["content"])["profanity"]
+            profanity = json.loads(read_content(response))["profanity"]
             if type(profanity) is not bool:
                 raise ValueError("Missing profanity verdict")
             if profanity:
@@ -117,5 +119,6 @@ def check_content(text: str, photo_url: str | None = None) -> ContentApproval:
     except ContentRejectedError:
         raise
     except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as error:
+        log_failure("content_review", stage_model, error)
         raise ModerationUnavailableError from error
     return ContentApproval(moderation_id, categories, settings.openai_model)
