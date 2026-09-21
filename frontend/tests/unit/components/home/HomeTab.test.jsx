@@ -149,6 +149,27 @@ describe("HomeTab", () => {
     expect(screen.queryByRole("link", { name: "자세히 보기" })).not.toBeInTheDocument();
   });
 
+  it("shows placeholders while loading and never the empty text before data", async () => {
+    let resolveFestivals;
+    api.listFestivals.mockReturnValue(new Promise((resolve) => { resolveFestivals = resolve; }));
+    render(<HomeTab onMapOpen={vi.fn()} />);
+
+    expect(screen.queryByText("예정된 행사가 없어요.")).not.toBeInTheDocument();
+    expect(screen.queryByText("추천 중인 관광지가 없어요.")).not.toBeInTheDocument();
+
+    resolveFestivals([FESTIVAL]);
+    expect(await screen.findByText("신라문화제")).toBeInTheDocument();
+  });
+
+  it("shows the empty text only after the request finishes with no data", async () => {
+    api.listFestivals.mockResolvedValue([]);
+    api.listRecommendedPlaces.mockResolvedValue([]);
+    render(<HomeTab onMapOpen={vi.fn()} />);
+
+    expect(await screen.findByText("예정된 행사가 없어요.")).toBeInTheDocument();
+    expect(screen.getByText("추천 중인 관광지가 없어요.")).toBeInTheDocument();
+  });
+
   it("tells the user when a section is empty and skips missing fields", async () => {
     api.listPopups.mockResolvedValue([]);
     api.listFestivals.mockResolvedValue([{ ...FESTIVAL, endDate: null }]);
