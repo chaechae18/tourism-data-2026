@@ -69,6 +69,11 @@ export default function QuestMapCanvas({ bounds, completedQuestIds, currentLocat
         renderWorldCopies: false,
         // 지도는 앱의 스크롤 화면 안에 있다. 한 손가락은 페이지 스크롤에 남겨 둔다.
         cooperativeGestures: true,
+        locale: {
+          "CooperativeGesturesHandler.WindowsHelpText": t("map.gestureWindows"),
+          "CooperativeGesturesHandler.MacHelpText": t("map.gestureMac"),
+          "CooperativeGesturesHandler.MobileHelpText": t("map.gestureMobile"),
+        },
       });
       map.touchZoomRotate.disableRotation();
       map.addControl(new AttributionControl({ compact: true }), "bottom-right");

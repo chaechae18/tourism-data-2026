@@ -89,7 +89,11 @@ def create_spot(
     request: SpotCreateRequest,
 ) -> SpotResponse:
     _require_active_user(connection, user_no)
-    approval = content_guardrails.check_content(request.caption, request.photo_url)
+    # 검수 서버가 응답하지 않으면 글은 받아 두고 비공개(0)로 둔다. review_pending_spots.py 가 다시 검수한다.
+    try:
+        approval = content_guardrails.check_content(request.caption, request.photo_url)
+    except content_guardrails.ModerationUnavailableError:
+        approval = None
     place = request.place
     address = place.road_address or place.address
 
@@ -102,7 +106,7 @@ def create_spot(
                 PLACE_NAME, PLACE_ADDRESS, LAT, LNG, PHOTO_URL, CAPTION, LANGUAGE_CODE, MODERATION_STATUS
             )
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
-                (SELECT LANGUAGE_CODE FROM USERS WHERE NO = %s), 1)
+                (SELECT LANGUAGE_CODE FROM USERS WHERE NO = %s), %s)
             """,
             (
                 user_no,
@@ -116,10 +120,12 @@ def create_spot(
                 request.photo_url,
                 request.caption,
                 user_no,
+                1 if approval else 0,
             ),
         )
 
-        approval.log(connection, target_type=1, target_id=spot_id)
+        if approval:
+            approval.log(connection, target_type=1, target_id=spot_id)
         with connection.cursor() as cursor:
             cursor.execute("DELETE FROM SPOT_RANKING_DAILY WHERE RANK_DATE = %s", (datetime.now().date(),))
             cursor.execute("DELETE FROM SPOT_RANKING_RUN WHERE RANK_DATE = %s", (datetime.now().date(),))

@@ -2,11 +2,14 @@ from collections.abc import Iterator
 import logging
 import os
 import ssl
+import threading
+import time
 
 from alembic import command
 from alembic.config import Config
 from dotenv import load_dotenv
 import pymysql
+from pymysql.constants import SERVER_STATUS
 from pymysql.cursors import DictCursor
 
 from .config import BACKEND_DIR
@@ -41,12 +44,62 @@ def connect(**overrides) -> pymysql.Connection:
     return pymysql.connect(**{**connection_settings(), **overrides})
 
 
+# Vercel 에서 Aiven 까지 TLS 연결을 새로 여는 데 요청마다 1초 넘게 걸린다. 연결을 몇 개 모아 두고 다시 쓴다.
+POOL_SIZE = 4
+IDLE_CHECK_SECONDS = 30
+_idle: list[tuple[pymysql.Connection, float]] = []
+_idle_lock = threading.Lock()
+
+
+def _close(connection: pymysql.Connection) -> None:
+    try:
+        connection.close()
+    except pymysql.Error:
+        pass
+
+
+def _borrow() -> pymysql.Connection:
+    while True:
+        with _idle_lock:
+            if not _idle:
+                return connect()
+            connection, released_at = _idle.pop()
+        if time.monotonic() - released_at < IDLE_CHECK_SECONDS:
+            return connection
+        try:
+            connection.ping(reconnect=False)
+            return connection
+        except pymysql.Error:
+            _close(connection)
+
+
+def _release(connection: pymysql.Connection) -> None:
+    try:
+        if connection.server_status & SERVER_STATUS.SERVER_STATUS_IN_TRANS:
+            connection.rollback()
+    except pymysql.Error:
+        _close(connection)
+        return
+    with _idle_lock:
+        if connection.open and len(_idle) < POOL_SIZE:
+            _idle.append((connection, time.monotonic()))
+            return
+    _close(connection)
+
+
 def get_mysql() -> Iterator[pymysql.Connection]:
-    connection = connect()
+    connection = _borrow()
+    broken = False
     try:
         yield connection
+    except pymysql.Error:
+        broken = True
+        raise
     finally:
-        connection.close()
+        if broken:
+            _close(connection)
+        else:
+            _release(connection)
 
 
 def fetch_all(connection: pymysql.Connection, sql: str, parameters: tuple = ()) -> list[dict]:

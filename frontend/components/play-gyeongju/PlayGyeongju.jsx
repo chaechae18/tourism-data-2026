@@ -29,7 +29,7 @@ const INITIAL_SELECTED_QUEST_ID = "bunhwangsa";
 const NOTICE_DURATION = 2800;
 const GUIDE_SEEN_KEY = "playgyeongju.guideSeen";
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
 
 export default function PlayGyeongju() {
   const { language, reloadLanguage, resetLanguage, t } = useI18n();
@@ -100,7 +100,7 @@ export default function PlayGyeongju() {
     const error = params.get("error");
 
     if (error === "USER_DELETED") {
-      alert("탈퇴한 회원입니다.");
+      alert(t("auth.userDeleted"));
 
       // URL에서 error 파라미터 제거
       params.delete("error");
@@ -118,7 +118,7 @@ export default function PlayGyeongju() {
     }
 
     if (error === "KAKAO_LOGIN_ERROR") {
-      alert("카카오 로그인 중 오류가 발생했습니다.");
+      alert(t("auth.kakaoError"));
 
       params.delete("error");
 
@@ -142,12 +142,12 @@ export default function PlayGyeongju() {
         if (controller.signal.aborted) return;
         const known = saved?.key && ROLES.some((item) => item.key === saved.key);
         setRoleKey(known ? saved.key : null);
-        if (!known) setRoleOpen(true);
+        if (!known && window.localStorage.getItem(GUIDE_SEEN_KEY)) setRoleOpen(true);
       })
       .catch((error) => {
         if (controller.signal.aborted || error.name === "AbortError") return;
         setRoleKey(null);
-        setRoleOpen(true);
+        if (window.localStorage.getItem(GUIDE_SEEN_KEY)) setRoleOpen(true);
       });
     return () => controller.abort();
   }, [entered]);
@@ -305,9 +305,7 @@ export default function PlayGyeongju() {
   }
 };
   const handleWithdraw = async () => {
-  const confirmed = window.confirm(
-    "정말 회원탈퇴하시겠습니까?\n탈퇴한 계정은 복구할 수 없습니다."
-  );
+  const confirmed = window.confirm(t("play.withdrawConfirm"));
 
   if (!confirmed) return;
 
@@ -323,10 +321,10 @@ export default function PlayGyeongju() {
     const data = await response.json();
 
     if (!response.ok) {
-      throw new Error(data.detail || "회원탈퇴에 실패했습니다.");
+      throw new Error(data?.error?.message || t("play.withdrawFailed"));
     }
 
-    alert("회원탈퇴가 완료되었습니다.");
+    alert(t("play.withdrawDone"));
 
     // 로그아웃과 동일하게 프론트 상태 초기화
     setEntered(false);
@@ -341,7 +339,7 @@ export default function PlayGyeongju() {
 
   } catch (error) {
     console.error("회원탈퇴 실패:", error);
-    alert(error.message || "회원탈퇴에 실패했습니다.");
+    alert(error.message || t("play.withdrawFailed"));
   }
 };
   const completeQuest = async (id, position) => {
@@ -350,7 +348,7 @@ export default function PlayGyeongju() {
     if (!quest) return false;
 
     // 서버가 확인한 완료와 보상만 반영한다. 샘플 장소는 지급할 수 없다.
-    if (!quest.questId) throw new Error("코스를 불러온 후 다시 시도해 주세요.");
+    if (!quest.questId) throw new Error(t("play.courseRequired"));
     const revision = ++inventoryRevision.current;
     const saved = await saveQuestCompletion({ questId: quest.questId, ...position });
     if (!saved.completed || revision !== inventoryRevision.current) return false;
@@ -402,9 +400,9 @@ export default function PlayGyeongju() {
       )}
 
       <main className={`w-full px-4 ${activeTab === "map" ? "pt-0" : "pt-1"} ${activeTab === "spots" ? "flex min-h-0 flex-1 flex-col" : "pb-6"}`}>
-        {activeTab === "home" && <HomeTab language={language} onMapOpen={() => setActiveTab("map")} popupHidden={guideOpen} />}
+        {activeTab === "home" && <HomeTab language={language} onMapOpen={() => setActiveTab("map")} popupHidden={guideOpen || roleOpen} />}
         {activeTab === "my-dg" && <MyDGTab availableItems={availableItems} completedQuestIds={completedQuestIds} onMapQuest={openQuestOnMap} onSaveOutfit={persistOutfit} outfit={outfit} places={places} setOutfit={setOutfit} />}
-        {activeTab === "map" && <GyeongjuMap2D completedQuestIds={completedQuestIds} onComplete={completeQuest} onOpenRoles={() => setRoleOpen(true)} onSelect={(quest) => setSelectedQuestId(quest.id)} places={places} roleName={roleName} selectedPlace={selectedQuest} />}
+        {activeTab === "map" && <GyeongjuMap2D completedQuestIds={completedQuestIds} onComplete={completeQuest} onOpenRoles={() => setRoleOpen(true)} onSelect={(quest) => setSelectedQuestId(quest.id)} places={places} roleName={roleKey ? roleName : null} selectedPlace={selectedQuest} />}
         {activeTab === "spots" && <SpotsTab key={user.user_no ?? user.userNo ?? user.userId ?? "guest"} user={user} />}
         {activeTab === "my-page" && <MyPageTab completedQuestIds={completedQuestIds} onLogout={logout} onNotice={showNotice} onOpenGuide={reopenGuide} setUser={setUser} user={user} onWithdraw={handleWithdraw} />}
       </main>
@@ -412,7 +410,7 @@ export default function PlayGyeongju() {
       {notice && <div className="fixed bottom-24 left-1/2 z-40 w-[calc(100%-2rem)] max-w-[398px] -translate-x-1/2 rounded-lg bg-[#343235] px-4 py-3 text-center text-sm font-semibold text-white shadow-lg">{notice}</div>}
       {guideOpen && <AppGuide onDone={finishGuide} onTabChange={setActiveTab} />}
       <RoleSelect onClose={() => setRoleOpen(false)} onSelect={selectRole} open={roleOpen} selectedKey={roleKey} />
-      {activeTab === "map" && <p className="pb-24 text-center text-[12px] font-normal text-[#aaa59d]">출처: ⓒ한국관광공사</p>}
+      {activeTab === "map" && <p className="pb-24 text-center text-[12px] font-normal text-[#aaa59d]">{t("map.sourceKto")}</p>}
       <BottomNavigation activeTab={activeTab} onChange={setActiveTab} />
       </div>
     </div>

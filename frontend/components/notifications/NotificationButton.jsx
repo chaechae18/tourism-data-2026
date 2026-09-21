@@ -1,7 +1,7 @@
 "use client";
 
 import { Bell, Check } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   listNotifications,
   markNotificationRead,
@@ -16,6 +16,7 @@ export default function NotificationButton({ refreshKey = 0 }) {
   const [notifications, setNotifications] = useState([]);
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
+  const rootRef = useRef(null);
 
   const load = useCallback(async () => {
     try {
@@ -30,10 +31,26 @@ export default function NotificationButton({ refreshKey = 0 }) {
     load();
   }, [load, refreshKey]);
 
-  const toggle = async () => {
-    if (!open) await load();
+  const toggle = () => {
+    if (!open) load();
     setOpen((current) => !current);
   };
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const closeOutside = (event) => {
+      if (!rootRef.current?.contains(event.target)) setOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [open]);
 
   const read = async (notification) => {
     if (notification.isRead) return;
@@ -50,7 +67,7 @@ export default function NotificationButton({ refreshKey = 0 }) {
   const unreadCount = notifications.filter((item) => !item.isRead).length;
 
   return (
-    <div className="relative">
+    <div ref={rootRef} className="relative">
       <div className="relative">
         <IconButton className="!border-0" icon={Bell} label={t("notifications.label")} onClick={toggle} />
         {unreadCount > 0 && (

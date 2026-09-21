@@ -46,7 +46,7 @@ describe("DocentPlayer", () => {
     stubScript();
     render(<DocentPlayer onClose={vi.fn()} place={PLACE} />);
 
-    expect(await screen.findByText("한국관광공사")).toBeInTheDocument();
+    expect(await screen.findByText("ⓒ한국관광공사")).toBeInTheDocument();
     expect(screen.getByText("출처")).toBeInTheDocument();
     fireEvent.canPlayThrough(await screen.findByTestId("docent-audio"));
     expect(screen.getByRole("button", { name: "도슨트 재생" })).toBeEnabled();
@@ -57,7 +57,7 @@ describe("DocentPlayer", () => {
     render(<DocentPlayer onClose={vi.fn()} place={PLACE} />);
 
     await waitFor(() => {
-      expect(screen.getByText("읽어 줄 설명이 없는 장소입니다.")).toBeInTheDocument();
+      expect(screen.getByText("도슨트를 불러오지 못했어요.")).toBeInTheDocument();
     });
   });
 });

@@ -34,6 +34,8 @@ class Settings:
     # 장소 채점·번역·게시글 및 댓글 검수에 사용하는 서버 전용 OpenAI 설정.
     openai_api_key: str = ""
     openai_model: str = "gpt-4o-mini"
+    # 소셜 로그인이 끝난 뒤 돌려보낼 프론트 주소. CORS_ORIGINS 는 목록이라 그대로 쓸 수 없다.
+    frontend_url: str = "http://localhost:3000"
 
 
 @lru_cache
@@ -53,6 +55,9 @@ def get_settings() -> Settings:
         for origin in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
         if origin.strip()
     )
+    session_secret_key = os.getenv("SESSION_SECRET_KEY", "").strip()
+    if not session_secret_key:
+        raise ValueError("SESSION_SECRET_KEY 가 비어 있습니다.")
     return Settings(
         kakao_rest_api_key=os.getenv("KAKAO_REST_API_KEY", "").strip(),
         # 검색 API 와 로그인 OAuth 는 발급처가 달라 자격증명이 다르다.
@@ -74,7 +79,7 @@ def get_settings() -> Settings:
         ),
         admin_api_key=os.getenv("ADMIN_API_KEY", "").strip(),
         cors_origins=cors_origins,
-        session_secret_key=os.getenv("SESSION_SECRET_KEY", "").strip(),
+        session_secret_key=session_secret_key,
         google_tts_api_key=os.getenv("GOOGLE_TTS_API_KEY", "").strip(),
         tts_voice=os.getenv("TTS_VOICE", "ko-KR-Neural2-A").strip(),
         tts_speaking_rate=float(os.getenv("TTS_SPEAKING_RATE", "0.95")),
@@ -82,4 +87,5 @@ def get_settings() -> Settings:
         tts_cache_ttl_seconds=int(os.getenv("TTS_CACHE_TTL_SECONDS", "86400")),
         openai_api_key=os.getenv("OPENAI_API_KEY", "").strip(),
         openai_model=os.getenv("OPENAI_MODEL", "").strip() or "gpt-4o-mini",
+        frontend_url=(os.getenv("FRONTEND_URL", "").strip() or cors_origins[0]).rstrip("/"),
     )

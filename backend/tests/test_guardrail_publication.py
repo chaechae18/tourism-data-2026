@@ -25,7 +25,6 @@ def test_approved_content_is_immediately_visible_to_another_user(client, session
 @pytest.mark.parametrize("target", ["spot", "comment"])
 @pytest.mark.parametrize("error,status,code", [
     (guardrails.ContentRejectedError, 422, "CONTENT_REJECTED"),
-    (guardrails.ModerationUnavailableError, 503, "MODERATION_UNAVAILABLE"),
     (guardrails.InvalidModerationImageError, 422, "INVALID_MODERATION_IMAGE"),
 ])
 def test_rejected_or_failed_review_does_not_create_pending_or_public_content(client, session_headers, rows, monkeypatch, target, error, status, code):
@@ -41,6 +40,23 @@ def test_rejected_or_failed_review_does_not_create_pending_or_public_content(cli
     assert response.status_code == status
     assert response.json()["error"]["code"] == code
     assert rows(f"SELECT COUNT(*) AS n FROM {table}")[0]["n"] == 0
+
+
+@pytest.mark.parametrize("target", ["spot", "comment"])
+def test_unavailable_review_keeps_post_private(client, session_headers, rows, monkeypatch, target):
+    path, body = "/api/v1/spots", SPOT_BODY
+    if target == "comment":
+        spot = client.post(path, headers=session_headers(1), json=body).json()
+        path += f"/{spot['id']}/comments"
+        body = {"content": "검수 대상"}
+    def unavailable(*args):
+        raise guardrails.ModerationUnavailableError
+    monkeypatch.setattr(guardrails, "check_content", unavailable)
+    response = client.post(path, headers=session_headers(1), json=body)
+    assert response.status_code == 201
+    assert response.json()["moderationStatus"] == 0
+    assert response.json()["id"] not in [item["id"] for item in client.get(path).json()]
+    assert rows("SELECT COUNT(*) AS n FROM MODERATION_LOG WHERE TARGET_TYPE = %s", (1 if target == "spot" else 2,))[0]["n"] == 0
 
 
 def test_approval_log_failure_rolls_back_post(client, session_headers, rows, monkeypatch):

@@ -303,7 +303,7 @@ export default function HomeTab({ onMapOpen, language: languageProp, popupHidden
         </a>
       </div>
 
-      <p className="text-center text-xs text-[#747579]">출처: ⓒ한국관광공사</p>
+      <p className="text-center text-xs text-[#747579]">{t("map.sourceKto")}</p>
       {!popupHidden && <NoticePopup popups={popups} t={t} />}
     </section>
   );

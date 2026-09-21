@@ -74,7 +74,7 @@ def check_content(text: str, photo_url: str | None = None) -> ContentApproval:
     if photo_url:
         inputs.append({"type": "image_url", "image_url": {"url": image_input(photo_url)}})
     try:
-        with httpx.Client(timeout=15.0, headers={"Authorization": f"Bearer {settings.openai_api_key}"}) as http:
+        with httpx.Client(timeout=8.0, headers={"Authorization": f"Bearer {settings.openai_api_key}"}) as http:
             response = http.post("https://api.openai.com/v1/moderations", json={"model": MODERATION_MODEL, "input": inputs})
             response.raise_for_status()
             payload = response.json()

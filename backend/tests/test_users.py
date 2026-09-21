@@ -66,3 +66,25 @@ def test_user_preferences_reject_unsupported_language(client) -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "VALIDATION_ERROR"
+
+
+def test_profile_update_keeps_birth_date_and_rejects_blank_nickname(client, insert, rows) -> None:
+    insert("USERS", NO=3, ID="third-user", NICKNAME="third", COUNTRY="KR", EMAIL="third@example.com", BIRTH_DATE="2000-01-02")
+    set_session(client, 3)
+
+    saved = client.put("/api/v1/auth/update-user", json={"nickname": "새 이름", "country": "KR", "email": "third@example.com"})
+    blank = client.put("/api/v1/auth/update-user", json={"nickname": "  ", "country": "KR", "email": "third@example.com"})
+
+    assert saved.status_code == 200
+    assert blank.status_code == 422
+    user = rows("SELECT NICKNAME, BIRTH_DATE FROM USERS WHERE NO = 3")[0]
+    assert user["NICKNAME"] == "새 이름"
+    assert user["BIRTH_DATE"].isoformat() == "2000-01-02"
+
+
+def test_kakao_cancel_returns_to_one_frontend_url(client) -> None:
+    response = client.get("/api/v1/auth/kakao/callback?error=access_denied", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert response.headers["location"] == f"{get_settings().frontend_url}?error=KAKAO_LOGIN_ERROR"
+    assert "," not in response.headers["location"]

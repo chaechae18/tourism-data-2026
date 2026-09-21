@@ -409,7 +409,7 @@ export default function SpotsTab() {
       setQuery("");
       setReview("");
       setPhotoFile(null);
-      setNotice(t("spots.created"));
+      setNotice(t(created.moderationStatus === 0 ? "spots.pendingCreated" : "spots.created"));
       setRefreshVersion((current) => current + 1);
     } catch (error) {
       setNotice(getErrorMessage(error, t));
@@ -483,8 +483,8 @@ export default function SpotsTab() {
         [spotId]: [...(current[spotId] || []), created],
       }));
       setComment("");
-      setNotice(t("spots.commentCreated"));
-      const incrementCount = (items) => items.map((item) => item.id === spotId
+      setNotice(t(created.moderationStatus === 0 ? "spots.commentPending" : "spots.commentCreated"));
+      const incrementCount = (items) => items.map((item) => item.id === spotId && created.moderationStatus !== 0
         ? { ...item, commentCount: (item.commentCount || 0) + 1 } : item);
       setPublicSpots(incrementCount);
       setRankingSpots(incrementCount);

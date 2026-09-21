@@ -1,7 +1,7 @@
 import { ApiError } from "./spots";
 
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
 
 // 도슨트 음성 주소. <audio src=...> 에 그대로 꽂으면 재생된다.
 // 서버가 그때그때 만들어 흘려보내므로 앱에도 서버에도 mp3 파일은 남지 않는다.

@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8001";
+  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8001";
 
 export async function listDonggyeongItems() {
   let response;
