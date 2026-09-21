@@ -7,6 +7,7 @@ from itsdangerous import TimestampSigner
 import pymysql
 import pytest
 
+from app.config import get_settings
 from app.journey import get_or_create_course
 from app.personas import PERSONAS
 
@@ -20,7 +21,7 @@ def set_session(client: TestClient, user_no: int | None) -> None:
     payload = b64encode(json.dumps({"user": {"user_no": user_no}}).encode())
     client.cookies.set(
         "session",
-        TimestampSigner("dev-session-secret-key-change-this").sign(payload).decode(),
+        TimestampSigner(get_settings().session_secret_key).sign(payload).decode(),
     )
 
 

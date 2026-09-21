@@ -5,6 +5,8 @@ from fastapi.testclient import TestClient
 from itsdangerous import TimestampSigner
 import pytest
 
+from app.config import get_settings
+
 
 def set_session(client: TestClient, user_no: int | None) -> None:
     if user_no is None:
@@ -13,7 +15,7 @@ def set_session(client: TestClient, user_no: int | None) -> None:
     payload = b64encode(json.dumps({"user": {"user_no": user_no}}).encode())
     client.cookies.set(
         "session",
-        TimestampSigner("dev-session-secret-key-change-this").sign(payload).decode(),
+        TimestampSigner(get_settings().session_secret_key).sign(payload).decode(),
     )
 
 

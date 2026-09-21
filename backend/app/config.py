@@ -55,8 +55,14 @@ def get_settings() -> Settings:
     )
     return Settings(
         kakao_rest_api_key=os.getenv("KAKAO_REST_API_KEY", "").strip(),
-        naver_client_id=os.getenv("NAVER_CLIENT_ID", "").strip(),
-        naver_client_secret=os.getenv("NAVER_CLIENT_SECRET", "").strip(),
+        # 검색 API 와 로그인 OAuth 는 발급처가 달라 자격증명이 다르다.
+        # NAVER_CLIENT_ID 는 auth.py 가 OAuth 용으로 쓰므로 검색은 전용 이름을 먼저 본다.
+        naver_client_id=(
+            os.getenv("NAVER_SEARCH_CLIENT_ID") or os.getenv("NAVER_CLIENT_ID", "")
+        ).strip(),
+        naver_client_secret=(
+            os.getenv("NAVER_SEARCH_CLIENT_SECRET") or os.getenv("NAVER_CLIENT_SECRET", "")
+        ).strip(),
         upload_dir=upload_dir,
         max_upload_bytes=int(os.getenv("MAX_UPLOAD_BYTES", "10485760")),
         search_cache_ttl_seconds=int(

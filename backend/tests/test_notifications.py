@@ -5,6 +5,7 @@ import pymysql
 from fastapi.testclient import TestClient
 from itsdangerous import TimestampSigner
 
+from app.config import get_settings
 from app.interactions import set_reaction
 from app.models.common import ReactionType
 from app.models.spots import SpotCreateRequest
@@ -20,7 +21,7 @@ def set_session(client: TestClient, user_no: int) -> None:
     payload = b64encode(json.dumps({"user": {"user_no": user_no}}).encode())
     client.cookies.set(
         "session",
-        TimestampSigner("dev-session-secret-key-change-this").sign(payload).decode(),
+        TimestampSigner(get_settings().session_secret_key).sign(payload).decode(),
     )
 
 

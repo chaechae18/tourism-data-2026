@@ -1,9 +1,10 @@
 from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 import pymysql
 
+from ..home import resolve_language
 from ..models.translations import TranslationResponse, TranslationTarget
 from ..mysql import get_mysql
 from ..spot_translation import (
@@ -13,10 +14,12 @@ from ..spot_translation import (
     openai_translate,
     translate_target,
 )
-from ..users import UserNotFoundError, get_user_preferences
 
 
 router = APIRouter(prefix="/api/v1/translations", tags=["translations"])
+
+LanguageQuery = Annotated[str | None, Query(alias="lang", max_length=20)]
+AcceptLanguage = Annotated[str | None, Header(alias="Accept-Language")]
 
 
 def get_translate_text() -> Callable[[dict, str], tuple[dict, str]]:
@@ -31,27 +34,19 @@ def get_translate_text() -> Callable[[dict, str], tuple[dict, str]]:
 def translate(
     target_type: TranslationTarget,
     target_id: int,
-    user_no: Annotated[int, Header(alias="X-User-No", ge=1)],
+    lang: LanguageQuery = None,
+    accept_language: AcceptLanguage = None,
     database: pymysql.Connection = Depends(get_mysql),
     translate_text: Callable[[dict, str], tuple[dict, str]] = Depends(get_translate_text),
 ) -> TranslationResponse:
     try:
-        preferences = get_user_preferences(database, user_no=user_no)
         return translate_target(
             database,
             target_type=target_type,
             target_id=target_id,
-            language=preferences.language,
+            language=resolve_language(lang, accept_language),
             translate_text=translate_text,
         )
-    except UserNotFoundError as error:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail={
-                "code": "USER_NOT_FOUND",
-                "message": "사용자를 찾을 수 없습니다.",
-            },
-        ) from error
     except TranslationTargetNotFoundError as error:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
