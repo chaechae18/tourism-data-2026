@@ -8,13 +8,21 @@ import { useI18n } from "../i18n/LanguageProvider";
 
 const SKIP_SECONDS = 15;
 
-// iOS 는 audio.volume 을 무시한다(항상 1). 그런 기기에서는 Web Audio 의 GainNode 로 음량을 낮춘다.
+// iOS 는 audio.volume 을 무시한다. 그런 기기에서는 Web Audio 의 GainNode 로 음량을 낮춘다.
+// 최신 iOS 는 바꾼 값을 그대로 읽어 주면서 소리는 안 바꿔서, 값을 읽어 보는 것만으로는 가려낼 수 없다.
+function isAppleMobile() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
 function volumeMode() {
-  if (typeof Audio === "undefined") return "element";
+  if (typeof window === "undefined") return "element";
+  const webAudio = Boolean(window.AudioContext || window.webkitAudioContext);
+  if (isAppleMobile()) return webAudio ? "webaudio" : "none";
   const probe = new Audio();
   probe.volume = 0.5;
   if (probe.volume === 0.5) return "element";
-  return window.AudioContext || window.webkitAudioContext ? "webaudio" : "none";
+  return webAudio ? "webaudio" : "none";
 }
 const SPEEDS = [1, 1.25, 1.5];
 
