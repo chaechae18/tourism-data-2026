@@ -1,5 +1,5 @@
 import argparse
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 import os
 from pathlib import Path
 import sys
@@ -37,7 +37,8 @@ DEFAULT_CONTENT_TYPES = [
     CONTENT_TYPE_RESTAURANT,
 ]
 
-DEFAULT_INTERVAL_DAYS = float(os.getenv("SYNC_INTERVAL_DAYS", "7"))
+KST = timezone(timedelta(hours=9), name="Asia/Seoul")
+SCHEDULE_HOUR = 7
 # 실패한 회차는 주기를 다 기다리지 않고 이만큼 뒤에 다시 해 본다.
 RETRY_DELAY = timedelta(hours=1)
 BOOTSTRAP_FIELDS = ("NAME", "TEXT", "ADDRESS", "OPERATING_HOURS", "REST_DATE", "PARKING", "MENU")
@@ -50,7 +51,9 @@ def state_path() -> Path:
 def read_last_sync() -> datetime | None:
     """마지막으로 성공한 동기화 시각. 없거나 못 읽으면 '한 적 없음'으로 본다."""
     try:
-        return datetime.fromisoformat(state_path().read_text().strip())
+        last = datetime.fromisoformat(state_path().read_text().strip())
+        # 이전 Docker 버전은 UTC 시각을 시간대 없이 저장했다.
+        return last.replace(tzinfo=timezone.utc) if last.tzinfo is None else last
     except (OSError, ValueError):
         return None
 
@@ -134,11 +137,7 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument(
         "--loop", action="store_true",
-        help=f"{DEFAULT_INTERVAL_DAYS}일마다 반복 실행합니다 (컨테이너로 띄울 때).",
-    )
-    parser.add_argument(
-        "--interval-days", type=float, default=DEFAULT_INTERVAL_DAYS,
-        help=f"--loop 의 실행 간격 (기본: {DEFAULT_INTERVAL_DAYS}일, SYNC_INTERVAL_DAYS 로도 지정)",
+        help="매일 한국시간 오전 7시에 반복 실행합니다 (컨테이너로 띄울 때).",
     )
     parser.add_argument(
         "--languages", nargs="*", default=list(LANGUAGE_SERVICES),
@@ -244,38 +243,53 @@ def run_once(options: argparse.Namespace, event_start_date: str) -> None:
     sync_persona_scores(options)
 
 
-def run_forever(options: argparse.Namespace) -> None:
-    interval = timedelta(days=options.interval_days)
-    print(f"주기 동기화를 시작합니다 — {options.interval_days}일 간격")
+def next_sync_at(now: datetime, last: datetime | None) -> datetime:
+    today = now.astimezone(KST).replace(hour=SCHEDULE_HOUR, minute=0, second=0, microsecond=0)
+    if last is None:
+        return today if now < today else today + timedelta(days=1)
+    if last < today:
+        return today
+    return today + timedelta(days=1)
 
+
+def wait_until(target: datetime) -> None:
+    # 절전·Docker 일시 중단 후에도 실제 시각을 다시 확인한다.
+    while (remaining := (target - datetime.now(KST)).total_seconds()) > 0:
+        time.sleep(min(remaining, 60))
+
+
+def run_forever(options: argparse.Namespace) -> None:
+    print("주기 동기화를 시작합니다 — 매일 오전 07:00 (Asia/Seoul)", flush=True)
+    initialized = False
+    retrying = False
     while True:
         try:
-            # 적재가 완성된 DB도 시작 시 누락·변경 점수를 확인한다.
-            needs_bootstrap, reason = bootstrap_status(options)
-            last = read_last_sync()
-            if needs_bootstrap:
-                print(f"초기 적재가 필요합니다 — {reason}")
-                last = None
+            if not initialized:
+                needs_bootstrap, reason = bootstrap_status(options)
+                if needs_bootstrap:
+                    print(f"초기 적재가 필요합니다 — {reason}", flush=True)
+                else:
+                    sync_persona_scores(options)
+                    print(f"초기 적재를 건너뜁니다 — {reason}", flush=True)
             else:
-                sync_persona_scores(options)
-                if last is None:
-                    last = datetime.now()
-                    write_last_sync(last)
-                    print(f"초기 적재를 건너뜁니다 — {reason}")
+                needs_bootstrap = False
 
-            remaining = interval - (datetime.now() - last) if last else timedelta(0)
-            if remaining > timedelta(0):
-                print(f"다음 동기화까지 {remaining} 남았습니다 (마지막 성공: {last:%Y-%m-%d %H:%M})", flush=True)
-                time.sleep(remaining.total_seconds())
+            if not needs_bootstrap and not retrying:
+                target = next_sync_at(datetime.now(KST), read_last_sync())
+                print(f"다음 동기화: {target.isoformat()}", flush=True)
+                wait_until(target)
 
-            start = options.event_start_date or date.today().strftime("%Y%m%d")
+            start = options.event_start_date or datetime.now(KST).strftime("%Y%m%d")
             run_once(options, start)
         except (TourApiError, pymysql.Error, RuntimeError) as exc:
             print(f"동기화 실패, {RETRY_DELAY} 뒤에 다시 시도합니다: {exc}", file=sys.stderr)
+            retrying = True
             time.sleep(RETRY_DELAY.total_seconds())
             continue
 
-        write_last_sync(datetime.now())
+        write_last_sync(datetime.now(KST))
+        initialized = True
+        retrying = False
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -292,8 +306,6 @@ def main(argv: list[str] | None = None) -> None:
         )
 
     if options.loop:
-        if options.interval_days <= 0:
-            raise SystemExit(f"--interval-days 는 0보다 커야 합니다: {options.interval_days}")
         run_forever(options)
         return
 
