@@ -79,7 +79,7 @@ def test_startup_scores_existing_database_before_waiting(monkeypatch):
 
     events = []
     monkeypatch.setattr(sync, "bootstrap_status", lambda _: (False, "ready"))
-    monkeypatch.setattr(sync, "read_last_sync", lambda: sync.datetime.now())
+    monkeypatch.setattr(sync, "read_last_sync", lambda: sync.datetime.now(sync.KST))
     monkeypatch.setattr(sync, "sync_persona_scores", lambda _: events.append("scores"))
     run_once = Mock()
     monkeypatch.setattr(sync, "run_once", run_once)
@@ -132,3 +132,70 @@ def test_festivals_only_does_not_score(monkeypatch):
     monkeypatch.setattr(sync, "score_places", scoring)
     sync.sync_persona_scores(sync.parse_arguments(["--target", "festivals"]))
     scoring.assert_not_called()
+
+
+def test_daily_schedule_boundaries():
+    from datetime import datetime
+    import sync_tourapi as sync
+
+    def at(day, hour, minute=0):
+        return datetime(2026, 9, day, hour, minute, tzinfo=sync.KST)
+
+    assert sync.next_sync_at(at(29, 6, 59), at(28, 7)) == at(29, 7)
+    assert sync.next_sync_at(at(29, 7), at(28, 7)) == at(29, 7)
+    assert sync.next_sync_at(at(29, 12), at(14, 22)) == at(29, 7)
+    assert sync.next_sync_at(at(29, 12), at(29, 8)) == at(30, 7)
+    assert sync.next_sync_at(at(29, 6), None) == at(29, 7)
+    assert sync.next_sync_at(at(29, 12), None) == at(30, 7)
+
+
+def test_legacy_success_timestamp_is_utc(monkeypatch, tmp_path):
+    import sync_tourapi as sync
+
+    path = tmp_path / "last_sync.txt"
+    path.write_text("2026-09-29T00:30:00")
+    monkeypatch.setenv("SYNC_STATE_PATH", str(path))
+    last = sync.read_last_sync().astimezone(sync.KST)
+    assert last.hour == 9
+    assert last.minute == 30
+    sync.write_last_sync(last)
+    assert sync.read_last_sync() == last
+
+
+def test_wait_rechecks_clock_after_resume(monkeypatch):
+    from datetime import datetime, timedelta
+    from unittest.mock import Mock
+    import sync_tourapi as sync
+
+    start = datetime(2026, 9, 29, 6, tzinfo=sync.KST)
+    clock = Mock()
+    clock.now.side_effect = [start, start + timedelta(hours=5)]
+    monkeypatch.setattr(sync, "datetime", clock)
+    sleep = Mock()
+    monkeypatch.setattr(sync.time, "sleep", sleep)
+    sync.wait_until(start + timedelta(hours=1))
+    sleep.assert_called_once_with(60)
+
+
+def test_failed_run_retries_without_waiting_for_next_morning(monkeypatch):
+    from unittest.mock import Mock
+    import pytest
+    import sync_tourapi as sync
+
+    monkeypatch.setattr(sync, "bootstrap_status", lambda _: (False, "ready"))
+    monkeypatch.setattr(sync, "sync_persona_scores", Mock())
+    monkeypatch.setattr(sync, "read_last_sync", lambda: None)
+    wait = Mock()
+    monkeypatch.setattr(sync, "wait_until", wait)
+    sleep = Mock()
+    monkeypatch.setattr(sync.time, "sleep", sleep)
+    run = Mock(side_effect=[RuntimeError("temporary failure"), InterruptedError()])
+    monkeypatch.setattr(sync, "run_once", run)
+    write = Mock()
+    monkeypatch.setattr(sync, "write_last_sync", write)
+    with pytest.raises(InterruptedError):
+        sync.run_forever(sync.parse_arguments([]))
+    assert run.call_count == 2
+    wait.assert_called_once()
+    sleep.assert_called_once_with(3600)
+    write.assert_not_called()

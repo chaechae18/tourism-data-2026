@@ -38,7 +38,7 @@ services:
       - path: ./backend/.env
         required: true
     environment:
-      # 실행 간격은 backend/.env 의 SYNC_INTERVAL_DAYS 로 조정한다 (기본 7일).
+      # 매일 한국시간 오전 7시에 실행한다.
       SYNC_STATE_PATH: /app/state/last_sync.txt
     command: ["python", "sync_tourapi.py", "--loop"]
     restart: unless-stopped
